@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GenZ Keyboard launcher icon: rounded keys on the brand violet gradient. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M28.6,36 h6.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-6.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M42.6,36 h6.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-6.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M56.6,36 h6.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-6.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M70.6,36 h6.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-6.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M28.6,49 h6.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-6.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M42.6,49 h6.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-6.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M56.6,49 h6.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-6.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M70.6,49 h6.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-6.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M28.6,62 h34.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-34.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M72.6,62 h6.8 a2.6,2.6 0 0 1 2.6,2.6 v3.8 a2.6,2.6 0 0 1 -2.6,2.6 h-6.8 a2.6,2.6 0 0 1 -2.6,-2.6 v-3.8 a2.6,2.6 0 0 1 2.6,-2.6 Z" />
+</vector>

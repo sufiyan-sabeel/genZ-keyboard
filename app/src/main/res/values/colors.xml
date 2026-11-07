@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#6C4DF6</color>
+    <color name="genz_brand">#6C4DF6</color>
+    <color name="genz_brand_dark">#4B2FD6</color>
+    <color name="genz_accent">#FFB59E</color>
+</resources>

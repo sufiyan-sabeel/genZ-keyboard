@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 class PredictionTest {
     private val rare = RareWords(
@@ -28,7 +27,7 @@ class PredictionTest {
 
     @Test
     fun realDictionaryCompletes() {
-        val entries = RareWords.parse(File("src/main/assets/dict/ru_more.txt").readLines())
+        val entries = RareWords.parse(TestAssets.more("ru"))
         val r = RareWords(entries, 50_000)
         val out = r.completions("респонд", 3)
         assertTrue(out.toString(), out.isNotEmpty() && out.all { it.first.startsWith("респонд") })

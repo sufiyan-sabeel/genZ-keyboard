@@ -15,7 +15,7 @@ class AutocorrectEval {
 
     /** Редкие слова в порядке частоты (в файле они по алфавиту, с местом). */
     private fun rare(code: String): List<String> =
-        RareWords.parse(File("src/main/assets/dict/${code}_more.txt").readLines()).sortedBy { it.second }.map { it.first }
+        RareWords.parse(TestAssets.more(code)).sortedBy { it.second }.map { it.first }
 
     private fun rareEntries(words: List<String>) = words.mapIndexed { i, w -> w to i }
 

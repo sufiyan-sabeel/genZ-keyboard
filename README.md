@@ -39,6 +39,8 @@ application through a real `InputConnection`.
 - Voice input through the system speech recogniser
 - Haptic feedback and key sounds, both tunable, both off or on by choice
 - Text shortcuts: type a short trigger, get a longer phrase
+- Emoji suggestions: type "lol", "vibes" or "fire" and the matching emoji is offered as a
+  suggestion chip you can tap (a small curated list, so the bar stays quiet)
 
 **Look and feel**
 
@@ -122,6 +124,7 @@ app/src/main/java/com/genz/keyboard/
 ├── WordPredictor.kt        Prediction, autocorrect, suggestion ranking
 ├── GlideTyping.kt          Swipe typing
 ├── Emoji.kt / Panels.kt    Emoji, clipboard, GIF and tool panels
+├── EmojiSuggest.kt         Keyword → emoji suggestions in the suggestion bar
 ├── Theme.kt / ThemeUi.kt / Skins.kt / ThemeOptions.kt / Design.kt   Colours and styles
 ├── ExpressiveShapes.kt     Material 3 expressive shape presets
 ├── Settings*.kt            Settings screens, search index, backup and restore

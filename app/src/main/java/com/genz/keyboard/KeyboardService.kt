@@ -1227,6 +1227,16 @@ class ComposeKeyboardService : InputMethodService(),
                 // сокращение из личного словаря Android
                 chips[1] = SuggestionChipModel("→ " + personalShortcut.take(24), personalShortcut, isPrimary = true, isKeepExact = true)
             }
+            // подсказка-эмодзи: встаёт в свободную третью ячейку, не вытесняя исправление и следующее слово
+            if (word.length >= 2 && !flags.isPassword && chips.size >= 3) {
+                // только в пустую ячейку: исправление и следующее слово остаются на своих местах
+                val slot = chips[2]
+                if (slot.isEmpty) {
+                    EmojiSuggest.forWord(word)?.let { emoji ->
+                        chips[2] = SuggestionChipModel(emoji, emoji, isKeepExact = true)
+                    }
+                }
+            }
             kb.suggestions = chips
             precomputed = snap.autoCorrection
             precomputedOwn = snap.ownCorrection

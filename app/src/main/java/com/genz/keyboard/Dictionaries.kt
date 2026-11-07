@@ -531,8 +531,19 @@ object Dictionaries {
         val own = moreFile(context, code)
         if (own.exists() && own.length() > 0) RareWords.parse(own.readLines())
         else if (!bundled(context, code + "_more")) null
-        else RareWords.parse(context.assets.open("dict/${code}_more.txt").bufferedReader().use { it.readLines() })
+        else RareWords.parse(
+            moreAssets(context, code).flatMap { name ->
+                context.assets.open("dict/$name").bufferedReader().use { it.readLines() }
+            }
+        )
     }.getOrNull()
+
+    /**
+     * Asset files holding the rare-word list of a language: the main file plus, when present,
+     * a second part. Very long lists are split so that no single asset becomes unwieldy to ship.
+     */
+    private fun moreAssets(context: Context, code: String): List<String> =
+        listOf("${code}_more.txt", "${code}_more2.txt").filter { bundled(context, it.removeSuffix(".txt")) }
 
     /** Редкие слова: из кэша, а при первом запуске новой версии — из текста, с сохранением в кэш. */
     fun loadRare(context: Context, code: String, firstRank: Int): RareWords? {

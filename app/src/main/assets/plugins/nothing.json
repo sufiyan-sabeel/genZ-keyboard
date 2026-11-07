@@ -1,0 +1,236 @@
+{
+  "id": "builtin.nothing",
+  "name": "Nothing",
+  "version": "2.0",
+  "author": "GenZ Keyboard",
+  "description": "В стиле Nothing: чистый монохром, буквы из точек как на точечной матрице, едва заметная точечная сетка и красный Enter. Тёмная и светлая версия; контуры из точек — в настройках темы.",
+  "icon": "⚪",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "pattern": "dots",
+        "colors": [
+          "#F2F2F2",
+          "#E0E0E0"
+        ],
+        "cell": 10
+      },
+      "trail": "#D71921",
+      "corner": 26
+    },
+    "colors": {
+      "background": "#F2F2F2",
+      "key": "#FFFFFF",
+      "keyText": "#000000",
+      "func": "#E4E4E4",
+      "funcText": "#000000",
+      "accent": "#D71921",
+      "accentText": "#FFFFFF"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#FFFFFF",
+        "pressedBackground": "#000000",
+        "text": "#000000",
+        "pressedText": "#FFFFFF",
+        "labelEffect": "dots",
+        "fontWeight": 700,
+        "fontScale": 1.2,
+        "radius": 12,
+        "pressedRadius": 16,
+        "press": "scale",
+        "pressScale": 0.95,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "background": "#E4E4E4",
+        "labelEffect": "none",
+        "fontWeight": 600,
+        "fontScale": 0.95
+      },
+      "enter": {
+        "background": "#D71921",
+        "pressedBackground": "#FF3B30",
+        "text": "#FFFFFF",
+        "labelEffect": "none"
+      },
+      "space": {
+        "labelEffect": "none",
+        "fontScale": 0.85,
+        "fontWeight": 500,
+        "text": "#8A8A8A"
+      }
+    },
+    "popup": {
+      "radius": 14,
+      "background": "#000000",
+      "text": "#FFFFFF",
+      "pressedBackground": "#D71921",
+      "pressedText": "#FFFFFF"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#000000"
+    },
+    "buttons": {
+      "material": "none",
+      "text": "#000000"
+    },
+    "panel": {
+      "material": "solid",
+      "background": "#FFFFFF",
+      "radius": 22
+    },
+    "dark": {
+      "keyboard": {
+        "background": {
+          "pattern": "dots",
+          "colors": [
+            "#000000",
+            "#161616"
+          ],
+          "cell": 10
+        }
+      },
+      "colors": {
+        "background": "#000000",
+        "key": "#121212",
+        "keyText": "#FFFFFF",
+        "func": "#1D1D1D",
+        "funcText": "#FFFFFF",
+        "accent": "#D71921",
+        "accentText": "#FFFFFF"
+      },
+      "keys": {
+        "*": {
+          "background": "#121212",
+          "pressedBackground": "#FFFFFF",
+          "text": "#FFFFFF",
+          "pressedText": "#000000"
+        },
+        "func": {
+          "background": "#1C1C1C"
+        },
+        "enter": {
+          "background": "#D71921",
+          "pressedBackground": "#FF3B30",
+          "text": "#FFFFFF"
+        },
+        "space": {
+          "text": "#8A8A8A"
+        }
+      },
+      "popup": {
+        "background": "#FFFFFF",
+        "text": "#000000"
+      },
+      "chips": {
+        "text": "#FFFFFF"
+      },
+      "buttons": {
+        "text": "#FFFFFF"
+      },
+      "panel": {
+        "background": "#111111"
+      }
+    },
+    "options": [
+      {
+        "id": "dotLabels",
+        "title": "Буквы из точек",
+        "type": "toggle",
+        "default": true,
+        "off": {
+          "keys": {
+            "*": {
+              "labelEffect": "none",
+              "fontWeight": 600,
+              "fontScale": 1.0
+            }
+          }
+        }
+      },
+      {
+        "id": "dotBorders",
+        "title": "Контуры из точек",
+        "type": "toggle",
+        "default": false,
+        "on": {
+          "keys": {
+            "*": {
+              "border": "#9A9A9A",
+              "borderWidth": 1.2,
+              "borderStyle": "dots"
+            },
+            "func": {
+              "border": "#8A8A8A"
+            }
+          },
+          "dark": {
+            "keys": {
+              "*": {
+                "border": "#4A4A4A"
+              },
+              "func": {
+                "border": "#5A5A5A"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "redEnter",
+        "title": "Красный Enter",
+        "type": "toggle",
+        "default": true,
+        "off": {
+          "keys": {
+            "enter": {
+              "background": "#E3E3E3",
+              "pressedBackground": "#000000",
+              "text": "#000000",
+              "labelEffect": "dots"
+            }
+          },
+          "dark": {
+            "keys": {
+              "enter": {
+                "background": "#1D1D1D",
+                "pressedBackground": "#FFFFFF",
+                "text": "#FFFFFF"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "grid",
+        "title": "Фон",
+        "type": "choice",
+        "default": "dots",
+        "choices": [
+          {
+            "id": "dots",
+            "title": "Точечная сетка"
+          },
+          {
+            "id": "plain",
+            "title": "Однотонный",
+            "patch": {
+              "keyboard": {
+                "background": "#F2F2F2"
+              },
+              "dark": {
+                "keyboard": {
+                  "background": "#000000"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

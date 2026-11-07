@@ -76,15 +76,59 @@ images taken from a real device build. To add yours:
 
 ## Install
 
-### From a build (recommended for now)
+### From a release (easiest)
 
-1. Download `app-debug.apk` from the latest successful **Android CI** run (Artifacts →
-   `genz-keyboard-debug-apk`), or build it yourself.
+1. Open [Releases](https://github.com/sufiyan-sabeel/genZ-keyboard/releases) and download
+   `GenZKeyboard-v1.0.0.apk`.
 2. Open the APK on the device and allow installation from your browser/file manager.
 3. Open **GenZ Keyboard** from the app drawer and follow onboarding.
 4. Enable it: **Settings → System → Languages & input → On-screen keyboard → Manage
    keyboards → GenZ Keyboard**.
 5. Select it: tap any text field, then the keyboard switcher in the navigation bar.
+
+> **Signing caveat.** Until release signing secrets are configured (see *Build* below), the
+> release APK is signed with the CI runner's debug key. CI generates that key fresh on every
+> run, so a *later* release cannot update over an earlier install — you would have to uninstall
+> first. For a genuinely updatable app, set the four signing secrets once.
+
+### From a debug build
+
+Download `app-debug.apk` from the latest successful **Android CI** run (Artifacts →
+`genz-keyboard-debug-apk`), or build it yourself.
+
+## Publishing a release
+
+`.github/workflows/android.yml` has a `release` job that builds the minified release APK and
+publishes it as a GitHub Release. It only runs when triggered by hand:
+
+1. **Actions → Android CI → Run workflow**
+2. Set `publish_release` to `true` and `version` to the tag you want (e.g. `v1.0.1`).
+3. Run it. The job creates the tag, builds `assembleRelease`, and attaches the APK to the
+   release (or replaces the asset if that tag already exists).
+
+To sign releases with your own key instead of the runner's debug key, add these four
+repository secrets (**Settings → Secrets and variables → Actions**):
+
+| Secret | Value |
+| --- | --- |
+| `RELEASE_KEYSTORE_B64` | your keystore, base64-encoded (`base64 -w0 release.keystore`) |
+| `RELEASE_STORE_PASSWORD` | keystore password |
+| `RELEASE_KEY_ALIAS` | key alias |
+| `RELEASE_KEY_PASSWORD` | key password |
+
+Create the keystore once, locally, and keep it safe — losing it means you can never update
+installed copies again:
+
+```bash
+keytool -genkeypair -v -keystore release.keystore -alias genz \
+  -keyalg RSA -keysize 4096 -validity 10000 \
+  -storepass 'YOUR_STORE_PASSWORD' -keypass 'YOUR_KEY_PASSWORD' \
+  -dname "CN=GenZ Keyboard, O=Umaiz Sufiyan, C=IN"
+base64 -w0 release.keystore   # paste into the RELEASE_KEYSTORE_B64 secret
+```
+
+Never commit the keystore or the passwords; `.gitignore` already excludes `*.keystore`,
+`*.jks` and `local.properties`.
 
 ## Build
 
@@ -100,7 +144,7 @@ cd genZ-keyboard
 ```
 
 The release build is signed with the debug key unless you provide your own keystore through
-`local.properties` (`RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`,
+`local.properties` (or the CI secrets described above) (`RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`,
 `RELEASE_KEY_PASSWORD`). `local.properties` is git-ignored, and no keystore is committed to
 this repository — a public repository must never contain a signing key.
 

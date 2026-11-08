@@ -1401,4 +1401,5 @@ internal val EN_STRINGS: Map<String, String> = hashMapOf(
     "kb.addCommand(имя, функция)" to "kb.addCommand(name, function)",
     "Включена — клавиатура и эти настройки тёмные" to "On - the keyboard and these settings are dark",
     "Выключена — клавиатура и эти настройки светлые" to "Off - the keyboard and these settings are light",
+    "GitHub:" to "GitHub:",
 )

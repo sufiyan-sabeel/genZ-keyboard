@@ -508,6 +508,7 @@ internal fun AuthorLine() {
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Link("Создатель:", "Umaiz Sufiyan", "https://github.com/sufiyan-sabeel")
+        Link("GitHub:", "@sufiyan-sabeel", "https://github.com/sufiyan-sabeel")
         Link("Репозиторий:", "genZ-keyboard", "https://github.com/sufiyan-sabeel/genZ-keyboard")
     }
 }
@@ -529,6 +530,10 @@ internal fun AboutPage() {
             Icon(Icons.Rounded.Keyboard, null, tint = cs.onPrimary, modifier = Modifier.size(44.dp))
         }
         Text("GenZ Keyboard", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = cs.onPrimaryContainer)
+        Text(
+            "by Umaiz Sufiyan", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+            color = cs.onPrimaryContainer
+        )
         Text(tr("Версия {0}", version) + " · Material 3 Expressive", style = MaterialTheme.typography.bodyMedium, color = cs.onPrimaryContainer.copy(alpha = 0.8f))
     }
     AuthorLine()

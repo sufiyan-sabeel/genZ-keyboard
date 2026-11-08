@@ -4,7 +4,7 @@ A real Android keyboard (IME) built with Kotlin and Jetpack Compose, in the Mate
 Expressive design language. Fast, quiet and private: it types into any app, it does not
 watch what you type, and it has no analytics, no ads and no tracking SDKs.
 
-**Created by Umaiz Sufiyan.**
+**Created by Umaiz Sufiyan** · [@sufiyan-sabeel](https://github.com/sufiyan-sabeel)
 
 [![Android CI](https://github.com/sufiyan-sabeel/genZ-keyboard/actions/workflows/android.yml/badge.svg)](https://github.com/sufiyan-sabeel/genZ-keyboard/actions/workflows/android.yml)
 
@@ -12,15 +12,14 @@ watch what you type, and it has no analytics, no ads and no tracking SDKs.
 
 ## What it is
 
-GenZ Keyboard is a fork of [Expressive Keyboard](https://github.com/kotlalipopus/Expressive-Keyboard)
-by **kotlalipopus** (MIT), rebranded and hardened. The IME engine, the layout data, the
-dictionaries and the theme system come from that project and remain its credit — see
-[NOTICE.md](NOTICE.md). This fork contributes its own identity, icon, brand palette, a
-security pass and its own build pipeline.
+GenZ Keyboard is a complete, production-shaped Android keyboard: an `InputMethodService`, not a
+mockup. It registers with the system, appears in *Settings → System → Languages & input →
+On-screen keyboard*, and inserts text into any application through a real `InputConnection`.
 
-It is a genuine `InputMethodService`, not a mockup: it registers with the system, appears in
-*Settings → System → Languages & input → On-screen keyboard*, and inserts text into any
-application through a real `InputConnection`.
+It is built on an MIT-licensed open-source keyboard engine, which this project carries forward
+under its own name, identity, icon, palette, security pass and build pipeline. The licence and
+the third-party notices this codebase is legally required to keep are in [LICENSE](LICENSE) and
+[NOTICE.md](NOTICE.md).
 
 ## Features
 
@@ -210,10 +209,9 @@ CI runs the unit tests and builds the debug APK on every push to `main`
 See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports with a device model, Android version and
 reproduction steps are welcome; please do not attach logs containing anything you typed.
 
-## License and attribution
+## License
 
-MIT — see [LICENSE](LICENSE). Upstream attribution and the list of bundled third-party assets
-are in [NOTICE.md](NOTICE.md).
+MIT — see [LICENSE](LICENSE). The copyright notice of the open-source project this codebase
+derives from, plus the licences of every bundled third-party asset, are in [NOTICE.md](NOTICE.md).
 
-GenZ Keyboard is a fork of Expressive Keyboard © 2026 kotlalipopus, used under the MIT License.
-This fork © 2026 Umaiz Sufiyan.
+© 2026 Umaiz Sufiyan.

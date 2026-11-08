@@ -1612,7 +1612,7 @@ object ScriptHost {
             conn.instanceFollowRedirects = false
             val method = o["method"]?.toString()?.uppercase() ?: "GET"
             conn.requestMethod = if (method in setOf("GET", "POST", "PUT", "DELETE", "PATCH")) method else "GET"
-            conn.setRequestProperty("User-Agent", "ExpressiveKeyboard-Plugin")
+            conn.setRequestProperty("User-Agent", "GenZKeyboard-Plugin")
             (o["headers"] as? Map<*, *>)?.forEach { (k, v) -> conn.setRequestProperty(k.toString(), v.toString()) }
             val body = o["body"]?.let { if (it is Map<*, *> || it is List<*>) JSONObject.wrap(it).toString() else it.toString() }
             if (body != null && conn.requestMethod != "GET") {

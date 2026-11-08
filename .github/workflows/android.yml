@@ -173,7 +173,16 @@ jobs:
           GenZ Keyboard - Android keyboard built with Kotlin and Jetpack Compose,
           in the Material 3 Expressive design language.
 
-          Created by Umaiz Sufiyan.
+          Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
+
+          ### What changed in this build
+          - One name throughout: **GenZ Keyboard, created by Umaiz Sufiyan**. Earlier project
+            branding and author handles are gone from the app, the About screen and the docs.
+          - The interface is **English by default**; Russian is still selectable in settings.
+          - The keyboard starts on the **English layout** instead of Russian.
+          - New **one-tap dark mode switch** on the settings home. The full picker
+            (auto / light / dark / AMOLED) is still in Themes.
+          - 66 interface strings that had no English version are now translated.
 
           ### Install
           1. Download the APK below.
@@ -185,7 +194,6 @@ jobs:
           - Real IME: types into any app, 138 layouts, glide typing, prediction and autocorrect
           - Nine keyboard styles, custom themes, accent colours, AMOLED dark theme
           - Emoji keyboard with search, clipboard history, text shortcuts, voice input
-          - English interface by default, and a one-tap dark mode switch
           - No analytics, no ads, no tracking, no keystroke logging. See PRIVACY.md.
 
           ### Signing
@@ -196,7 +204,7 @@ jobs:
           RELEASE_KEY_PASSWORD in repository secrets before shipping a public release.
 
           ### Source
-          Full source, licence and upstream attribution: https://github.com/sufiyan-sabeel/genZ-keyboard
+          Full source and licence: https://github.com/sufiyan-sabeel/genZ-keyboard
           EOF
           )
           if gh release view "$TAG" > /dev/null 2>&1; then

@@ -1,8 +1,8 @@
 # Contributing to GenZ Keyboard
 
-Thanks for helping. This project is a fork of
-[Expressive Keyboard](https://github.com/kotlalipopus/Expressive-Keyboard); upstream fixes
-that apply to both projects are best offered upstream as well.
+Thanks for helping. GenZ Keyboard is maintained by Umaiz Sufiyan
+([@sufiyan-sabeel](https://github.com/sufiyan-sabeel)). The project derives from an
+MIT-licensed keyboard engine; provenance and third-party notices are in [NOTICE.md](NOTICE.md).
 
 ## Before you start
 

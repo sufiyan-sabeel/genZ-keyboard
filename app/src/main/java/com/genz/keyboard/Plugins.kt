@@ -841,7 +841,7 @@ object PluginHttp {
                 conn.connectTimeout = 8000
                 conn.readTimeout = 8000
                 conn.requestMethod = a.method
-                conn.setRequestProperty("User-Agent", "ExpressiveKeyboard-Plugin")
+                conn.setRequestProperty("User-Agent", "GenZKeyboard-Plugin")
                 a.headers.forEach { (k, v) -> conn.setRequestProperty(k, PluginTemplates.expand(v, text, clipboard)) }
                 if (a.method == "POST") {
                     conn.doOutput = true

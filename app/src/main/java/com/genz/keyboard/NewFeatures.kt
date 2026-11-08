@@ -8,8 +8,14 @@ import kotlin.math.roundToInt
 
 // Страницы «Новое» и «Энергосбережение».
 
-/** Версия, о которой рассказывает «Новое»: страницу обновляем к каждому выпуску. */
-private const val NEW_IN_VERSION = "11.2.0"
+/**
+ * The version the "What's new" page talks about.
+ *
+ * Read from the build instead of a literal: a hardcoded string had drifted many releases behind
+ * and told users they were on a version they had never installed. Debug builds carry a "-debug"
+ * suffix, which is stripped here.
+ */
+private val NEW_IN_VERSION: String = BuildConfig.VERSION_NAME.substringBefore('-')
 
 /** Размер клавиатуры в альбомной: и в «Клавишах», и в «Новом». */
 @Composable

@@ -354,7 +354,7 @@ data class KeyboardSettings(
     /** После вставки эмодзи клавиатура сразу возвращается к буквам, как в Gboard. */
     val emojiReturnToKeyboard: Boolean = false,
     // --- интерфейс ---
-    val appLanguage: String = "en",               // en | ru | SYSTEM
+    val appLanguage: String = "en",               // en | SYSTEM (interface is English only)
     val designStyle: String = "EXPRESSIVE",
     /** Сколько выразительных форм: FULL, ACCENTS или NONE (см. ShapeAmount). */
     val shapeAmount: String = ShapeAmount.FULL,

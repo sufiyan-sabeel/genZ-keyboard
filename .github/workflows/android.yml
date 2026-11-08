@@ -170,24 +170,19 @@ jobs:
           SIGNING: ${{ env.SIGNING }}
         run: |
           NOTES=$(cat <<'EOF'
-          GenZ Keyboard - Android keyboard built with Kotlin and Jetpack Compose,
-          in the Material 3 Expressive design language.
+          GenZ Keyboard - an Android keyboard built with Kotlin and Jetpack Compose, in the
+          Material 3 Expressive design language.
 
           Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
 
-          ### What changed in this build
-          - **Design pass.** One shape scale for every surface (dialogs, sheets, chips, fields and
-            cards now share the same corner language instead of mixing Material defaults with
-            hand-set radii). Typography is rebalanced so hierarchy comes from weight rather than
-            everything being bold, and section headers are muted labels instead of coloured
-            headings, so the accent colour means something again.
-          - One name throughout: **GenZ Keyboard, created by Umaiz Sufiyan**. Earlier project
-            branding and author handles are gone from the app, the About screen and the docs.
-          - The interface is **English by default**; Russian is still selectable in settings.
-          - The keyboard starts on the **English layout** instead of Russian.
-          - New **one-tap dark mode switch** on the settings home. The full picker
-            (auto / light / dark / AMOLED) is still in Themes.
-          - 66 interface strings that had no English version are now translated.
+          ### What changed in 1.0.1
+          - **The version number is real now.** The "What's new" page read a hardcoded 11.2.0
+            inherited from the original codebase, so it announced a release that never existed.
+            It now reads the version from the build itself and shows 1.0.1.
+          - **English only.** App language offers just System and English; the Russian option is
+            gone, and a phone set to Russian still opens in English.
+          - Kept from 1.0.0: one shape scale for every surface, a rebalanced type hierarchy, and
+            muted section headers so the accent colour stays semantic.
 
           ### Install
           1. Download the APK below.

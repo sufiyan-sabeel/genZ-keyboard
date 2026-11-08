@@ -3,7 +3,6 @@ package com.genz.keyboard
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import java.util.Locale
 
 // ============================================================================
 // ЯЗЫК ИНТЕРФЕЙСА: русский или английский
@@ -15,13 +14,19 @@ object I18n {
     var lang by mutableStateOf(systemLang())
         private set
 
-    private fun systemLang(): String =
-        if (Locale.getDefault().language in setOf("ru", "uk", "be", "kk", "ky", "tg", "tt", "ba", "uz")) "ru" else "en"
+    /**
+     * The interface ships in English only.
+     *
+     * "System" is still offered so the app can follow the device once more translations exist;
+     * today every device locale resolves to English, so the interface never comes up in Russian.
+     * A stored "ru" value from an older build is treated the same way.
+     */
+    private fun systemLang(): String = "en"
 
-    /** setting: SYSTEM, ru или en. */
+    /** setting: SYSTEM or en. Anything else, including a legacy "ru", resolves to English. */
     fun apply(setting: String) {
         val next = when (setting) {
-            "ru", "en" -> setting
+            "en" -> "en"
             else -> systemLang()
         }
         if (next != lang) lang = next

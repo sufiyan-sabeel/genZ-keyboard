@@ -221,23 +221,42 @@ fun resolveColorScheme(context: Context, dark: Boolean, amoled: Boolean, setting
     )
 }
 
+/**
+ * The shape scale of the app, one radius per role.
+ *
+ * Before this existed, Material components (dialogs, sheets, chips, switches, menus) fell back
+ * to the Material defaults while the app's own surfaces were drawn at 24-28 dp, so two
+ * different corner languages appeared on the same screen. Everything that is a container now
+ * uses [extraLarge]; everything that is a control uses [medium].
+ */
+internal val GenZShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp)
+)
+
 internal fun typographyWith(f: FontFamily): Typography {
     val t = Typography()
     return Typography(
         displayLarge = t.displayLarge.copy(fontFamily = f),
         displayMedium = t.displayMedium.copy(fontFamily = f),
         displaySmall = t.displaySmall.copy(fontFamily = f),
-        headlineLarge = t.headlineLarge.copy(fontFamily = f, fontWeight = FontWeight.ExtraBold),
-        headlineMedium = t.headlineMedium.copy(fontFamily = f, fontWeight = FontWeight.ExtraBold),
-        headlineSmall = t.headlineSmall.copy(fontFamily = f, fontWeight = FontWeight.Bold),
-        titleLarge = t.titleLarge.copy(fontFamily = f, fontWeight = FontWeight.Bold),
-        titleMedium = t.titleMedium.copy(fontFamily = f, fontWeight = FontWeight.Bold),
-        titleSmall = t.titleSmall.copy(fontFamily = f, fontWeight = FontWeight.Bold),
+        // Weight is the hierarchy signal, so it is spent where it counts: headings carry the
+        // contrast, titles step down to semibold, and small labels stay medium. Setting every
+        // level to bold flattens the scale and makes long settings lists read as shouting.
+        headlineLarge = t.headlineLarge.copy(fontFamily = f, fontWeight = FontWeight.Bold),
+        headlineMedium = t.headlineMedium.copy(fontFamily = f, fontWeight = FontWeight.Bold),
+        headlineSmall = t.headlineSmall.copy(fontFamily = f, fontWeight = FontWeight.SemiBold),
+        titleLarge = t.titleLarge.copy(fontFamily = f, fontWeight = FontWeight.SemiBold),
+        titleMedium = t.titleMedium.copy(fontFamily = f, fontWeight = FontWeight.SemiBold),
+        titleSmall = t.titleSmall.copy(fontFamily = f, fontWeight = FontWeight.Medium),
         bodyLarge = t.bodyLarge.copy(fontFamily = f),
         bodyMedium = t.bodyMedium.copy(fontFamily = f),
         bodySmall = t.bodySmall.copy(fontFamily = f),
-        labelLarge = t.labelLarge.copy(fontFamily = f, fontWeight = FontWeight.Bold),
-        labelMedium = t.labelMedium.copy(fontFamily = f, fontWeight = FontWeight.Bold),
+        labelLarge = t.labelLarge.copy(fontFamily = f, fontWeight = FontWeight.SemiBold),
+        labelMedium = t.labelMedium.copy(fontFamily = f, fontWeight = FontWeight.Medium),
         labelSmall = t.labelSmall.copy(fontFamily = f)
     )
 }
@@ -265,6 +284,12 @@ fun ExpressiveTheme(settings: KeyboardSettings, appUi: Boolean = false, content:
     val typography = remember(uiFont) { typographyWith(uiFont) }
     CompositionLocalProvider(LocalKeyFont provides font, LocalKeyWeight provides FontWeight(settings.fontWeight)) {
         // настоящая тема M3 Expressive: пружинные анимации MotionScheme.expressive() у всех компонентов material3
-        MaterialExpressiveTheme(colorScheme = scheme, motionScheme = MotionScheme.expressive(), typography = typography, content = content)
+        MaterialExpressiveTheme(
+            colorScheme = scheme,
+            motionScheme = MotionScheme.expressive(),
+            shapes = GenZShapes,
+            typography = typography,
+            content = content
+        )
     }
 }

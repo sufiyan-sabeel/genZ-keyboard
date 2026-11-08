@@ -297,12 +297,15 @@ internal fun PillField(
 internal fun SettingsSection(title: String?, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (title != null) {
+            // Section headers are labels, not headings: muted colour and medium weight, so the
+            // eye lands on the rows inside the card and the accent colour stays semantic.
             Text(
                 tr(title),
-                modifier = Modifier.padding(start = 16.dp),
+                modifier = Modifier.padding(start = 16.dp, top = 2.dp),
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 0.2.sp
             )
         }
         Column(

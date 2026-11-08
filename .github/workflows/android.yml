@@ -176,6 +176,11 @@ jobs:
           Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
 
           ### What changed in this build
+          - **Design pass.** One shape scale for every surface (dialogs, sheets, chips, fields and
+            cards now share the same corner language instead of mixing Material defaults with
+            hand-set radii). Typography is rebalanced so hierarchy comes from weight rather than
+            everything being bold, and section headers are muted labels instead of coloured
+            headings, so the accent colour means something again.
           - One name throughout: **GenZ Keyboard, created by Umaiz Sufiyan**. Earlier project
             branding and author handles are gone from the app, the About screen and the docs.
           - The interface is **English by default**; Russian is still selectable in settings.

@@ -489,7 +489,9 @@ internal fun AuthorLine() {
     fun open(url: String) {
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
-    val label = MaterialTheme.typography.bodyMedium
+    // Quieter than the controls around it: the credit is context, the search field and the
+    // setup card are the tasks. Small type keeps the name visible without competing for the eye.
+    val label = MaterialTheme.typography.bodySmall
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     // две строки по центру: ник не переносится посреди слова, даже на узком экране и с крупным шрифтом
     @Composable

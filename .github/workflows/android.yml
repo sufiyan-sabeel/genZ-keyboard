@@ -185,6 +185,7 @@ jobs:
           - Real IME: types into any app, 138 layouts, glide typing, prediction and autocorrect
           - Nine keyboard styles, custom themes, accent colours, AMOLED dark theme
           - Emoji keyboard with search, clipboard history, text shortcuts, voice input
+          - English interface by default, and a one-tap dark mode switch
           - No analytics, no ads, no tracking, no keystroke logging. See PRIVACY.md.
 
           ### Signing

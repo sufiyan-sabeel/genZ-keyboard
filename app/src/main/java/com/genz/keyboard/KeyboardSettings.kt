@@ -311,7 +311,7 @@ data class KeyboardSettings(
     /** Настройки тем: JSON { "id темы": { "id настройки": значение } }. */
     val skinOptions: String = "",
     // --- языки и подсказки ---
-    val languages: String = "ru,en",              // включённые языки по порядку
+    val languages: String = "en",                 // enabled languages, in order
     val autoCorrectStrength: String = "NORMAL",   // SAFE — только уверенные исправления | NORMAL — как Gboard
     val dictAutoDownload: Boolean = true,         // скачивать словарь языка при включении
     val punctuationKeys: Boolean = true,          // «,» и «.» по бокам пробела, как в Gboard
@@ -354,7 +354,7 @@ data class KeyboardSettings(
     /** После вставки эмодзи клавиатура сразу возвращается к буквам, как в Gboard. */
     val emojiReturnToKeyboard: Boolean = false,
     // --- интерфейс ---
-    val appLanguage: String = "SYSTEM",           // SYSTEM | ru | en
+    val appLanguage: String = "en",               // en | ru | SYSTEM
     val designStyle: String = "EXPRESSIVE",
     /** Сколько выразительных форм: FULL, ACCENTS или NONE (см. ShapeAmount). */
     val shapeAmount: String = ShapeAmount.FULL,
@@ -608,7 +608,7 @@ object KeyboardPrefs {
             incognito = p.getBoolean("incognito", false),
             skinPlugin = p.getString("skin_plugin", "") ?: "",
             skinOptions = p.getString("skin_options", "") ?: "",
-            languages = p.getString("languages", "ru,en")?.ifBlank { "ru,en" } ?: "ru,en",
+            languages = p.getString("languages", "en")?.ifBlank { "en" } ?: "en",
             autoCorrectStrength = p.getString("auto_correct_strength", "NORMAL") ?: "NORMAL",
             dictAutoDownload = p.getBoolean("dict_auto_download", true),
             punctuationKeys = p.getBoolean("punctuation_keys", true),
@@ -634,7 +634,7 @@ object KeyboardPrefs {
             emojiFontVersion = p.getLong("emoji_font_version", 0L),
             emojiStyle = p.getString("emoji_style", null) ?: if (p.getLong("emoji_font_version", 0L) != 0L) "CUSTOM" else "SYSTEM",
             emojiReturnToKeyboard = p.getBoolean("emoji_return_keyboard", false),
-            appLanguage = p.getString("app_language", "SYSTEM") ?: "SYSTEM",
+            appLanguage = p.getString("app_language", "en") ?: "en",
             designStyle = p.getString("design_style", "EXPRESSIVE") ?: "EXPRESSIVE",
             shapeAmount = p.getString("shape_amount", ShapeAmount.FULL) ?: ShapeAmount.FULL
         )

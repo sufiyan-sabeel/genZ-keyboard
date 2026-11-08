@@ -456,6 +456,7 @@ internal fun HomePage(settings: KeyboardSettings, onNavigate: (SettingsPage) -> 
         onSelect = { (context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker() },
         onMic = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) }
     )
+    ThemeToggleItem(settings)
     val groups = listOf(
         "Обновление" to listOf(SettingsPage.WHATS_NEW),
         "Внешний вид" to listOf(SettingsPage.THEMES, SettingsPage.COLORS, SettingsPage.KEYS, SettingsPage.LAYOUT, SettingsPage.ANIMATIONS, SettingsPage.TOOLBAR),

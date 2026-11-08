@@ -389,7 +389,7 @@ object Languages {
     fun enabled(settings: KeyboardSettings): List<KeyboardLanguage> {
         applyUserLayouts(settings.langLayouts)
         return settings.languages.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct().mapNotNull(::byId)
-            .ifEmpty { listOf(RU, EN).map(::withUser) }
+            .ifEmpty { listOf(EN, RU).map(::withUser) }
     }
 
     // ------------------------------------------------------------------ свои раскладки

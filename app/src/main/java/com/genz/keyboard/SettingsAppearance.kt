@@ -149,6 +149,27 @@ internal fun ThemeModeItem(settings: KeyboardSettings) {
     ) { mode -> KeyboardPrefs.edit(context) { putString("theme_mode", mode) } }
 }
 
+/**
+ * Quick light/dark switch, shown at the top of the settings home.
+ *
+ * The four-way picker in "Themes" stays as it is (auto / light / dark / AMOLED); this is the
+ * one-tap version for the common case. Turning it on picks DARK, turning it off picks LIGHT,
+ * so an explicit choice always beats the system setting until the user changes it again.
+ */
+@Composable
+internal fun ThemeToggleItem(settings: KeyboardSettings) {
+    val context = LocalContext.current
+    val dark = keyboardIsDark(settings)
+    SettingsSection(null) {
+        ToggleItem(
+            Icons.Rounded.DarkMode,
+            "Тёмная тема",
+            if (dark) "Включена — клавиатура и эти настройки тёмные" else "Выключена — клавиатура и эти настройки светлые",
+            dark
+        ) { on -> KeyboardPrefs.edit(context) { putString("theme_mode", if (on) "DARK" else "LIGHT") } }
+    }
+}
+
 /** Шрифт клавиш и форма кнопок-«печенек» — часть раздела «Клавиши и шрифт». */
 @Composable
 internal fun FontSections(settings: KeyboardSettings) {

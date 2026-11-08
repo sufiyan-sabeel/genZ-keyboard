@@ -49,6 +49,8 @@ application through a real `InputConnection`.
 - Custom themes: background, key colours, accent colour, key shape, shadows and font
 - AMOLED-friendly dark theme and a light theme
 - Material You wallpaper colours, or the GenZ brand violet by default
+- English interface by default, with Russian still available in settings
+- One-tap dark mode switch on the settings home, plus the auto / light / dark / AMOLED picker
 - Onboarding flow, a keyboard preview and a searchable settings screen
 - A layout editor for rearranging keys, and a JavaScript plugin engine (Rhino) for custom
   panels, keys and events

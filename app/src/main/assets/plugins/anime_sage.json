@@ -1,0 +1,102 @@
+{
+  "id": "builtin.anime.sage",
+  "name": "Мудрец листа",
+  "version": "2.0",
+  "author": "GenZ Keyboard",
+  "description": "Беловолосый мудрец в солнце и тени листвы. Клавиши цвета кости, а на Enter — тёплый оранжевый цвет его плаща.",
+  "icon": "🎴",
+  "backgroundImage": "anime/sage.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#F3E1DA",
+          "#F3E1DA"
+        ],
+        "angle": 90
+      },
+      "corner": 22
+    },
+    "colors": {
+      "background": "#F3E1DA",
+      "key": "#FDF4F0",
+      "keyText": "#1D1613",
+      "func": "#E7D2CB",
+      "funcText": "#1D1613",
+      "accent": "#B8451C",
+      "accentText": "#FFFFFF"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#D9FDF4F0",
+        "border": "#30B8451C",
+        "borderWidth": 1,
+        "glow": "#1AB8451C",
+        "text": "#1D1613",
+        "pressedBackground": "#B8451C",
+        "pressedText": "#FFFFFF",
+        "press": "bounce",
+        "pressScale": 1.04,
+        "radius": 12,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "material": "solid",
+        "background": "#D9E7D2CB",
+        "border": "#30B8451C",
+        "text": "#1D1613",
+        "pressedBackground": "#DB8363",
+        "pressedText": "#FFFFFF"
+      },
+      "space": {
+        "border": "#40B8451C",
+        "text": "#1D1613",
+        "fontScale": 0.9
+      },
+      "enter": {
+        "material": "solid",
+        "background": {
+          "colors": [
+            "#B8451C",
+            "#DB8363"
+          ],
+          "angle": 0
+        },
+        "text": "#FFFFFF",
+        "glow": "#55B8451C",
+        "pressedBackground": "#1D1613"
+      }
+    },
+    "popup": {
+      "radius": 12,
+      "background": "#F3E1DA",
+      "border": "#B8451C",
+      "text": "#1D1613",
+      "pressedBackground": "#B8451C",
+      "pressedText": "#FFFFFF"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#1D1613"
+    },
+    "buttons": {
+      "material": "outline",
+      "background": "#B3FDF4F0",
+      "border": "#66B8451C",
+      "borderWidth": 1.1,
+      "glow": "#20B8451C",
+      "text": "#1D1613",
+      "pressedBackground": "#B8451C"
+    },
+    "panel": {
+      "material": "outline",
+      "background": "#E6F3E1DA",
+      "border": "#40B8451C",
+      "borderWidth": 1,
+      "glow": "#00000000",
+      "radius": 20
+    }
+  }
+}

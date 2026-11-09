@@ -175,20 +175,27 @@ jobs:
 
           Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
 
-          ### What changed in 1.0.2
-          - **Anime theme system.** Ten anime-inspired themes - Anime Dark, Sakura Dreams,
-            Midnight Samurai, Anime Blue, Crimson Shadow, Moonlight Anime, Kawaii Pastel,
-            Manga Monochrome, Anime Purple and Neon Tokyo - in their own section of Themes.
-            Each one restyles the real keyboard: background gradient and glow, key and
-            function-key fills, text and pressed colours, spacebar, Enter, popup, suggestion
-            chips, toolbar buttons and panel, key corner radius and press animation.
-          - The artwork is generated from colour at runtime, so no third-party anime artwork
-            ships with the app and nothing needs licensing.
-          - **Custom background now uses the system photo picker.** One image, granted to this
-            app only, no media-library permission. Dimming, blur and transparency sliders and
-            a reset are in Settings -> Colors -> Background image.
-          - Ten new unit tests guard the theme files (ids, required sections, colour format),
-            because they are data and the compiler cannot check them.
+          ### What changed in 1.0.3
+          - **The anime themes now have real artwork behind the keys.** Ten illustrations, one
+            per theme, drawn behind the actual keyboard - not colour-only gradients any more.
+            The picture shows through in every app, in every layout, and the keyboard keeps its
+            dimming, blur and transparency controls.
+          - **Palettes sampled from the art.** Each theme's accent and key colours are computed
+            from its own picture, so the keys, Enter, spacebar and suggestion bar match the
+            illustration instead of being guessed.
+          - **New gallery.** Every card shows its artwork with the mini keyboard over it, and
+            has working Preview and Apply buttons. Preview opens a full-size look with the
+            theme description; Apply switches the keyboard immediately. There is also a Reset
+            theme action.
+          - Artwork is cropped to a 16:9 keyboard strip around the subject, sharpened, and
+            stored as WebP - about 850 KB for all ten.
+
+          ### Artwork notice
+          The illustrations are supplied by the project owner and are not covered by the MIT
+          licence, which covers the code only. They depict third-party characters, and two
+          carry other artists' signatures. Confirm you hold the rights before redistributing
+          this build publicly; replacing the files in app/src/main/assets/anime/ swaps the art
+          with no code changes.
 
           ### Install
           1. Download the APK below.
@@ -196,18 +203,10 @@ jobs:
           3. Open GenZ Keyboard, then enable it in
              Settings -> System -> Languages & input -> On-screen keyboard -> Manage keyboards.
 
-          ### What is inside
-          - Real IME: types into any app, 138 layouts, glide typing, prediction and autocorrect
-          - Nineteen keyboard styles now: nine classic looks plus the ten anime themes
-          - Emoji keyboard with search, clipboard history, text shortcuts, voice input
-          - No analytics, no ads, no tracking, no keystroke logging. See PRIVACY.md.
-
           ### Signing
           This build is signed with the **debug key** unless repository signing secrets are
           configured. A debug-key build is fine for testing, but a later release signed with
-          a different key cannot update it - you would have to uninstall first. Maintainers
-          should set RELEASE_KEYSTORE_B64, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS and
-          RELEASE_KEY_PASSWORD in repository secrets before shipping a public release.
+          a different key cannot update it - you would have to uninstall first.
 
           ### Source
           Full source and licence: https://github.com/sufiyan-sabeel/genZ-keyboard

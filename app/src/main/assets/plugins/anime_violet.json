@@ -1,0 +1,102 @@
+{
+  "id": "builtin.anime.violet",
+  "name": "Фиолетовая буря",
+  "version": "2.0",
+  "author": "GenZ Keyboard",
+  "description": "Фиолетовая молния в темноте. Почти чёрные клавиши с сиреневым свечением, которое вспыхивает под пальцем.",
+  "icon": "🎴",
+  "backgroundImage": "anime/violet.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#0D0C12",
+          "#0D0C12"
+        ],
+        "angle": 90
+      },
+      "corner": 22
+    },
+    "colors": {
+      "background": "#0D0C12",
+      "key": "#1E1B26",
+      "keyText": "#ECE8F7",
+      "func": "#16141C",
+      "funcText": "#ECE8F7",
+      "accent": "#521DF5",
+      "accentText": "#FFFFFF"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#D91E1B26",
+        "border": "#3D521DF5",
+        "borderWidth": 1,
+        "glow": "#1A521DF5",
+        "text": "#ECE8F7",
+        "pressedBackground": "#521DF5",
+        "pressedText": "#FFFFFF",
+        "press": "bounce",
+        "pressScale": 1.04,
+        "radius": 12,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "material": "solid",
+        "background": "#D916141C",
+        "border": "#3D521DF5",
+        "text": "#ECE8F7",
+        "pressedBackground": "#6449B8",
+        "pressedText": "#FFFFFF"
+      },
+      "space": {
+        "border": "#40521DF5",
+        "text": "#ECE8F7",
+        "fontScale": 0.9
+      },
+      "enter": {
+        "material": "solid",
+        "background": {
+          "colors": [
+            "#521DF5",
+            "#6449B8"
+          ],
+          "angle": 0
+        },
+        "text": "#FFFFFF",
+        "glow": "#55521DF5",
+        "pressedBackground": "#ECE8F7"
+      }
+    },
+    "popup": {
+      "radius": 12,
+      "background": "#0D0C12",
+      "border": "#521DF5",
+      "text": "#ECE8F7",
+      "pressedBackground": "#521DF5",
+      "pressedText": "#FFFFFF"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#ECE8F7"
+    },
+    "buttons": {
+      "material": "outline",
+      "background": "#B31E1B26",
+      "border": "#66521DF5",
+      "borderWidth": 1.1,
+      "glow": "#20521DF5",
+      "text": "#ECE8F7",
+      "pressedBackground": "#521DF5"
+    },
+    "panel": {
+      "material": "outline",
+      "background": "#E60D0C12",
+      "border": "#40521DF5",
+      "borderWidth": 1,
+      "glow": "#00000000",
+      "radius": 20
+    }
+  }
+}

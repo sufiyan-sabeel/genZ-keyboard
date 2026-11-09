@@ -1,113 +1,99 @@
 {
   "id": "builtin.anime.manga",
-  "name": "Манга: моно",
-  "version": "1.0",
+  "name": "Не сдавайся",
+  "version": "2.0",
   "author": "GenZ Keyboard",
-  "description": "Чёрное и белое, как лист манги: белые клавиши, чёрные буквы, тонкая обводка. Максимальная читаемость.",
-  "icon": "📖",
+  "description": "Серая страница манги с тяжёлым чернильным силуэтом. Клавиши цвета бумаги, чёрные буквы и ничего лишнего.",
+  "icon": "🎴",
   "backgroundImage": "anime/manga.webp",
   "skin": {
     "keyboard": {
       "background": {
         "colors": [
-          "#0A0A0A",
-          "#161616"
+          "#F3DADA",
+          "#F3DADA"
         ],
         "angle": 90
       },
-      "orbs": [
-        {
-          "color": "#2EFFFFFF",
-          "x": 0.82,
-          "y": 1.05,
-          "r": 0.62
-        },
-        {
-          "color": "#1C3A3A3A",
-          "x": 0.12,
-          "y": -0.08,
-          "r": 0.52
-        }
-      ],
-      "trail": "#0A0A0A",
-      "corner": 18
+      "corner": 22
     },
     "colors": {
-      "background": "#161616",
-      "key": "#F5F5F5",
-      "keyText": "#0A0A0A",
-      "func": "#DCDCDC",
-      "funcText": "#111111",
-      "accent": "#0A0A0A",
+      "background": "#F3DADA",
+      "key": "#FDF0F0",
+      "keyText": "#1D1313",
+      "func": "#E7CBCB",
+      "funcText": "#1D1313",
+      "accent": "#382424",
       "accentText": "#FFFFFF"
     },
     "keys": {
       "*": {
-        "material": "outline",
-        "background": "#E6F5F5F5",
-        "border": "#3D0A0A0A",
+        "material": "solid",
+        "background": "#D9FDF0F0",
+        "border": "#30382424",
         "borderWidth": 1,
-        "glow": "#1F0A0A0A",
-        "text": "#0A0A0A",
-        "pressedBackground": "#0A0A0A",
+        "glow": "#1A382424",
+        "text": "#1D1313",
+        "pressedBackground": "#382424",
         "pressedText": "#FFFFFF",
-        "press": "none",
+        "press": "bounce",
         "pressScale": 1.04,
-        "radius": 6,
+        "radius": 12,
         "inset": 1.5,
         "hideHint": true
       },
       "func": {
-        "background": "#E6DCDCDC",
-        "border": "#260A0A0A",
-        "text": "#111111",
-        "pressedBackground": "#3A3A3A",
+        "material": "solid",
+        "background": "#D9E7CBCB",
+        "border": "#30382424",
+        "text": "#1D1313",
+        "pressedBackground": "#735C5C",
         "pressedText": "#FFFFFF"
       },
       "space": {
-        "border": "#400A0A0A",
-        "text": "#0A0A0A",
+        "border": "#40382424",
+        "text": "#1D1313",
         "fontScale": 0.9
       },
       "enter": {
         "material": "solid",
         "background": {
           "colors": [
-            "#0A0A0A",
-            "#3A3A3A"
+            "#382424",
+            "#735C5C"
           ],
           "angle": 0
         },
         "text": "#FFFFFF",
-        "glow": "#660A0A0A",
-        "pressedBackground": "#0A0A0A"
+        "glow": "#55382424",
+        "pressedBackground": "#1D1313"
       }
     },
     "popup": {
       "radius": 12,
-      "background": "#161616",
-      "border": "#0A0A0A",
-      "text": "#0A0A0A",
-      "pressedBackground": "#0A0A0A",
+      "background": "#F3DADA",
+      "border": "#382424",
+      "text": "#1D1313",
+      "pressedBackground": "#382424",
       "pressedText": "#FFFFFF"
     },
     "chips": {
       "material": "none",
-      "text": "#D90A0A0A"
+      "text": "#1D1313"
     },
     "buttons": {
       "material": "outline",
-      "background": "#0DFFFFFF",
-      "border": "#660A0A0A",
+      "background": "#B3FDF0F0",
+      "border": "#66382424",
       "borderWidth": 1.1,
-      "glow": "#260A0A0A",
-      "text": "#E60A0A0A",
-      "pressedBackground": "#0A0A0A"
+      "glow": "#20382424",
+      "text": "#1D1313",
+      "pressedBackground": "#382424"
     },
     "panel": {
       "material": "outline",
-      "background": "#B3161616",
-      "border": "#400A0A0A",
+      "background": "#E6F3DADA",
+      "border": "#40382424",
       "borderWidth": 1,
       "glow": "#00000000",
       "radius": 20

@@ -20,9 +20,9 @@ class AnimeThemesTest {
     private val dir = File("src/main/assets/plugins")
 
     private val expected = listOf(
-        "anime_dark.json", "anime_sakura.json", "anime_samurai.json", "anime_blue.json",
-        "anime_crimson.json", "anime_moonlight.json", "anime_kawaii.json", "anime_manga.json",
-        "anime_purple.json", "anime_tokyo.json"
+        "anime_crimson.json", "anime_ego.json", "anime_flame.json", "anime_ink.json",
+        "anime_manga.json", "anime_rose.json", "anime_sage.json", "anime_sky.json",
+        "anime_split.json", "anime_violet.json"
     )
 
     private fun themeFiles() = dir.listFiles { f -> f.name.startsWith("anime_") && f.name.endsWith(".json") }
@@ -89,6 +89,17 @@ class AnimeThemesTest {
                 "${f.name} must point at anime/$slug.webp",
                 f.readText().contains("\"backgroundImage\": \"anime/$slug.webp\"")
             )
+        }
+    }
+
+    @Test
+    fun everyThemeShipsItsArtwork() {
+        val dir = File("src/main/assets/anime")
+        themeFiles().forEach { f ->
+            val slug = f.nameWithoutExtension.removePrefix("anime_")
+            val art = File(dir, "$slug.webp")
+            assertTrue("${f.name} has no artwork at assets/anime/$slug.webp", art.isFile)
+            assertTrue("${f.name} artwork is empty", art.length() > 10_000)
         }
     }
 

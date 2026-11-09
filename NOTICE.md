@@ -11,6 +11,15 @@ License requires that the original copyright notice be retained, so it is reprod
 in [LICENSE](LICENSE) together with this project's own copyright line. That notice is a legal
 requirement, not a credit line: it must stay for as long as this code is distributed.
 
+## Anime theme artwork
+
+The ten illustrations under `app/src/main/assets/anime/` were supplied by the project owner.
+They are **not** covered by the MIT License in `LICENSE`, which applies to the source code only.
+They depict characters and styles owned by third parties, and two of them carry the signature of
+another artist. Redistribution of the app therefore carries a rights question that the project
+owner is responsible for resolving. Replacing the files under the same names changes the themes
+with no code changes.
+
 ## Third-party assets bundled in the app
 
 These are separate works, included under their own licences, which require the attribution

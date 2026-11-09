@@ -1,0 +1,102 @@
+{
+  "id": "builtin.anime.flame",
+  "name": "Танец пламени",
+  "version": "2.0",
+  "author": "GenZ Keyboard",
+  "description": "Клинок и пламя на кремовом. Светлые клавиши, а золотисто-оранжевый цвет пламени — на Enter и при каждом нажатии.",
+  "icon": "🎴",
+  "backgroundImage": "anime/flame.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#F3EBDA",
+          "#F3EBDA"
+        ],
+        "angle": 90
+      },
+      "corner": 22
+    },
+    "colors": {
+      "background": "#F3EBDA",
+      "key": "#FDF9F0",
+      "keyText": "#1D1A13",
+      "func": "#E7DECB",
+      "funcText": "#1D1A13",
+      "accent": "#B8841C",
+      "accentText": "#0C0C0C"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#D9FDF9F0",
+        "border": "#30B8841C",
+        "borderWidth": 1,
+        "glow": "#1AB8841C",
+        "text": "#1D1A13",
+        "pressedBackground": "#B8841C",
+        "pressedText": "#0C0C0C",
+        "press": "bounce",
+        "pressScale": 1.04,
+        "radius": 12,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "material": "solid",
+        "background": "#D9E7DECB",
+        "border": "#30B8841C",
+        "text": "#1D1A13",
+        "pressedBackground": "#DBB363",
+        "pressedText": "#0C0C0C"
+      },
+      "space": {
+        "border": "#40B8841C",
+        "text": "#1D1A13",
+        "fontScale": 0.9
+      },
+      "enter": {
+        "material": "solid",
+        "background": {
+          "colors": [
+            "#B8841C",
+            "#DBB363"
+          ],
+          "angle": 0
+        },
+        "text": "#0C0C0C",
+        "glow": "#55B8841C",
+        "pressedBackground": "#1D1A13"
+      }
+    },
+    "popup": {
+      "radius": 12,
+      "background": "#F3EBDA",
+      "border": "#B8841C",
+      "text": "#1D1A13",
+      "pressedBackground": "#B8841C",
+      "pressedText": "#0C0C0C"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#1D1A13"
+    },
+    "buttons": {
+      "material": "outline",
+      "background": "#B3FDF9F0",
+      "border": "#66B8841C",
+      "borderWidth": 1.1,
+      "glow": "#20B8841C",
+      "text": "#1D1A13",
+      "pressedBackground": "#B8841C"
+    },
+    "panel": {
+      "material": "outline",
+      "background": "#E6F3EBDA",
+      "border": "#40B8841C",
+      "borderWidth": 1,
+      "glow": "#00000000",
+      "radius": 20
+    }
+  }
+}

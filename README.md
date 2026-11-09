@@ -57,31 +57,34 @@ the third-party notices this codebase is legally required to keep are in [LICENS
 
 ## Anime Theme System
 
-Ten anime-inspired keyboard themes ship with the app, in a dedicated **Anime themes** section of
-*Settings → Themes*:
+Ten anime themes ship with the app, each built around its own illustration. Open
+*Settings → Themes → Anime themes*. Every card shows the artwork, with Preview and Apply
+buttons that work.
 
-| Theme | Character |
-| --- | --- |
-| Anime Dark | deep blue-black, soft violet glow |
-| Sakura Dreams | warm rose with petal-pink keys |
-| Midnight Samurai | near-black steel with one scarlet accent |
-| Anime Blue | midnight blue and sky |
-| Crimson Shadow | burgundy with crimson keys |
-| Moonlight Anime | night sky and silver keys |
-| Kawaii Pastel | pastel keys on plum, dark text |
-| Manga Monochrome | white keys, black letters, ink-panel look |
-| Anime Purple | saturated violet with orchid accent |
-| Neon Tokyo | pink and cyan edge glow, gradient Enter |
+| Theme | Artwork | Palette |
+| --- | --- | --- |
+| Ink Demon | ink demon on warm washi paper | paper keys, ink-brown accent |
+| Sage of the Leaf | white-haired sage in leaf shadow | bone keys, ember orange |
+| Crimson Split | split face over alarm red | dark keys, hard crimson |
+| Never Give Up | grey manga page, heavy ink | paper keys, black accent |
+| Violet Storm | violet lightning in the dark | near-black keys, purple glow |
+| Flame Dance | blade and fire on cream | pale keys, flame gold |
+| Ego | newsprint collage | paper keys, slate accent |
+| Two Halves | warm orange against cool teal | dark keys, orange accent |
+| Straw Hat Sky | straw hat against summer sky | bright keys, brick red |
+| Red Rose | rain, crows, one red rose | monochrome keys, one red accent |
 
-Every theme is a **skin definition, not a screenshot**: the JSON in
-`app/src/main/assets/plugins/anime_*.json` sets the keyboard background gradient and glow, key and
-function-key fills, text colours, pressed states, spacebar and Enter styling, popup, suggestion
-chips, toolbar buttons and panel, plus the key corner radius and press animation. They render
-through the same pipeline as the built-in styles, so they change the real system keyboard and
-appear in every layout.
+Each theme is a **skin definition plus a bundled image**, not a screenshot: the JSON in
+`app/src/main/assets/plugins/anime_*.json` sets key and function-key fills, text and pressed
+colours, spacebar and Enter styling, popup, suggestion chips, toolbar buttons, panel, corner
+radius and press animation, and names its picture in `backgroundImage`. The artwork in
+`app/src/main/assets/anime/` is drawn behind the real keyboard through the same path that
+handles a user-picked background, so cover-cropping, dimming, blur and transparency all apply.
 
-The artwork is generated from colour, not lifted from anywhere: gradients and glows are drawn at
-runtime, so there is no third-party anime artwork in the app and nothing to license or attribute.
+The palettes are not hand-picked: each theme's accent and key colours are sampled from its own
+artwork (dominant vivid hue, falling back to the picture's ink when it is monochrome), and every
+pairing was checked for WCAG contrast — body text sits at 13:1 or better, accent-on-accent at
+4.7:1 or better.
 
 **Your own background.** *Settings → Colors → Background image* uses the Android system photo
 picker — one image, granted to this app only, no media-library permission — then offers dimming,
@@ -89,8 +92,16 @@ blur and transparency sliders and a reset. The image is copied into app-private 
 never uploaded, and no network call is involved.
 
 **Persistence and performance.** The selected theme is stored as a skin id in the existing
-preferences, so it survives app, keyboard and device restarts. Background bitmaps are decoded once
-and cached (`rememberBackgroundBitmap`), never on the typing path.
+preferences, so it survives app, keyboard and device restarts. Artwork is decoded once per theme
+on a background thread, downsampled to 2048 px and cached, never on the typing path.
+
+### Artwork rights
+
+The ten anime illustrations are supplied by the project owner and are **not** covered by the MIT
+licence in `LICENSE` — that licence covers the code. They depict characters and styles owned by
+third parties, and two carry other artists' signatures. Anyone redistributing this app publicly
+should confirm they hold the rights to those images, or replace them. The code works with any
+image: drop a replacement into `app/src/main/assets/anime/` under the same filename.
 
 **Privacy**
 

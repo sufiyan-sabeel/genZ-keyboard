@@ -1,0 +1,55 @@
+name: Fetch anime artwork
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: 'JSON object of name -> source URL'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artwork
+        env:
+          URLS: ${{ inputs.urls }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, urllib.request
+          urls = json.loads(os.environ["URLS"])
+          out = pathlib.Path("app/src/main/assets/anime")
+          out.mkdir(parents=True, exist_ok=True)
+          for name, url in urls.items():
+              data = urllib.request.urlopen(url, timeout=90).read()
+              (out / (name + ".png")).write_bytes(data)
+              print(name, len(data), "bytes")
+          PY
+
+      - name: Convert to WebP and shrink
+        run: |
+          pip install --quiet Pillow
+          python3 - <<'PY'
+          from PIL import Image
+          import pathlib
+          for p in sorted(pathlib.Path("app/src/main/assets/anime").glob("*.png")):
+              im = Image.open(p).convert("RGB")
+              im.thumbnail((1600, 1600), Image.LANCZOS)
+              im.save(p.with_suffix(".webp"), "WEBP", quality=82, method=6)
+              print(p.stem, im.size, p.with_suffix(".webp").stat().st_size, "bytes")
+              p.unlink()
+          PY
+
+      - name: Commit artwork
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/anime
+          git commit -m "assets: add original anime artwork for the ten themes"
+          git push

@@ -304,9 +304,13 @@ internal fun ColorsPage(settings: KeyboardSettings) {
     SettingsSection("Палитра") {
         ChoiceItem(
             Icons.Rounded.Palette, "Палитра Material You",
-            if (settings.colorSource == "SEED") "Вся тема строится из выбранного цвета"
-            else if (monet) "Цвета берутся из обоев (Monet)" else "Monet доступен с Android 12 — используется базовая палитра",
-            listOf("DYNAMIC" to "Из обоев", "SEED" to "Свой цвет"),
+            when {
+                settings.colorSource == "SEED" -> "Интерфейс строится из выбранного цвета"
+                settings.colorSource == "BRAND" -> "Фирменный фиолетовый GenZ, тема клавиатуры сохраняет свои цвета"
+                monet -> "Цвета берутся из обоев (Monet)"
+                else -> "Monet доступен с Android 12 — используется базовая палитра"
+            },
+            listOf("BRAND" to "Фирменная", "DYNAMIC" to "Из обоев", "SEED" to "Свой цвет"),
             settings.colorSource
         ) { v -> KeyboardPrefs.edit(context) { putString("color_source", v) } }
         AnimatedVisibility(

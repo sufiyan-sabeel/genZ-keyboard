@@ -67,6 +67,46 @@
         "text": "#FFFFFF",
         "glow": "#55382D24",
         "pressedBackground": "#1D1813"
+      },
+      "shift": {
+        "material": "solid",
+        "background": "#F2E7D7CB",
+        "border": "#30382D24",
+        "text": "#1D1813",
+        "pressedBackground": "#382D24",
+        "pressedText": "#FFFFFF"
+      },
+      "backspace": {
+        "material": "solid",
+        "background": "#F2E7D7CB",
+        "border": "#30382D24",
+        "text": "#1D1813",
+        "pressedBackground": "#382D24",
+        "pressedText": "#FFFFFF"
+      },
+      "mode": {
+        "material": "solid",
+        "background": "#F2E7D7CB",
+        "text": "#1D1813",
+        "pressedBackground": "#382D24",
+        "pressedText": "#FFFFFF"
+      },
+      "globe": {
+        "material": "solid",
+        "background": "#F2E7D7CB",
+        "text": "#1D1813",
+        "pressedBackground": "#382D24",
+        "pressedText": "#FFFFFF"
+      },
+      "emoji": {
+        "material": "solid",
+        "background": "#F2E7D7CB",
+        "text": "#1D1813",
+        "pressedBackground": "#382D24",
+        "pressedText": "#FFFFFF"
+      },
+      "digit": {
+        "text": "#1D1813"
       }
     },
     "popup": {
@@ -78,8 +118,13 @@
       "pressedText": "#FFFFFF"
     },
     "chips": {
-      "material": "none",
-      "text": "#1D1813"
+      "material": "solid",
+      "background": "#59F3E5DA",
+      "border": "#26382D24",
+      "borderWidth": 1,
+      "text": "#1D1813",
+      "pressedBackground": "#CC382D24",
+      "pressedText": "#FFFFFF"
     },
     "buttons": {
       "material": "outline",

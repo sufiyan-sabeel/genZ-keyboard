@@ -175,27 +175,33 @@ jobs:
 
           Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
 
+          > **This is a corrected build of 1.0.3** (versionCode 8, replacing the earlier 1.0.3
+          > download). The first 1.0.3 build applied the anime artwork but painted every keyboard
+          > in the brand violet. That is fixed here.
+
+          ### What was wrong
+          The app's brand colour was stored as a "user accent". Theme building repaints any skin
+          whose accent matches a user accent, so all ten themes were being recoloured to violet
+          the moment they were applied - the picture changed, the keys did not. The brand colour
+          now only paints the app interface, and a theme keeps its own palette unless you
+          explicitly pick an accent yourself.
+
           ### What changed in 1.0.3
-          - **The anime themes now have real artwork behind the keys.** Ten illustrations, one
-            per theme, drawn behind the actual keyboard - not colour-only gradients any more.
-            The picture shows through in every app, in every layout, and the keyboard keeps its
-            dimming, blur and transparency controls.
-          - **Palettes sampled from the art.** Each theme's accent and key colours are computed
-            from its own picture, so the keys, Enter, spacebar and suggestion bar match the
-            illustration instead of being guessed.
-          - **New gallery.** Every card shows its artwork with the mini keyboard over it, and
-            has working Preview and Apply buttons. Preview opens a full-size look with the
-            theme description; Apply switches the keyboard immediately. There is also a Reset
-            theme action.
-          - Artwork is cropped to a 16:9 keyboard strip around the subject, sharpened, and
-            stored as WebP - about 850 KB for all ten.
+          - **Real artwork behind the keys.** Ten illustrations, one per theme, drawn behind the
+            actual keyboard in every app and every layout.
+          - **Palettes sampled from each picture**, with contrast checked, so keys, Enter,
+            spacebar and suggestion bar match the art.
+          - **Special keys styled per theme**: Shift, Backspace, language and emoji keys, the
+            mode key and the suggestion chips all take their own fill, border and pressed colour
+            from the theme, so the hierarchy reads instead of everything being one flat colour.
+          - **Gallery** with artwork cards and working Preview / Apply buttons, plus Reset theme.
 
           ### Artwork notice
           The illustrations are supplied by the project owner and are not covered by the MIT
-          licence, which covers the code only. They depict third-party characters, and two
-          carry other artists' signatures. Confirm you hold the rights before redistributing
-          this build publicly; replacing the files in app/src/main/assets/anime/ swaps the art
-          with no code changes.
+          licence, which covers the code only. They depict third-party characters, and two carry
+          other artists' signatures. Confirm you hold the rights before redistributing this build
+          publicly; replacing the files in app/src/main/assets/anime/ swaps the art with no code
+          changes.
 
           ### Install
           1. Download the APK below.
@@ -205,8 +211,7 @@ jobs:
 
           ### Signing
           This build is signed with the **debug key** unless repository signing secrets are
-          configured. A debug-key build is fine for testing, but a later release signed with
-          a different key cannot update it - you would have to uninstall first.
+          configured, so uninstall any earlier copy before installing it.
 
           ### Source
           Full source and licence: https://github.com/sufiyan-sabeel/genZ-keyboard

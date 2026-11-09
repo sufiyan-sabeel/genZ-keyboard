@@ -149,6 +149,9 @@ enum class HapticMode(val id: String, val title: String) {
     }
 }
 
+/** The brand violet. Colours the app interface; never repaints a keyboard theme. */
+internal const val BRAND_SEED = 0xFF6C4DF6.toInt()
+
 @Immutable
 data class KeyboardSettings(
     val themeMode: String = "SYSTEM",
@@ -179,8 +182,8 @@ data class KeyboardSettings(
     val customFontName: String = "",
     val customFontVersion: Long = 0L,
     // --- цвета ---
-    val colorSource: String = "SEED",             // SEED (фирменный цвет GenZ) | DYNAMIC (обои)
-    val seedColor: Int = 0xFF6C4DF6.toInt(),
+    val colorSource: String = "BRAND",            // BRAND (фирменный, только интерфейс) | DYNAMIC (обои) | SEED (свой цвет)
+    val seedColor: Int = BRAND_SEED,
     val colorBackground: Int = 0,                 // 0 = авто
     val colorKey: Int = 0,
     val colorKeyText: Int = 0,
@@ -373,6 +376,8 @@ data class KeyboardSettings(
      */
     val userAccent: Int get() = when {
         colorAccent != 0 -> colorAccent
+        // Only an explicitly chosen colour repaints keyboard themes. BRAND colours the app
+        // interface and must never override a theme's own palette.
         colorSource == "SEED" -> seedColor
         else -> 0
     }
@@ -516,7 +521,7 @@ object KeyboardPrefs {
             fontStyle = if (font == null || font == "DEFAULT") "ROUNDED" else font,
             customFontName = p.getString("custom_font_name", "") ?: "",
             customFontVersion = p.getLong("custom_font_version", 0L),
-            colorSource = p.getString("color_source", "SEED") ?: "SEED",
+            colorSource = migrateColorSource(p),
             seedColor = p.getInt("seed_color", 0xFF6C4DF6.toInt()),
             colorBackground = p.getInt("color_background", 0),
             colorKey = p.getInt("color_key", 0),
@@ -704,6 +709,18 @@ object KeyboardPrefs {
     }
 
     const val BG_IMAGE_FILENAME = "keyboard_background.jpg"
+
+    /**
+     * Older builds stored "SEED" as the default and never let the user choose it, which made
+     * every keyboard theme repaint itself in the brand violet. Those installs are moved to
+     * "BRAND": same interface colour, but the theme keeps its own palette. A stored seed the
+     * user actually picked is left alone.
+     */
+    private fun migrateColorSource(p: android.content.SharedPreferences): String {
+        val stored = p.getString("color_source", "BRAND") ?: "BRAND"
+        val seed = p.getInt("seed_color", BRAND_SEED)
+        return if (stored == "SEED" && seed == BRAND_SEED) "BRAND" else stored
+    }
 
     fun setBackgroundImage(context: Context) = edit(context) { putLong("bg_image_version", System.currentTimeMillis()) }
 

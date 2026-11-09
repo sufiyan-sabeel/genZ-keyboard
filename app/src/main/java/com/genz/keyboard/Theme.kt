@@ -203,7 +203,7 @@ fun seedColorScheme(seed: Color, dark: Boolean): ColorScheme {
 
 fun resolveColorScheme(context: Context, dark: Boolean, amoled: Boolean, settings: KeyboardSettings = KeyboardSettings()): ColorScheme {
     val base = when {
-        settings.colorSource == "SEED" -> seedColorScheme(Color(settings.seedColor), dark)
+        settings.colorSource == "SEED", settings.colorSource == "BRAND" -> seedColorScheme(Color(settings.seedColor), dark)
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         dark -> DarkFallback

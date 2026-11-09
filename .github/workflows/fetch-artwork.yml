@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       urls:
-        description: 'JSON object of name -> source URL'
+        description: 'One "name|url" pair per line'
         required: true
 
 permissions:
@@ -22,14 +22,17 @@ jobs:
           URLS: ${{ inputs.urls }}
         run: |
           python3 - <<'PY'
-          import json, os, pathlib, urllib.request
-          urls = json.loads(os.environ["URLS"])
+          import os, pathlib, urllib.request
           out = pathlib.Path("app/src/main/assets/anime")
           out.mkdir(parents=True, exist_ok=True)
-          for name, url in urls.items():
-              data = urllib.request.urlopen(url, timeout=90).read()
-              (out / (name + ".png")).write_bytes(data)
-              print(name, len(data), "bytes")
+          for line in os.environ["URLS"].splitlines():
+              line = line.strip()
+              if not line or "|" not in line:
+                  continue
+              name, url = line.split("|", 1)
+              data = urllib.request.urlopen(url.strip(), timeout=90).read()
+              (out / (name.strip() + ".png")).write_bytes(data)
+              print(name.strip(), len(data), "bytes")
           PY
 
       - name: Convert to WebP and shrink

@@ -2,10 +2,6 @@ name: Fetch anime artwork
 
 on:
   workflow_dispatch:
-    inputs:
-      urls:
-        description: 'One "name|url" pair per line'
-        required: true
 
 permissions:
   contents: write
@@ -18,21 +14,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download artwork
-        env:
-          URLS: ${{ inputs.urls }}
         run: |
           python3 - <<'PY'
-          import os, pathlib, urllib.request
+          import json, pathlib, urllib.request
+          urls = json.load(open("artwork-sources.json"))
           out = pathlib.Path("app/src/main/assets/anime")
           out.mkdir(parents=True, exist_ok=True)
-          for line in os.environ["URLS"].splitlines():
-              line = line.strip()
-              if not line or "|" not in line:
-                  continue
-              name, url = line.split("|", 1)
-              data = urllib.request.urlopen(url.strip(), timeout=90).read()
-              (out / (name.strip() + ".png")).write_bytes(data)
-              print(name.strip(), len(data), "bytes")
+          for name, url in urls.items():
+              req = urllib.request.Request(url, headers={"User-Agent": "GenZ-Keyboard-CI/1.0"})
+              data = urllib.request.urlopen(req, timeout=120).read()
+              (out / (name + ".png")).write_bytes(data)
+              print(name, len(data), "bytes")
           PY
 
       - name: Convert to WebP and shrink

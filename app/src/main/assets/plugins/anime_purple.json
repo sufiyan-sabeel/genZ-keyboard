@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Насыщенный фиолетовый с орхидейным акцентом и мягким свечением вокруг нажатой клавиши.",
   "icon": "🔮",
+  "backgroundImage": "anime/purple.webp",
   "skin": {
     "keyboard": {
       "background": {

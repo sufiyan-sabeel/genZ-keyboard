@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Глубокий ночной синий с небесным акцентом — как кадр из фильма про лето и море.",
   "icon": "🌊",
+  "backgroundImage": "anime/blue.webp",
   "skin": {
     "keyboard": {
       "background": {

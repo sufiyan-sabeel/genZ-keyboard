@@ -1429,4 +1429,9 @@ internal val EN_STRINGS: Map<String, String> = hashMapOf(
     "Насыщенный фиолетовый с орхидейным акцентом и мягким свечением вокруг нажатой клавиши." to "Saturated purple with an orchid accent and a soft glow around the pressed key.",
     "Неон Токио" to "Neon Tokyo",
     "Ночной город: розовый и циан по краям, тёмные клавиши и градиентный Enter. Самая выразительная тема набора." to "The night city: pink and cyan at the edges, dark keys and a gradient Enter. The boldest theme in the set.",
+    // ---- theme gallery actions
+    "Применить" to "Apply",
+    "Применено" to "Applied",
+    "Сбросить тему" to "Reset theme",
+    "Вернуть стандартный вид и убрать свою картинку" to "Go back to the default look and remove your own picture",
 )

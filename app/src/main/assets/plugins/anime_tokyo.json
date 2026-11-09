@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Ночной город: розовый и циан по краям, тёмные клавиши и градиентный Enter. Самая выразительная тема набора.",
   "icon": "🏙️",
+  "backgroundImage": "anime/tokyo.webp",
   "skin": {
     "keyboard": {
       "background": {

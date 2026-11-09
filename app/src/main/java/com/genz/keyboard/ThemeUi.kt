@@ -54,6 +54,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -79,6 +80,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.*
@@ -285,13 +288,33 @@ internal fun SkinMiniPreview(skin: KeyboardSkin?, settings: KeyboardSettings, mo
     }
 }
 
-/** Карточка темы в галерее. */
+/**
+ * Card of one theme in the gallery.
+ *
+ * When the theme ships artwork, the picture is the card's background and the mini keyboard is
+ * drawn on top of it, so the card shows what the keyboard will actually look like. Text sits on
+ * a scrim so it stays readable over a bright illustration.
+ */
 @Composable
-private fun ThemeCard(title: String, subtitle: String, selected: Boolean, skin: KeyboardSkin?, settings: KeyboardSettings, onClick: () -> Unit) {
+private fun ThemeCard(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    skin: KeyboardSkin?,
+    settings: KeyboardSettings,
+    artwork: String? = null,
+    onPreview: (() -> Unit)? = null,
+    onClick: () -> Unit
+) {
     val cs = MaterialTheme.colorScheme
     val corner = animateDpAsState(if (selected) 28.dp else 18.dp, spring(dampingRatio = 0.6f, stiffness = 500f), label = "themeCorner")
     val bg = animateColorAsState(if (selected) cs.primaryContainer else cs.surfaceContainerHigh, label = "themeBg")
     val outline = cs.primary
+    val picture = rememberThemeArtwork(artwork)
+    val onPicture = picture != null
+    val titleColor = if (onPicture) Color.White else if (selected) cs.onPrimaryContainer else cs.onSurface
+    val subColor = if (onPicture) Color.White.copy(alpha = 0.85f) else if (selected) cs.onPrimaryContainer.copy(alpha = 0.8f) else cs.onSurfaceVariant
+
     // угол и цвет читаются при отрисовке: карточка с мини-клавиатурой не перестраивается на каждом кадре анимации
     Column(
         Modifier.fillMaxWidth().roundedLayer { corner.value }
@@ -303,17 +326,89 @@ private fun ThemeCard(title: String, subtitle: String, selected: Boolean, skin: 
                     drawRoundRect(outline, Offset(w / 2, w / 2), Size(size.width - w, size.height - w), CornerRadius(r - w / 2), style = Stroke(w))
                 }
             }
-            .clickable(onClick = onClick).padding(10.dp),
+            .clip(RoundedCornerShape(corner.value))
+            .then(if (picture != null) Modifier else Modifier.clickable(onClick = onClick))
+            .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        SkinMiniPreview(skin, settings, Modifier.fillMaxWidth().height(96.dp))
-        Text(tr(title), style = MaterialTheme.typography.titleSmall, color = if (selected) cs.onPrimaryContainer else cs.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box(Modifier.fillMaxWidth()) {
+            if (picture != null) {
+                Image(
+                    picture, null, contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize().clip(RoundedCornerShape(14.dp))
+                )
+                // scrim keeps the name and the mini keyboard legible over a bright illustration
+                Box(Modifier.matchParentSize().clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = 0.28f)))
+            }
+            SkinMiniPreview(skin, settings, Modifier.fillMaxWidth().height(96.dp))
+        }
+        Text(tr(title), style = MaterialTheme.typography.titleSmall, color = titleColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (subtitle.isNotEmpty()) {
             Text(
-                tr(subtitle), style = MaterialTheme.typography.bodySmall,
-                color = if (selected) cs.onPrimaryContainer.copy(alpha = 0.8f) else cs.onSurfaceVariant, maxLines = 2, minLines = 2,
+                tr(subtitle), style = MaterialTheme.typography.bodySmall, color = subColor, maxLines = 2, minLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+        if (onPreview != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onPreview, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
+                    Text(tr("Предпросмотр"), style = MaterialTheme.typography.labelLarge, color = if (onPicture) Color.White else cs.primary)
+                }
+                Spacer(Modifier.weight(1f))
+                FilledTonalButton(
+                    onClick = onClick,
+                    enabled = !selected,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text(tr(if (selected) "Применено" else "Применить"), style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Full-size preview of a theme: the artwork as the keyboard will show it, with a real keyboard
+ * preview drawn on top, the theme name, and a working Apply button.
+ */
+@Composable
+private fun ThemePreviewDialog(
+    plugin: KeyboardPlugin,
+    settings: KeyboardSettings,
+    dark: Boolean,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val cs = MaterialTheme.colorScheme
+    val picture = rememberThemeArtwork(plugin.backgroundImage)
+    val skin = remember(plugin, settings, dark) { previewSkin(plugin, settings, dark) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            Modifier.fillMaxWidth(0.94f).clip(RoundedCornerShape(28.dp)).background(cs.surfaceContainerHigh).padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(Modifier.fillMaxWidth().height(210.dp).clip(RoundedCornerShape(20.dp)).background(cs.surfaceContainer)) {
+                if (picture != null) {
+                    Image(picture, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                }
+                SkinMiniPreview(
+                    skin, settings,
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(130.dp).padding(8.dp)
+                )
+            }
+            Text(tr(plugin.name), style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+            Text(
+                tr(plugin.description), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                maxLines = 3, overflow = TextOverflow.Ellipsis
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(tr("Закрыть")) }
+                Button(
+                    onClick = { onApply(); onDismiss() },
+                    modifier = Modifier.weight(1f),
+                    enabled = settings.skinPlugin != plugin.id
+                ) { Text(tr(if (settings.skinPlugin == plugin.id) "Применено" else "Применить")) }
+            }
         }
     }
 }
@@ -348,6 +443,9 @@ internal fun ThemesPage(settings: KeyboardSettings, onNavigate: (SettingsPage) -
     val anime = extra.filter { it.id.startsWith(ANIME_SKIN_PREFIX) }
     val other = extra.filter { !it.id.startsWith(ANIME_SKIN_PREFIX) }
 
+    // which theme's full-size preview is open, if any
+    var previewing by remember { mutableStateOf<KeyboardPlugin?>(null) }
+
     /** Two-column grid of theme cards; the same card is used by every gallery section. */
     @Composable
     fun SkinGrid(items: List<Triple<String, String, String>>) {
@@ -359,7 +457,11 @@ internal fun ThemesPage(settings: KeyboardSettings, onNavigate: (SettingsPage) -
                         previewSkin(plugin, settings, dark)
                     }
                     Box(Modifier.weight(1f)) {
-                        ThemeCard(title, sub, settings.skinPlugin == skinId, skin, settings) {
+                        ThemeCard(
+                            title, sub, settings.skinPlugin == skinId, skin, settings,
+                            artwork = plugin?.backgroundImage,
+                            onPreview = if (plugin != null && plugin.skin != null) ({ previewing = plugin }) else null
+                        ) {
                             val d = DesignStyle.entries.firstOrNull { it.skin == skinId }
                             if (d != null) d.apply(context) else ThemeEditor.apply(context, skinId)
                         }
@@ -391,6 +493,28 @@ internal fun ThemesPage(settings: KeyboardSettings, onNavigate: (SettingsPage) -
                 SkinGrid(anime.map { Triple(tr(it.name), tr(it.description), it.id) })
             }
         }
+        ActionItem(
+            Icons.Rounded.Refresh, "Сбросить тему",
+            "Вернуть стандартный вид и убрать свою картинку",
+            onClick = {
+                KeyboardPrefs.clearBackgroundImage(context)
+                DesignStyle.EXPRESSIVE.apply(context)
+            }
+        )
+    }
+
+    // full-size preview, opened from a card's Preview button
+    previewing?.let { shown ->
+        ThemePreviewDialog(
+            plugin = shown,
+            settings = settings,
+            dark = dark,
+            onApply = {
+                val d = DesignStyle.entries.firstOrNull { it.skin == shown.id }
+                if (d != null) d.apply(context) else ThemeEditor.apply(context, shown.id)
+            },
+            onDismiss = { previewing = null }
+        )
     }
 
     if (Build.VERSION.SDK_INT >= 33) SettingsSection("Жидкое стекло") {

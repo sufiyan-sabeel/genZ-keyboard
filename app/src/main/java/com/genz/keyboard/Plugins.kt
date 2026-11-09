@@ -301,6 +301,8 @@ data class KeyboardPlugin(
     val theme: PluginTheme?,
     val builtIn: Boolean,
     val skin: KeyboardSkin? = null,
+    /** Bundled artwork drawn behind the keys, as an asset path ("anime/sakura.webp"). */
+    val backgroundImage: String? = null,
     val settings: Map<String, Any> = emptyMap(),
     val layouts: Map<String, List<KeyRow>> = emptyMap(),
     val variants: Map<String, List<String>> = emptyMap(),
@@ -529,6 +531,7 @@ object PluginParser {
             theme = theme,
             builtIn = builtIn,
             skin = skin,
+            backgroundImage = o.optString("backgroundImage").takeIf { it.isNotBlank() },
             settings = settings,
             layouts = layouts,
             variants = variants,

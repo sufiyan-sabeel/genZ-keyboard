@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Тёмный бордовый фон и багровые клавиши с холодным свечением по краю. Драматично, но текст остаётся чистым.",
   "icon": "🩸",
+  "backgroundImage": "anime/crimson.webp",
   "skin": {
     "keyboard": {
       "background": {

@@ -188,7 +188,11 @@ fun KeyboardRoot(
         val palette = rememberKeyPalette(settings)
         val baseFont = LocalKeyFont.current
         val font = remember(baseFont, skin) { skin?.fontFamily(baseFont) ?: baseFont }
-        val image = if (settings.hasBackgroundImage) rememberBackgroundBitmap(settings.bgImageVersion) else null
+        // Background priority: an image the user picked beats the artwork the theme ships with.
+        val userImage = if (settings.hasBackgroundImage) rememberBackgroundBitmap(settings.bgImageVersion) else null
+        val themePlugin = remember(activePlugins, scriptSkin, raw.skinPlugin) { PluginRepository.skinPlugin(raw) }
+        val themeArtwork = if (userImage == null) rememberThemeArtwork(themePlugin?.backgroundImage) else null
+        val image = userImage ?: themeArtwork
         val density = LocalDensity.current
         SideEffect { PatternTiles.density = density.density }
         val backdrop = remember { Backdrop() }

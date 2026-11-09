@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Тёплый розовый фон с лепестками сакуры в бликах и нежными клавишами цвета утреннего неба.",
   "icon": "🌸",
+  "backgroundImage": "anime/sakura.webp",
   "skin": {
     "keyboard": {
       "background": {

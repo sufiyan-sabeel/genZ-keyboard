@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Глубокий сине-чёрный фон, мягкие фиолетовые блики и спокойные клавиши. Читается в любой комнате, не отвлекает от текста.",
   "icon": "🌙",
+  "backgroundImage": "anime/dark.webp",
   "skin": {
     "keyboard": {
       "background": {

@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Почти чёрный фон, сталь и один алый акцент. Строгая тема для тех, кто печатает быстро и молча.",
   "icon": "⚔️",
+  "backgroundImage": "anime/samurai.webp",
   "skin": {
     "keyboard": {
       "background": {

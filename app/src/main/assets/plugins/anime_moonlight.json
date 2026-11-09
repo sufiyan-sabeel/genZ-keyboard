@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Ночное небо и серебристый свет на клавишах. Самый спокойный вариант для вечернего набора.",
   "icon": "🌕",
+  "backgroundImage": "anime/moonlight.webp",
   "skin": {
     "keyboard": {
       "background": {

@@ -526,7 +526,12 @@ internal fun StylePreview(settings: KeyboardSettings, spec: WavySpec) {
     val palette = rememberKeyPalette(settings)
     val font = LocalKeyFont.current
     val weight = LocalKeyWeight.current
-    val image = if (settings.hasBackgroundImage) rememberBackgroundBitmap(settings.bgImageVersion) else null
+    // The preview must show the same backdrop the real keyboard draws: the user's own image if
+    // they picked one, otherwise the artwork the selected theme ships with.
+    val userImage = if (settings.hasBackgroundImage) rememberBackgroundBitmap(settings.bgImageVersion) else null
+    val themePlugin = remember(settings.skinPlugin, PluginRepository.active) { PluginRepository.skinPlugin(settings) }
+    val themeArtwork = if (userImage == null) rememberThemeArtwork(themePlugin?.backgroundImage) else null
+    val image = userImage ?: themeArtwork
     val keyH = (settings.keyHeightDp * 0.9f).dp
     val gap = settings.keySpacingDp.dp
     val corner = settings.cornerRadiusDp.dp

@@ -229,6 +229,35 @@ fun rememberBackgroundBitmap(version: Long): ImageBitmap? {
     return state.value
 }
 
+/**
+ * Artwork bundled with a theme (an asset path such as "anime/sakura.webp").
+ *
+ * Decoded once per path on a background thread and kept while the theme stays selected, so
+ * switching keys or panels never touches the bitmap again. Sampling keeps the decoded image
+ * under ~2048 px on its longest side, which is plenty for a keyboard-height strip and keeps
+ * memory flat on low-end devices.
+ */
+@Composable
+fun rememberThemeArtwork(asset: String?): ImageBitmap? {
+    val context = LocalContext.current
+    val state = produceState<ImageBitmap?>(null, asset) {
+        value = if (asset.isNullOrBlank()) null else withContext(Dispatchers.IO) {
+            runCatching {
+                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.assets.open(asset).use { android.graphics.BitmapFactory.decodeStream(it, null, bounds) }
+                var sample = 1
+                while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 2048) sample *= 2
+                context.assets.open(asset).use {
+                    android.graphics.BitmapFactory.decodeStream(
+                        it, null, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+                    )?.asImageBitmap()
+                }
+            }.getOrNull()
+        }
+    }
+    return state.value
+}
+
 enum class Glyph { SHIFT, CAPS, BACKSPACE, BACKSPACE_TAG, ARROW, RETURN, GLOBE, EMOJI, GRID }
 
 @Composable

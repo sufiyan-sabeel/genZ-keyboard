@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Чёрное и белое, как лист манги: белые клавиши, чёрные буквы, тонкая обводка. Максимальная читаемость.",
   "icon": "📖",
+  "backgroundImage": "anime/manga.webp",
   "skin": {
     "keyboard": {
       "background": {

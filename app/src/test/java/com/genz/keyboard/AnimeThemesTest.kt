@@ -82,6 +82,17 @@ class AnimeThemesTest {
     }
 
     @Test
+    fun everyThemeDeclaresItsArtworkPath() {
+        themeFiles().forEach { f ->
+            val slug = f.nameWithoutExtension.removePrefix("anime_")
+            assertTrue(
+                "${f.name} must point at anime/$slug.webp",
+                f.readText().contains("\"backgroundImage\": \"anime/$slug.webp\"")
+            )
+        }
+    }
+
+    @Test
     fun accentColourIsOpaque() {
         // A translucent accent would wash out the Enter key and the pressed-key fill.
         val accent = Regex("\"accent\"\\s*:\\s*\"(#[0-9A-Fa-f]{6})\"")

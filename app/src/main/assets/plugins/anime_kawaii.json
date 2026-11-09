@@ -5,6 +5,7 @@
   "author": "GenZ Keyboard",
   "description": "Светлые пастельные клавиши на сливовом фоне: розовый, лаванда и мята. Мягко, но контраст текста сохранён.",
   "icon": "🍭",
+  "backgroundImage": "anime/kawaii.webp",
   "skin": {
     "keyboard": {
       "background": {

@@ -1,0 +1,115 @@
+{
+  "id": "builtin.anime.sakura",
+  "name": "Сакура",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "Тёплый розовый фон с лепестками сакуры в бликах и нежными клавишами цвета утреннего неба.",
+  "icon": "🌸",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#1A0E16",
+          "#2A1622"
+        ],
+        "angle": 90
+      },
+      "orbs": [
+        {
+          "color": "#2EFFB7D5",
+          "x": 0.82,
+          "y": 1.05,
+          "r": 0.62
+        },
+        {
+          "color": "#1CC2568A",
+          "x": 0.12,
+          "y": -0.08,
+          "r": 0.52
+        }
+      ],
+      "trail": "#FF8FBE",
+      "corner": 26
+    },
+    "colors": {
+      "background": "#2A1622",
+      "key": "#2B1826",
+      "keyText": "#FFE9F2",
+      "func": "#241320",
+      "funcText": "#FFC9DE",
+      "accent": "#FF8FBE",
+      "accentText": "#2A0E1B"
+    },
+    "keys": {
+      "*": {
+        "material": "outline",
+        "background": "#E62B1826",
+        "border": "#3DFF8FBE",
+        "borderWidth": 1,
+        "glow": "#1FFF8FBE",
+        "text": "#FFE9F2",
+        "pressedBackground": "#FF8FBE",
+        "pressedText": "#2A0E1B",
+        "press": "bounce",
+        "pressScale": 1.04,
+        "radius": 14,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "background": "#E6241320",
+        "border": "#26FF8FBE",
+        "text": "#FFC9DE",
+        "pressedBackground": "#FFC2DC",
+        "pressedText": "#2A0E1B"
+      },
+      "space": {
+        "border": "#40FF8FBE",
+        "text": "#FFE9F2",
+        "fontScale": 0.9
+      },
+      "enter": {
+        "material": "solid",
+        "background": {
+          "colors": [
+            "#FF8FBE",
+            "#FFC2DC"
+          ],
+          "angle": 0
+        },
+        "text": "#2A0E1B",
+        "glow": "#66FF8FBE",
+        "pressedBackground": "#FFE9F2"
+      }
+    },
+    "popup": {
+      "radius": 12,
+      "background": "#2A1622",
+      "border": "#FF8FBE",
+      "text": "#FFE9F2",
+      "pressedBackground": "#FF8FBE",
+      "pressedText": "#2A0E1B"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#D9FFE9F2"
+    },
+    "buttons": {
+      "material": "outline",
+      "background": "#0DFFFFFF",
+      "border": "#66FF8FBE",
+      "borderWidth": 1.1,
+      "glow": "#26FF8FBE",
+      "text": "#E6FFE9F2",
+      "pressedBackground": "#FF8FBE"
+    },
+    "panel": {
+      "material": "outline",
+      "background": "#B32A1622",
+      "border": "#40FF8FBE",
+      "borderWidth": 1,
+      "glow": "#00000000",
+      "radius": 20
+    }
+  }
+}

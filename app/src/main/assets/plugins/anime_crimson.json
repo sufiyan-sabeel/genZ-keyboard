@@ -1,0 +1,115 @@
+{
+  "id": "builtin.anime.crimson",
+  "name": "Багровая тень",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "Тёмный бордовый фон и багровые клавиши с холодным свечением по краю. Драматично, но текст остаётся чистым.",
+  "icon": "🩸",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#120608",
+          "#22101A"
+        ],
+        "angle": 90
+      },
+      "orbs": [
+        {
+          "color": "#2EFF3B5C",
+          "x": 0.82,
+          "y": 1.05,
+          "r": 0.62
+        },
+        {
+          "color": "#1C6B1224",
+          "x": 0.12,
+          "y": -0.08,
+          "r": 0.52
+        }
+      ],
+      "trail": "#FF4D6D",
+      "corner": 24
+    },
+    "colors": {
+      "background": "#22101A",
+      "key": "#1E0F16",
+      "keyText": "#FFE6EA",
+      "func": "#180B11",
+      "funcText": "#FFB8C4",
+      "accent": "#FF4D6D",
+      "accentText": "#170407"
+    },
+    "keys": {
+      "*": {
+        "material": "outline",
+        "background": "#E61E0F16",
+        "border": "#3DFF4D6D",
+        "borderWidth": 1,
+        "glow": "#1FFF4D6D",
+        "text": "#FFE6EA",
+        "pressedBackground": "#FF4D6D",
+        "pressedText": "#170407",
+        "press": "bounce",
+        "pressScale": 1.04,
+        "radius": 12,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "background": "#E6180B11",
+        "border": "#26FF4D6D",
+        "text": "#FFB8C4",
+        "pressedBackground": "#FF8FA3",
+        "pressedText": "#170407"
+      },
+      "space": {
+        "border": "#40FF4D6D",
+        "text": "#FFE6EA",
+        "fontScale": 0.9
+      },
+      "enter": {
+        "material": "solid",
+        "background": {
+          "colors": [
+            "#FF4D6D",
+            "#FF8FA3"
+          ],
+          "angle": 0
+        },
+        "text": "#170407",
+        "glow": "#66FF4D6D",
+        "pressedBackground": "#FFE6EA"
+      }
+    },
+    "popup": {
+      "radius": 12,
+      "background": "#22101A",
+      "border": "#FF4D6D",
+      "text": "#FFE6EA",
+      "pressedBackground": "#FF4D6D",
+      "pressedText": "#170407"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#D9FFE6EA"
+    },
+    "buttons": {
+      "material": "outline",
+      "background": "#0DFFFFFF",
+      "border": "#66FF4D6D",
+      "borderWidth": 1.1,
+      "glow": "#26FF4D6D",
+      "text": "#E6FFE6EA",
+      "pressedBackground": "#FF4D6D"
+    },
+    "panel": {
+      "material": "outline",
+      "background": "#B322101A",
+      "border": "#40FF4D6D",
+      "borderWidth": 1,
+      "glow": "#00000000",
+      "radius": 20
+    }
+  }
+}

@@ -175,14 +175,20 @@ jobs:
 
           Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
 
-          ### What changed in 1.0.1
-          - **The version number is real now.** The "What's new" page read a hardcoded 11.2.0
-            inherited from the original codebase, so it announced a release that never existed.
-            It now reads the version from the build itself and shows 1.0.1.
-          - **English only.** App language offers just System and English; the Russian option is
-            gone, and a phone set to Russian still opens in English.
-          - Kept from 1.0.0: one shape scale for every surface, a rebalanced type hierarchy, and
-            muted section headers so the accent colour stays semantic.
+          ### What changed in 1.0.2
+          - **Anime theme system.** Ten anime-inspired themes - Anime Dark, Sakura Dreams,
+            Midnight Samurai, Anime Blue, Crimson Shadow, Moonlight Anime, Kawaii Pastel,
+            Manga Monochrome, Anime Purple and Neon Tokyo - in their own section of Themes.
+            Each one restyles the real keyboard: background gradient and glow, key and
+            function-key fills, text and pressed colours, spacebar, Enter, popup, suggestion
+            chips, toolbar buttons and panel, key corner radius and press animation.
+          - The artwork is generated from colour at runtime, so no third-party anime artwork
+            ships with the app and nothing needs licensing.
+          - **Custom background now uses the system photo picker.** One image, granted to this
+            app only, no media-library permission. Dimming, blur and transparency sliders and
+            a reset are in Settings -> Colors -> Background image.
+          - Ten new unit tests guard the theme files (ids, required sections, colour format),
+            because they are data and the compiler cannot check them.
 
           ### Install
           1. Download the APK below.
@@ -192,7 +198,7 @@ jobs:
 
           ### What is inside
           - Real IME: types into any app, 138 layouts, glide typing, prediction and autocorrect
-          - Nine keyboard styles, custom themes, accent colours, AMOLED dark theme
+          - Nineteen keyboard styles now: nine classic looks plus the ten anime themes
           - Emoji keyboard with search, clipboard history, text shortcuts, voice input
           - No analytics, no ads, no tracking, no keystroke logging. See PRIVACY.md.
 

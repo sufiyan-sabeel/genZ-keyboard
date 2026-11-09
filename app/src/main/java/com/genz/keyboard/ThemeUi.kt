@@ -343,31 +343,54 @@ internal fun ThemesPage(settings: KeyboardSettings, onNavigate: (SettingsPage) -
     // галерея: готовые стили + темы из плагинов и свои
     val designSkins = DesignStyle.entries.map { it.skin }.toSet()
     val extra = plugins.filter { it.skin != null && it.id !in designSkins }
+    // Anime skins are ordinary skins that carry a reserved id prefix, so they render through the
+    // same pipeline as every other theme but get their own gallery section.
+    val anime = extra.filter { it.id.startsWith(ANIME_SKIN_PREFIX) }
+    val other = extra.filter { !it.id.startsWith(ANIME_SKIN_PREFIX) }
+
+    /** Two-column grid of theme cards; the same card is used by every gallery section. */
+    @Composable
+    fun SkinGrid(items: List<Triple<String, String, String>>) {
+        items.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                pair.forEach { (title, sub, skinId) ->
+                    val plugin = plugins.firstOrNull { it.id == skinId }
+                    val skin = remember(plugin, settings.skinOptions, settings.userAccent, settings.colorAccentText, settings.keyOpacity, dark) {
+                        previewSkin(plugin, settings, dark)
+                    }
+                    Box(Modifier.weight(1f)) {
+                        ThemeCard(title, sub, settings.skinPlugin == skinId, skin, settings) {
+                            val d = DesignStyle.entries.firstOrNull { it.skin == skinId }
+                            if (d != null) d.apply(context) else ThemeEditor.apply(context, skinId)
+                        }
+                    }
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+
     SettingsSection(null) { ThemeModeItem(settings) }
     SettingsSection("Темы") {
         GroupItem {
             Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val items = DesignStyle.entries.map { d -> Triple(d.title, d.subtitle, d.skin) } + extra.map { Triple(tr(it.name), if (it.builtIn) "" else tr("Своя тема"), it.id) }
-                items.chunked(2).forEach { pair ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        pair.forEach { (title, sub, skinId) ->
-                            val plugin = plugins.firstOrNull { it.id == skinId }
-                            val skin = remember(plugin, settings.skinOptions, settings.userAccent, settings.colorAccentText, settings.keyOpacity, dark) { previewSkin(plugin, settings, dark) }
-                            Box(Modifier.weight(1f)) {
-                                ThemeCard(title, sub, settings.skinPlugin == skinId, skin, settings) {
-                                    val d = DesignStyle.entries.firstOrNull { it.skin == skinId }
-                                    if (d != null) d.apply(context) else ThemeEditor.apply(context, skinId)
-                                }
-                            }
-                        }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                }
+                SkinGrid(
+                    DesignStyle.entries.map { d -> Triple(d.title, d.subtitle, d.skin) } +
+                        other.map { Triple(tr(it.name), if (it.builtIn) "" else tr("Своя тема"), it.id) }
+                )
             }
         }
         ActionItem(Icons.Rounded.ColorLens, "Акцентный цвет и цвета клавиш", "Enter, Shift и подсветка в любой теме — в вашем цвете", onClick = {
             onNavigate(SettingsPage.COLORS)
         })
+    }
+
+    if (anime.isNotEmpty()) SettingsSection("Аниме-темы") {
+        GroupItem {
+            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SkinGrid(anime.map { Triple(tr(it.name), tr(it.description), it.id) })
+            }
+        }
     }
 
     if (Build.VERSION.SDK_INT >= 33) SettingsSection("Жидкое стекло") {
@@ -490,6 +513,9 @@ private fun OptionItem(skinId: String, opt: SkinOption, values: Map<String, Any>
 // Черновик — JSON плагина с "skin". Каждое поле редактора меняет одно значение в нём; предпросмотр
 // разбирает черновик заново. Тёмный вариант — правки в "skin" → "dark" поверх светлого.
 // ============================================================================
+
+/** Id prefix that marks a skin as part of the anime collection. */
+internal const val ANIME_SKIN_PREFIX = "builtin.anime."
 
 object ThemeEditor {
     var json by mutableStateOf("")

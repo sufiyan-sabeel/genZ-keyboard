@@ -1,0 +1,115 @@
+{
+  "id": "builtin.anime.dark",
+  "name": "Аниме: Тёмная",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "Глубокий сине-чёрный фон, мягкие фиолетовые блики и спокойные клавиши. Читается в любой комнате, не отвлекает от текста.",
+  "icon": "🌙",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#0B0B14",
+          "#16162A"
+        ],
+        "angle": 90
+      },
+      "orbs": [
+        {
+          "color": "#2E8B7BFF",
+          "x": 0.82,
+          "y": 1.05,
+          "r": 0.62
+        },
+        {
+          "color": "#1C4B3F8F",
+          "x": 0.12,
+          "y": -0.08,
+          "r": 0.52
+        }
+      ],
+      "trail": "#8B7BFF",
+      "corner": 24
+    },
+    "colors": {
+      "background": "#16162A",
+      "key": "#1B1B30",
+      "keyText": "#ECEBFF",
+      "func": "#171728",
+      "funcText": "#CFCBFF",
+      "accent": "#8B7BFF",
+      "accentText": "#0B0B14"
+    },
+    "keys": {
+      "*": {
+        "material": "outline",
+        "background": "#E61B1B30",
+        "border": "#3D8B7BFF",
+        "borderWidth": 1,
+        "glow": "#1F8B7BFF",
+        "text": "#ECEBFF",
+        "pressedBackground": "#8B7BFF",
+        "pressedText": "#0B0B14",
+        "press": "bounce",
+        "pressScale": 1.04,
+        "radius": 12,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "background": "#E6171728",
+        "border": "#268B7BFF",
+        "text": "#CFCBFF",
+        "pressedBackground": "#B9AEFF",
+        "pressedText": "#0B0B14"
+      },
+      "space": {
+        "border": "#408B7BFF",
+        "text": "#ECEBFF",
+        "fontScale": 0.9
+      },
+      "enter": {
+        "material": "solid",
+        "background": {
+          "colors": [
+            "#8B7BFF",
+            "#B9AEFF"
+          ],
+          "angle": 0
+        },
+        "text": "#0B0B14",
+        "glow": "#668B7BFF",
+        "pressedBackground": "#ECEBFF"
+      }
+    },
+    "popup": {
+      "radius": 12,
+      "background": "#16162A",
+      "border": "#8B7BFF",
+      "text": "#ECEBFF",
+      "pressedBackground": "#8B7BFF",
+      "pressedText": "#0B0B14"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#D9ECEBFF"
+    },
+    "buttons": {
+      "material": "outline",
+      "background": "#0DFFFFFF",
+      "border": "#668B7BFF",
+      "borderWidth": 1.1,
+      "glow": "#268B7BFF",
+      "text": "#E6ECEBFF",
+      "pressedBackground": "#8B7BFF"
+    },
+    "panel": {
+      "material": "outline",
+      "background": "#B316162A",
+      "border": "#408B7BFF",
+      "borderWidth": 1,
+      "glow": "#00000000",
+      "radius": 20
+    }
+  }
+}

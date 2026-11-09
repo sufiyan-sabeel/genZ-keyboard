@@ -48,13 +48,53 @@ the third-party notices this codebase is legally required to keep are in [LICENS
 - Custom themes: background, key colours, accent colour, key shape, shadows and font
 - AMOLED-friendly dark theme and a light theme
 - Material You wallpaper colours, or the GenZ brand violet by default
-- English interface by default, with Russian still available in settings
+- Ten anime themes in their own gallery section (see below)
+- English interface only, with a System option that follows the device
 - One-tap dark mode switch on the settings home, plus the auto / light / dark / AMOLED picker
 - Onboarding flow, a keyboard preview and a searchable settings screen
 - A layout editor for rearranging keys, and a JavaScript plugin engine (Rhino) for custom
   panels, keys and events
 
+## Anime Theme System
+
+Ten anime-inspired keyboard themes ship with the app, in a dedicated **Anime themes** section of
+*Settings → Themes*:
+
+| Theme | Character |
+| --- | --- |
+| Anime Dark | deep blue-black, soft violet glow |
+| Sakura Dreams | warm rose with petal-pink keys |
+| Midnight Samurai | near-black steel with one scarlet accent |
+| Anime Blue | midnight blue and sky |
+| Crimson Shadow | burgundy with crimson keys |
+| Moonlight Anime | night sky and silver keys |
+| Kawaii Pastel | pastel keys on plum, dark text |
+| Manga Monochrome | white keys, black letters, ink-panel look |
+| Anime Purple | saturated violet with orchid accent |
+| Neon Tokyo | pink and cyan edge glow, gradient Enter |
+
+Every theme is a **skin definition, not a screenshot**: the JSON in
+`app/src/main/assets/plugins/anime_*.json` sets the keyboard background gradient and glow, key and
+function-key fills, text colours, pressed states, spacebar and Enter styling, popup, suggestion
+chips, toolbar buttons and panel, plus the key corner radius and press animation. They render
+through the same pipeline as the built-in styles, so they change the real system keyboard and
+appear in every layout.
+
+The artwork is generated from colour, not lifted from anywhere: gradients and glows are drawn at
+runtime, so there is no third-party anime artwork in the app and nothing to license or attribute.
+
+**Your own background.** *Settings → Colors → Background image* uses the Android system photo
+picker — one image, granted to this app only, no media-library permission — then offers dimming,
+blur and transparency sliders and a reset. The image is copied into app-private storage; it is
+never uploaded, and no network call is involved.
+
+**Persistence and performance.** The selected theme is stored as a skin id in the existing
+preferences, so it survives app, keyboard and device restarts. Background bitmaps are decoded once
+and cached (`rememberBackgroundBitmap`), never on the typing path.
+
 **Privacy**
+
+
 
 - No typed text leaves the device. There is no keystroke logging, no remote logging and no
   analytics of any kind

@@ -1,0 +1,115 @@
+{
+  "id": "builtin.anime.purple",
+  "name": "Аниме: Фиолетовая",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "Насыщенный фиолетовый с орхидейным акцентом и мягким свечением вокруг нажатой клавиши.",
+  "icon": "🔮",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#0F0620",
+          "#1B0E33"
+        ],
+        "angle": 90
+      },
+      "orbs": [
+        {
+          "color": "#2E9D4EDD",
+          "x": 0.82,
+          "y": 1.05,
+          "r": 0.62
+        },
+        {
+          "color": "#1C4A1F7A",
+          "x": 0.12,
+          "y": -0.08,
+          "r": 0.52
+        }
+      ],
+      "trail": "#B56CFF",
+      "corner": 26
+    },
+    "colors": {
+      "background": "#1B0E33",
+      "key": "#1E1038",
+      "keyText": "#F0E6FF",
+      "func": "#180C2D",
+      "funcText": "#CDB6F5",
+      "accent": "#B56CFF",
+      "accentText": "#12061F"
+    },
+    "keys": {
+      "*": {
+        "material": "outline",
+        "background": "#E61E1038",
+        "border": "#3DB56CFF",
+        "borderWidth": 1,
+        "glow": "#1FB56CFF",
+        "text": "#F0E6FF",
+        "pressedBackground": "#B56CFF",
+        "pressedText": "#12061F",
+        "press": "bounce",
+        "pressScale": 1.04,
+        "radius": 14,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "background": "#E6180C2D",
+        "border": "#26B56CFF",
+        "text": "#CDB6F5",
+        "pressedBackground": "#D9A6FF",
+        "pressedText": "#12061F"
+      },
+      "space": {
+        "border": "#40B56CFF",
+        "text": "#F0E6FF",
+        "fontScale": 0.9
+      },
+      "enter": {
+        "material": "solid",
+        "background": {
+          "colors": [
+            "#B56CFF",
+            "#D9A6FF"
+          ],
+          "angle": 0
+        },
+        "text": "#12061F",
+        "glow": "#66B56CFF",
+        "pressedBackground": "#F0E6FF"
+      }
+    },
+    "popup": {
+      "radius": 12,
+      "background": "#1B0E33",
+      "border": "#B56CFF",
+      "text": "#F0E6FF",
+      "pressedBackground": "#B56CFF",
+      "pressedText": "#12061F"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#D9F0E6FF"
+    },
+    "buttons": {
+      "material": "outline",
+      "background": "#0DFFFFFF",
+      "border": "#66B56CFF",
+      "borderWidth": 1.1,
+      "glow": "#26B56CFF",
+      "text": "#E6F0E6FF",
+      "pressedBackground": "#B56CFF"
+    },
+    "panel": {
+      "material": "outline",
+      "background": "#B31B0E33",
+      "border": "#40B56CFF",
+      "borderWidth": 1,
+      "glow": "#00000000",
+      "radius": 20
+    }
+  }
+}

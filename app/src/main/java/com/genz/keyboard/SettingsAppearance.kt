@@ -44,6 +44,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -260,7 +261,9 @@ internal fun ColorsPage(settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     var picker by remember { mutableStateOf<ColorTarget?>(null) }
     val auto = remember(cs) { buildKeyPalette(cs, KeyboardSettings()) }
-    val bgLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+    // System photo picker: the user picks one image and grants access to that file only, so the
+    // keyboard never needs a media-library permission to read it.
+    val bgLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         if (uri != null) scope.launch {
             val ok = withContext(Dispatchers.IO) { importBackground(context, uri) }
             if (ok) KeyboardPrefs.setBackgroundImage(context)
@@ -389,7 +392,7 @@ internal fun ColorsPage(settings: KeyboardSettings) {
             icon = Icons.Rounded.Wallpaper,
             title = if (settings.hasBackgroundImage) "Сменить картинку" else "Выбрать картинку",
             subtitle = "Фото из галереи под клавишами",
-            onClick = { bgLauncher.launch("image/*") },
+            onClick = { bgLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             trailing = if (settings.hasBackgroundImage) {
                 {
                     IconButton(onClick = { KeyboardPrefs.clearBackgroundImage(context) }) {

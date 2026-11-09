@@ -1,0 +1,115 @@
+{
+  "id": "builtin.anime.manga",
+  "name": "Манга: моно",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "Чёрное и белое, как лист манги: белые клавиши, чёрные буквы, тонкая обводка. Максимальная читаемость.",
+  "icon": "📖",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#0A0A0A",
+          "#161616"
+        ],
+        "angle": 90
+      },
+      "orbs": [
+        {
+          "color": "#2EFFFFFF",
+          "x": 0.82,
+          "y": 1.05,
+          "r": 0.62
+        },
+        {
+          "color": "#1C3A3A3A",
+          "x": 0.12,
+          "y": -0.08,
+          "r": 0.52
+        }
+      ],
+      "trail": "#0A0A0A",
+      "corner": 18
+    },
+    "colors": {
+      "background": "#161616",
+      "key": "#F5F5F5",
+      "keyText": "#0A0A0A",
+      "func": "#DCDCDC",
+      "funcText": "#111111",
+      "accent": "#0A0A0A",
+      "accentText": "#FFFFFF"
+    },
+    "keys": {
+      "*": {
+        "material": "outline",
+        "background": "#E6F5F5F5",
+        "border": "#3D0A0A0A",
+        "borderWidth": 1,
+        "glow": "#1F0A0A0A",
+        "text": "#0A0A0A",
+        "pressedBackground": "#0A0A0A",
+        "pressedText": "#FFFFFF",
+        "press": "none",
+        "pressScale": 1.04,
+        "radius": 6,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "background": "#E6DCDCDC",
+        "border": "#260A0A0A",
+        "text": "#111111",
+        "pressedBackground": "#3A3A3A",
+        "pressedText": "#FFFFFF"
+      },
+      "space": {
+        "border": "#400A0A0A",
+        "text": "#0A0A0A",
+        "fontScale": 0.9
+      },
+      "enter": {
+        "material": "solid",
+        "background": {
+          "colors": [
+            "#0A0A0A",
+            "#3A3A3A"
+          ],
+          "angle": 0
+        },
+        "text": "#FFFFFF",
+        "glow": "#660A0A0A",
+        "pressedBackground": "#0A0A0A"
+      }
+    },
+    "popup": {
+      "radius": 12,
+      "background": "#161616",
+      "border": "#0A0A0A",
+      "text": "#0A0A0A",
+      "pressedBackground": "#0A0A0A",
+      "pressedText": "#FFFFFF"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#D90A0A0A"
+    },
+    "buttons": {
+      "material": "outline",
+      "background": "#0DFFFFFF",
+      "border": "#660A0A0A",
+      "borderWidth": 1.1,
+      "glow": "#260A0A0A",
+      "text": "#E60A0A0A",
+      "pressedBackground": "#0A0A0A"
+    },
+    "panel": {
+      "material": "outline",
+      "background": "#B3161616",
+      "border": "#400A0A0A",
+      "borderWidth": 1,
+      "glow": "#00000000",
+      "radius": 20
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "id": "builtin.anime.moonlight",
+  "name": "Лунный свет",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "Ночное небо и серебристый свет на клавишах. Самый спокойный вариант для вечернего набора.",
+  "icon": "🌕",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#070B16",
+          "#101A2E"
+        ],
+        "angle": 90
+      },
+      "orbs": [
+        {
+          "color": "#2EB9C7E6",
+          "x": 0.82,
+          "y": 1.05,
+          "r": 0.62
+        },
+        {
+          "color": "#1C4A5A80",
+          "x": 0.12,
+          "y": -0.08,
+          "r": 0.52
+        }
+      ],
+      "trail": "#A9BFFF",
+      "corner": 28
+    },
+    "colors": {
+      "background": "#101A2E",
+      "key": "#131C30",
+      "keyText": "#EAF1FF",
+      "func": "#0E1526",
+      "funcText": "#C3D2F0",
+      "accent": "#A9BFFF",
+      "accentText": "#0A1020"
+    },
+    "keys": {
+      "*": {
+        "material": "outline",
+        "background": "#E6131C30",
+        "border": "#3DA9BFFF",
+        "borderWidth": 1,
+        "glow": "#1FA9BFFF",
+        "text": "#EAF1FF",
+        "pressedBackground": "#A9BFFF",
+        "pressedText": "#0A1020",
+        "press": "scale",
+        "pressScale": 1.04,
+        "radius": 16,
+        "inset": 1.5,
+        "hideHint": true
+      },
+      "func": {
+        "background": "#E60E1526",
+        "border": "#26A9BFFF",
+        "text": "#C3D2F0",
+        "pressedBackground": "#DCE6FF",
+        "pressedText": "#0A1020"
+      },
+      "space": {
+        "border": "#40A9BFFF",
+        "text": "#EAF1FF",
+        "fontScale": 0.9
+      },
+      "enter": {
+        "material": "solid",
+        "background": {
+          "colors": [
+            "#A9BFFF",
+            "#DCE6FF"
+          ],
+          "angle": 0
+        },
+        "text": "#0A1020",
+        "glow": "#66A9BFFF",
+        "pressedBackground": "#EAF1FF"
+      }
+    },
+    "popup": {
+      "radius": 12,
+      "background": "#101A2E",
+      "border": "#A9BFFF",
+      "text": "#EAF1FF",
+      "pressedBackground": "#A9BFFF",
+      "pressedText": "#0A1020"
+    },
+    "chips": {
+      "material": "none",
+      "text": "#D9EAF1FF"
+    },
+    "buttons": {
+      "material": "outline",
+      "background": "#0DFFFFFF",
+      "border": "#66A9BFFF",
+      "borderWidth": 1.1,
+      "glow": "#26A9BFFF",
+      "text": "#E6EAF1FF",
+      "pressedBackground": "#A9BFFF"
+    },
+    "panel": {
+      "material": "outline",
+      "background": "#B3101A2E",
+      "border": "#40A9BFFF",
+      "borderWidth": 1,
+      "glow": "#00000000",
+      "radius": 20
+    }
+  }
+}

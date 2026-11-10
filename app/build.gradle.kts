@@ -84,6 +84,17 @@ android {
         freeCompilerArgs += "-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi"
     }
 
+    // Two distributions from one codebase.
+    //   standard - GitHub Releases: everything, including the anime artwork.
+    //   fdroid    - the same keyboard without assets whose redistribution rights are unresolved.
+    //               The ten themes still ship; with no bundled picture they fall back to the
+    //               palette that was sampled from that artwork, so nothing looks broken.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("standard") { dimension = "distribution" }
+        create("fdroid") { dimension = "distribution" }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -145,8 +156,6 @@ dependencies {
     // пароли и логины из Google Паролей (и других служб автозаполнения) в строке подсказок, как в Gboard
     implementation("androidx.autofill:autofill:1.1.0")
 
-    // исправление текста Gemini Nano прямо на телефоне (через AICore, без ключа и интернета)
-    implementation("com.google.mlkit:genai-proofreading:1.0.0-beta1")
     // исправление текста с помощью Claude (ключ API пользователя)
     implementation("com.anthropic:anthropic-java:2.34.0")
 

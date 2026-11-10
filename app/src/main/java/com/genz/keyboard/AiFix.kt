@@ -10,11 +10,6 @@ import com.anthropic.errors.RateLimitException
 import com.anthropic.errors.UnauthorizedException
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
-import com.google.mlkit.genai.common.FeatureStatus
-import com.google.mlkit.genai.proofreading.Proofreader
-import com.google.mlkit.genai.proofreading.ProofreaderOptions
-import com.google.mlkit.genai.proofreading.Proofreading
-import com.google.mlkit.genai.proofreading.ProofreadingRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -35,7 +30,6 @@ import java.util.concurrent.TimeUnit
 
 enum class AiProvider(val id: String, val title: String) {
     AUTO("AUTO", "Авто"),
-    NANO("NANO", "На телефоне"),
     GEMINI("GEMINI", "Gemini"),
     CLAUDE("CLAUDE", "Claude"),
     OPENAI("OPENAI", "OpenAI"),
@@ -319,7 +313,7 @@ object AiFix {
             if (text.isBlank()) return@withContext Result.failure(IllegalArgumentException(tr("Нет текста")))
             if (text.length > MAX_CHARS) return@withContext Result.failure(IllegalArgumentException(tr("Слишком длинный текст")))
             val order = when (keys.provider) {
-                AiProvider.AUTO -> listOf(AiTarget(AiProvider.NANO)) + llmOrder(keys) + AiTarget(AiProvider.LANGUAGETOOL)
+                AiProvider.AUTO -> llmOrder(keys) + AiTarget(AiProvider.LANGUAGETOOL)
                 AiProvider.CUSTOM -> listOf(AiTarget(AiProvider.CUSTOM, keys.selectedCustom))
                 else -> listOf(AiTarget(keys.provider))
             }
@@ -341,7 +335,6 @@ object AiFix {
 
     private fun run(t: AiTarget, context: Context, text: String, keys: AiKeys, lang: String): String = when (val p = t.provider) {
         AiProvider.CUSTOM -> custom(t.custom ?: throw Skip(tr("Свой сервис не найден")), text, SYSTEM)
-        AiProvider.NANO -> nano(context, text, lang)
         AiProvider.GEMINI -> gemini(text, keys.gemini.trim().ifBlank { throw Skip(tr("Не задан ключ {0}", "Gemini")) }, SYSTEM, keys.models.gemini.ifBlank { GEMINI_MODEL })
         AiProvider.CLAUDE -> claude(text, keys.claude.trim().ifBlank { throw Skip(tr("Не задан ключ {0}", "Claude")) }, SYSTEM, keys.models.claude.ifBlank { CLAUDE_MODEL })
         AiProvider.OPENAI -> openAiCompatible(
@@ -358,65 +351,6 @@ object AiFix {
         )
         AiProvider.LANGUAGETOOL -> languageTool(text, lang)
         AiProvider.AUTO -> throw IllegalStateException("auto")
-    }
-
-    // ------------------------------------------------------------------ Gemini Nano на телефоне
-
-    private val NANO_LANGS = mapOf(
-        "en" to ProofreaderOptions.Language.ENGLISH, "ja" to ProofreaderOptions.Language.JAPANESE,
-        "de" to ProofreaderOptions.Language.GERMAN, "fr" to ProofreaderOptions.Language.FRENCH,
-        "it" to ProofreaderOptions.Language.ITALIAN, "es" to ProofreaderOptions.Language.SPANISH,
-        "ko" to ProofreaderOptions.Language.KOREAN
-    )
-
-    @Volatile private var nanoClient: Proofreader? = null
-    @Volatile private var nanoLang = -1
-    /** Языки, для которых исправление на телефоне недоступно: не ждём проверку по 10 секунд при каждом нажатии. */
-    private val nanoUnavailable = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
-
-    /** Состояние исправления на телефоне (FeatureStatus) для языка или null, если язык не поддерживается. */
-    suspend fun nanoStatus(context: Context, lang: String): Int? = withContext(Dispatchers.IO) {
-        val l = NANO_LANGS[lang] ?: return@withContext null
-        runCatching { proofreader(context, l).checkFeatureStatus().get(10, TimeUnit.SECONDS) }.getOrNull()
-    }
-
-    private fun proofreader(context: Context, l: Int): Proofreader = synchronized(this) {
-        nanoClient?.takeIf { nanoLang == l } ?: run {
-            runCatching { nanoClient?.close() }
-            Proofreading.getClient(
-                ProofreaderOptions.builder(context.applicationContext)
-                    .setInputType(ProofreaderOptions.InputType.KEYBOARD)
-                    .setLanguage(l)
-                    .build()
-            ).also {
-                nanoClient = it
-                nanoLang = l
-            }
-        }
-    }
-
-    private fun nano(context: Context, text: String, lang: String): String {
-        val l = NANO_LANGS[lang] ?: throw Skip(tr("Исправление на телефоне не поддерживает этот язык"))
-        if (l in nanoUnavailable) throw Skip(tr("Исправление на телефоне недоступно"))
-        val pr = try {
-            proofreader(context, l)
-        } catch (e: Throwable) {
-            nanoUnavailable += l
-            throw Skip(tr("Исправление на телефоне недоступно"))
-        }
-        val status = runCatching { pr.checkFeatureStatus().get(5, TimeUnit.SECONDS) }.getOrNull()
-        if (status == null || status == FeatureStatus.UNAVAILABLE) {
-            nanoUnavailable += l
-            throw Skip(tr("Исправление на телефоне недоступно"))
-        }
-        // модель ещё не скачана — первый запрос скачает её сам; ждём дольше
-        val wait = if (status == FeatureStatus.AVAILABLE) 30L else 180L
-        val result = try {
-            pr.runInference(ProofreadingRequest.builder(text).build()).get(wait, TimeUnit.SECONDS)
-        } catch (e: Throwable) {
-            throw Skip(tr("Исправление на телефоне не сработало"))
-        }
-        return result.results.firstOrNull()?.text?.trim()?.takeIf { it.isNotEmpty() } ?: text
     }
 
     // ------------------------------------------------------------------ Claude (SDK Anthropic)

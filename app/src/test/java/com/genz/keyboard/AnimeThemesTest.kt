@@ -94,7 +94,7 @@ class AnimeThemesTest {
 
     @Test
     fun everyThemeShipsItsArtwork() {
-        val dir = File("src/main/assets/anime")
+        val dir = File("src/standard/assets/anime")
         themeFiles().forEach { f ->
             val slug = f.nameWithoutExtension.removePrefix("anime_")
             val art = File(dir, "$slug.webp")

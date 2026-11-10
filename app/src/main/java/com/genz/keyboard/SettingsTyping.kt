@@ -147,11 +147,6 @@ internal fun TypingPage(settings: KeyboardSettings, part: SettingsPage) {
     var modelDialog by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
     val aiScope = rememberCoroutineScope()
-    // поддерживает ли телефон исправление на устройстве (Gemini Nano) — для подписи
-    var nanoStatus by remember { mutableStateOf<Int?>(-1) }
-    LaunchedEffect(part) {
-        if (part == SettingsPage.TYPING) nanoStatus = AiFix.nanoStatus(context, "en")
-    }
     if (part == SettingsPage.GESTURES) SettingsSection("Скорость") {
         ToggleItem(Icons.Rounded.Bolt, "Мгновенный ввод", "Буква появляется в момент касания, а не при отпускании пальца", settings.instantInput) {
             KeyboardPrefs.edit(context) { putBoolean("instant_input", it) }
@@ -198,17 +193,10 @@ internal fun TypingPage(settings: KeyboardSettings, part: SettingsPage) {
         )
         val providers = AiProvider.entries.filter { it != AiProvider.CUSTOM }.map { it.id to it.title } +
             settings.aiCustom.map { "CUSTOM:${it.id}" to it.title }
-        val nanoText = when (nanoStatus) {
-            -1 -> "проверяю…"
-            FEATURE_AVAILABLE -> "готово"
-            FEATURE_DOWNLOADABLE, FEATURE_DOWNLOADING -> "скачается при первом исправлении"
-            else -> "этот телефон не поддерживает"
-        }
         ChoiceItem(
             Icons.Rounded.AutoFixHigh, "Кто исправляет",
             when (AiProvider.from(settings.aiProvider)) {
-                AiProvider.AUTO -> tr("Сначала на телефоне, потом сервис с ключом, потом LanguageTool")
-                AiProvider.NANO -> tr("Gemini Nano на телефоне: без интернета, английский и ещё 6 языков (без русского) — {0}", tr(nanoText))
+                AiProvider.AUTO -> tr("Сначала сервис с ключом, потом LanguageTool")
                 AiProvider.GEMINI -> tr("Google Gemini — бесплатный ключ в Google AI Studio")
                 AiProvider.CLAUDE -> tr("Claude от Anthropic — платный ключ")
                 AiProvider.OPENAI -> tr("OpenAI — платный ключ")

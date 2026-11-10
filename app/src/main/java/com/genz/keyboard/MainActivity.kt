@@ -200,10 +200,6 @@ enum class SettingsPage(val title: String, val subtitle: String, val icon: Image
         }
 }
 
-internal const val FEATURE_AVAILABLE = com.google.mlkit.genai.common.FeatureStatus.AVAILABLE
-internal const val FEATURE_DOWNLOADABLE = com.google.mlkit.genai.common.FeatureStatus.DOWNLOADABLE
-internal const val FEATURE_DOWNLOADING = com.google.mlkit.genai.common.FeatureStatus.DOWNLOADING
-
 internal fun isImeEnabled(context: Context): Boolean = runCatching {
     val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
     imm.enabledInputMethodList.any { it.packageName == context.packageName }

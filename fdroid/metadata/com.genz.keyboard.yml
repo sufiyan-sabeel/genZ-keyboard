@@ -27,9 +27,9 @@ RepoType: git
 Repo: https://github.com/sufiyan-sabeel/genZ-keyboard.git
 
 Builds:
-  - versionName: 1.0.3
-    versionCode: 8
-    commit: cdd654c430183935ca5a502cb1c44fa34b429a7a
+  - versionName: 1.0.4
+    versionCode: 9
+    commit: v1.0.4
     gradle:
       - fdroid
     ndk: false
@@ -37,5 +37,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.3
-CurrentVersionCode: 8
+CurrentVersion: 1.0.4
+CurrentVersionCode: 9

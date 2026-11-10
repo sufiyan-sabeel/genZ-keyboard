@@ -73,6 +73,26 @@ jobs:
           "$ANDROID_HOME/build-tools/$BT/aapt2" dump badging "$APK" | head -5
           echo "APK_PATH=$APK" >> "$GITHUB_ENV"
 
+      - name: Verify the two flavours differ as intended
+        run: |
+          STD=$(ls app/build/outputs/apk/standard/debug/*.apk | head -1)
+          FD=$(ls app/build/outputs/apk/fdroid/release/*.apk | head -1)
+          count() { unzip -l "$1" | grep -c "assets/anime/" || true; }
+          STD_N=$(count "$STD"); FD_N=$(count "$FD")
+          echo "standard artwork files: $STD_N"
+          echo "fdroid artwork files:   $FD_N"
+          if [ "$STD_N" -lt 10 ]; then echo "::error::standard build is missing anime artwork"; exit 1; fi
+          if [ "$FD_N" -ne 0 ]; then echo "::error::fdroid build must not bundle third-party artwork"; exit 1; fi
+          echo "flavour separation verified"
+
+      - name: Upload F-Droid flavour APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: genz-keyboard-fdroid-apk
+          path: app/build/outputs/apk/fdroid/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -178,33 +198,21 @@ jobs:
 
           Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
 
-          > **This is a corrected build of 1.0.3** (versionCode 8, replacing the earlier 1.0.3
-          > download). The first 1.0.3 build applied the anime artwork but painted every keyboard
-          > in the brand violet. That is fixed here.
+          ### What changed in 1.0.4
+          - **Prepared for F-Droid.** The app now builds entirely from free software: the
+            proprietary Google ML Kit on-device AI dependency has been removed. The remaining AI
+            options (Gemini, Claude, OpenAI, Groq, OpenRouter, LanguageTool) are ordinary network
+            clients using your own key, and the keyboard works with none of them.
+          - **Two flavours from one codebase.** This APK is the `standard` build and keeps the ten
+            anime artworks. The `fdroid` flavour ships the same keyboard without them, because
+            their redistribution rights are unresolved; each theme then falls back to the palette
+            sampled from its artwork.
+          - F-Droid store metadata and a build recipe are in the repository under `fastlane/` and
+            `fdroid/metadata/`.
 
-          ### What was wrong
-          The app's brand colour was stored as a "user accent". Theme building repaints any skin
-          whose accent matches a user accent, so all ten themes were being recoloured to violet
-          the moment they were applied - the picture changed, the keys did not. The brand colour
-          now only paints the app interface, and a theme keeps its own palette unless you
-          explicitly pick an accent yourself.
-
-          ### What changed in 1.0.3
-          - **Real artwork behind the keys.** Ten illustrations, one per theme, drawn behind the
-            actual keyboard in every app and every layout.
-          - **Palettes sampled from each picture**, with contrast checked, so keys, Enter,
-            spacebar and suggestion bar match the art.
-          - **Special keys styled per theme**: Shift, Backspace, language and emoji keys, the
-            mode key and the suggestion chips all take their own fill, border and pressed colour
-            from the theme, so the hierarchy reads instead of everything being one flat colour.
-          - **Gallery** with artwork cards and working Preview / Apply buttons, plus Reset theme.
-
-          ### Artwork notice
-          The illustrations are supplied by the project owner and are not covered by the MIT
-          licence, which covers the code only. They depict third-party characters, and two carry
-          other artists' signatures. Confirm you hold the rights before redistributing this build
-          publicly; replacing the files in app/src/main/assets/anime/ swaps the art with no code
-          changes.
+          ### F-Droid status
+          **Not yet available on the official F-Droid repository.** The submission still has to be
+          opened against fdroiddata and accepted by its reviewers.
 
           ### Install
           1. Download the APK below.
@@ -214,7 +222,8 @@ jobs:
 
           ### Signing
           This build is signed with the **debug key** unless repository signing secrets are
-          configured, so uninstall any earlier copy before installing it.
+          configured, so uninstall any earlier copy before installing it. F-Droid signs its own
+          builds; this APK is never substituted for one.
 
           ### Source
           Full source and licence: https://github.com/sufiyan-sabeel/genZ-keyboard

@@ -1,0 +1,4 @@
+- Prepared for F-Droid: the app now builds entirely from free software
+- Removed the proprietary on-device AI dependency (Google ML Kit)
+- Two flavours: GitHub builds keep the anime artwork, the F-Droid build ships without it
+- Fixed the keyboard theme palette so keys, Enter and the suggestion bar follow each theme

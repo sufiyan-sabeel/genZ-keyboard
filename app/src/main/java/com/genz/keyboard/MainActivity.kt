@@ -581,7 +581,7 @@ internal fun AboutPage() {
                     "Word frequencies: hermitdave/FrequencyWords — MIT\n" +
                     "Russian word pairs: Google Books Ngram Viewer (v20200217) — CC BY 3.0\n" +
                     "English word pairs: Peter Norvig, count_1w / count_2w (from Google Web 1T)\n" +
-                    "Nunito font — SIL OFL 1.1",
+                    "Pixelify Sans font © The Pixelify Sans Project Authors — SIL OFL 1.1",
                 Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant
             )
         }

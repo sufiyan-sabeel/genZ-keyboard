@@ -59,6 +59,19 @@ jobs:
       - name: Unit tests
         run: ./gradlew testStandardDebugUnitTest --stacktrace
 
+      - name: Dependency policy check (F-Droid)
+        run: |
+          ./gradlew :app:dependencies --configuration fdroidReleaseRuntimeClasspath > deps.txt 2>&1 || {
+            echo "::error::could not resolve the fdroid release classpath"; tail -40 deps.txt; exit 1; }
+          DENY='com\.google\.mlkit|com\.google\.firebase|com\.google\.android\.gms|com\.google\.android\.play|com\.applovin|com\.unity3d\.ads|com\.facebook\.ads|com\.adjust\.sdk'
+          if grep -Eq "$DENY" deps.txt; then
+            echo "::error::proprietary dependency on the fdroid runtime classpath"
+            grep -E "$DENY" deps.txt | sort -u | head -20
+            exit 1
+          fi
+          echo "no known proprietary dependencies on the fdroid runtime classpath"
+          echo "resolved artifacts: $(grep -cE '^[+\\| ]' deps.txt)"
+
       - name: Build F-Droid flavour (no proprietary assets)
         run: ./gradlew assembleFdroidRelease --stacktrace
 

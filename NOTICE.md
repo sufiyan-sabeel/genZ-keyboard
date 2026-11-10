@@ -31,6 +31,7 @@ below to be kept.
 | Noto Emoji, Blobmoji | Google | Apache 2.0 |
 | OpenMoji | HfG Schwäbisch Gmünd | CC BY-SA 4.0 |
 | Emoji names | Unicode CLDR | Unicode License |
+| Pixelify Sans font | SIL OFL 1.1 — full text in `licenses/SIL-OFL-1.1.txt` |
 | Pinyin data | mozillazg/pinyin-data, OpenCC | MIT / Apache 2.0 |
 | Word frequencies | hermitdave/FrequencyWords | MIT |
 | Russian word pairs | Google Books Ngram Viewer | CC BY 3.0 |

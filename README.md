@@ -350,7 +350,7 @@ The full policy is in [PRIVACY.md](PRIVACY.md). In short:
 | Unicode CLDR emoji names | Unicode License |
 | Word frequencies (FrequencyWords) | MIT |
 | Russian word pairs (Google Books Ngram) | CC BY 3.0 |
-| Nunito font | SIL OFL 1.1 |
+| Pixelify Sans font | SIL OFL 1.1 |
 | Anime theme artwork | **not** MIT — see below |
 
 The anime artwork is supplied by the project owner and is not covered by the code licence; it is

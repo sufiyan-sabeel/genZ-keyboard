@@ -1,0 +1,4 @@
+- Corrected the bundled font attribution: the app ships Pixelify Sans (SIL OFL 1.1) and now says so
+- Added the SIL OFL licence text to the repository
+- F-Droid metadata corrected against the official reference: category Keyboard & IME, full commit hash
+- CI now fails if a proprietary dependency appears on the F-Droid runtime classpath

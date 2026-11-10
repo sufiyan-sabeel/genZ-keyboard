@@ -1,27 +1,54 @@
 # F-Droid metadata for GenZ Keyboard.
 #
-# This file is a submission draft: copy it to `metadata/com.genz.keyboard.yml` in a fork of
-# https://gitlab.com/fdroid/fdroiddata and open a merge request. It has been checked against
-# the source tree and the release tag it names; it has not been through `fdroid lint` on an
-# F-Droid machine with network access, so expect the reviewers to ask for small adjustments.
+# Submission draft: copy this file to `metadata/com.genz.keyboard.yml` in a fork of
+# https://gitlab.com/fdroid/fdroiddata and open a merge request. Field names, the category
+# identifiers and the anti-feature identifiers below were checked against
+# https://f-droid.org/docs/Build_Metadata_Reference/ and
+# https://gitlab.com/fdroid/fdroiddata/-/raw/master/config/categories.yml.
 
 Categories:
-  - System
+  - Keyboard & IME
+  - Theming
 
 License: MIT
 
 AuthorName: Umaiz Sufiyan
 
-WebSite: https://github.com/sufiyan-sabeel/genZ-keyboard
 SourceCode: https://github.com/sufiyan-sabeel/genZ-keyboard
 IssueTracker: https://github.com/sufiyan-sabeel/genZ-keyboard/issues
+Changelog: https://github.com/sufiyan-sabeel/genZ-keyboard/releases
 
-# The keyboard can talk to non-free services (GIF search, third-party AI endpoints) when the
-# user supplies their own API keys. Nothing is sent by default and no keys ship with the app,
-# but the capability is declared here rather than left for a reviewer to find.
+# No website exists apart from the source repository, and the reference says the source URL must
+# not be reused as WebSite, so WebSite is omitted deliberately.
+
+# The keyboard can talk to proprietary services: GIF search through Klipy or Giphy, and AI text
+# fixing through Gemini, Claude, OpenAI, Groq or OpenRouter. Both are opt-in, ship disabled, and
+# need a key the user supplies. Nothing is sent by default and no keys are bundled, but the
+# capability is declared rather than left for a reviewer to discover.
+# Not declared: Tracking (no analytics, and network use is user-initiated), NonFreeDep (no
+# proprietary app is required), NonFreeAssets (the fdroid flavour bundles no third-party
+# artwork; emoji and fonts are CC-BY / Apache / OFL), TetheredNet (AI endpoints are
+# user-configurable, and a custom service can be added).
 AntiFeatures:
   NonFreeNet:
     en-US: Optional GIF search and AI text fixing use third-party services with the user's own keys.
+
+MaintainerNotes: |
+  GenZ Keyboard is an input method. The default build flavour is `standard` (used for GitHub
+  releases); F-Droid builds the `fdroid` flavour, which is the same keyboard without the ten
+  bundled anime illustrations, whose redistribution rights are unresolved. With no bundled
+  picture each theme falls back to the palette sampled from its artwork, so it stays a distinct
+  colour theme rather than a broken one.
+
+  The app has no submodules and no NDK requirement. The Gradle module is `app`, so the task is
+  `assembleFdroidRelease` and the APK lands in `app/build/outputs/apk/fdroid/release/`.
+
+  Proprietary dependencies were removed for F-Droid: `com.google.mlkit:genai-proofreading`
+  (on-device Gemini Nano) is gone from the source. CI fails the build if a known proprietary
+  group reappears on the runtime classpath, and if the `standard` and `fdroid` flavours stop
+  differing in the expected way (artwork present in one, absent in the other).
+
+  versionCode is never reused: 1.0.3 shipped as 7 and was rebuilt as 8, 1.0.4 is 9.
 
 RepoType: git
 Repo: https://github.com/sufiyan-sabeel/genZ-keyboard.git
@@ -29,11 +56,9 @@ Repo: https://github.com/sufiyan-sabeel/genZ-keyboard.git
 Builds:
   - versionName: 1.0.4
     versionCode: 9
-    commit: v1.0.4
+    commit: cde79d927a52a05502488c7fd07fb080775a38ef
     gradle:
       - fdroid
-    ndk: false
-    prebuild: echo "no prebuild steps"
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags

@@ -1,0 +1,41 @@
+# F-Droid metadata for GenZ Keyboard.
+#
+# This file is a submission draft: copy it to `metadata/com.genz.keyboard.yml` in a fork of
+# https://gitlab.com/fdroid/fdroiddata and open a merge request. It has been checked against
+# the source tree and the release tag it names; it has not been through `fdroid lint` on an
+# F-Droid machine with network access, so expect the reviewers to ask for small adjustments.
+
+Categories:
+  - System
+
+License: MIT
+
+AuthorName: Umaiz Sufiyan
+
+WebSite: https://github.com/sufiyan-sabeel/genZ-keyboard
+SourceCode: https://github.com/sufiyan-sabeel/genZ-keyboard
+IssueTracker: https://github.com/sufiyan-sabeel/genZ-keyboard/issues
+
+# The keyboard can talk to non-free services (GIF search, third-party AI endpoints) when the
+# user supplies their own API keys. Nothing is sent by default and no keys ship with the app,
+# but the capability is declared here rather than left for a reviewer to find.
+AntiFeatures:
+  NonFreeNet:
+    en-US: Optional GIF search and AI text fixing use third-party services with the user's own keys.
+
+RepoType: git
+Repo: https://github.com/sufiyan-sabeel/genZ-keyboard.git
+
+Builds:
+  - versionName: 1.0.3
+    versionCode: 8
+    commit: cdd654c430183935ca5a502cb1c44fa34b429a7a
+    gradle:
+      - fdroid
+    ndk: false
+    prebuild: echo "no prebuild steps"
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.3
+CurrentVersionCode: 8

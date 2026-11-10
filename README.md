@@ -8,6 +8,46 @@ watch what you type, and it has no analytics, no ads and no tracking SDKs.
 
 [![Android CI](https://github.com/sufiyan-sabeel/genZ-keyboard/actions/workflows/android.yml/badge.svg)](https://github.com/sufiyan-sabeel/genZ-keyboard/actions/workflows/android.yml)
 
+> **F-Droid: not yet available on the official F-Droid repository.** The app is being prepared
+> for inclusion — it now builds entirely from free software and has a metadata draft in
+> [`fdroid/metadata/`](fdroid/metadata/com.genz.keyboard.yml). Until a merge request is accepted
+> and the build is published by F-Droid, install from GitHub Releases.
+
+---
+
+## F-Droid
+
+GenZ Keyboard is being prepared for official F-Droid inclusion. What that took, and what is
+still outstanding:
+
+| Requirement | Status |
+| --- | --- |
+| Free-software licence | MIT |
+| Builds from public source | yes, CI builds both flavours on every push |
+| No proprietary dependencies | yes — Google ML Kit was removed; see below |
+| No developer keys needed to build | yes, API keys are optional and empty by default |
+| Reproducible build inputs | Gradle wrapper, JDK 17, SDK 35, no downloaded build assets |
+| F-Droid store metadata | `fastlane/metadata/android/en-US/` |
+| Build recipe | [`fdroid/metadata/com.genz.keyboard.yml`](fdroid/metadata/com.genz.keyboard.yml) |
+| Submitted for review | **no** — the merge request still has to be opened |
+
+**Two distributions.** The Gradle project defines two product flavours from one codebase:
+
+- `standard` — what GitHub Releases ship. Includes the ten anime artworks.
+- `fdroid` — identical keyboard, but **without** those artworks, because their redistribution
+  rights are unresolved. The ten themes still ship; with no bundled picture each one falls back
+  to the palette that was sampled from that artwork, so it stays a distinct colour theme rather
+  than a broken one.
+
+F-Droid builds the `fdroid` flavour (`gradle: - fdroid` in the metadata) and signs the APK
+itself. A developer-signed APK is never substituted for an F-Droid source build.
+
+**Removed for F-Droid:** `com.google.mlkit:genai-proofreading` (on-device Gemini Nano
+proofreading). It is a proprietary Google binary that cannot be shipped in a free-software
+distribution, and an optional feature does not make its dependency acceptable. The remaining AI
+options — Gemini, Claude, OpenAI, Groq, OpenRouter, LanguageTool — are ordinary network clients
+using the user's own key, and the keyboard is fully usable with none of them.
+
 ---
 
 ## What it is
@@ -130,8 +170,8 @@ images taken from a real device build. To add yours:
 
 ### From a release (easiest)
 
-1. Open [Releases](https://github.com/sufiyan-sabeel/genZ-keyboard/releases) and download
-   `GenZKeyboard-v1.0.0.apk`.
+1. Open [Releases](https://github.com/sufiyan-sabeel/genZ-keyboard/releases) and download the
+   latest `GenZKeyboard-vX.Y.Z.apk`.
 2. Open the APK on the device and allow installation from your browser/file manager.
 3. Open **GenZ Keyboard** from the app drawer and follow onboarding.
 4. Enable it: **Settings → System → Languages & input → On-screen keyboard → Manage
@@ -142,6 +182,12 @@ images taken from a real device build. To add yours:
 > release APK is signed with the CI runner's debug key. CI generates that key fresh on every
 > run, so a *later* release cannot update over an earlier install — you would have to uninstall
 > first. For a genuinely updatable app, set the four signing secrets once.
+
+### From F-Droid
+
+Not available yet. When the listing is published it will be at
+`https://f-droid.org/packages/com.genz.keyboard/`. This section will link to it only after the
+F-Droid build is actually published — not when a merge request merely exists.
 
 ### From a debug build
 
@@ -185,14 +231,24 @@ Never commit the keystore or the passwords; `.gitignore` already excludes `*.key
 ## Build
 
 Requirements: JDK 17, Android SDK with platform 35 and build-tools 35, Gradle wrapper
-(included).
+(included). Nothing else is downloaded at build time and no API keys are needed.
+
+On a Linux box or in Termux:
+
+```bash
+pkg install openjdk-17 gradle git          # Termux
+export ANDROID_HOME=$HOME/android-sdk
+# platform-tools, platforms;android-35 and build-tools;35.0.0 via sdkmanager
+./gradlew assembleStandardDebug
+```
 
 ```bash
 git clone https://github.com/sufiyan-sabeel/genZ-keyboard.git
 cd genZ-keyboard
-./gradlew assembleDebug          # app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest      # JVM unit tests, no device needed
-./gradlew assembleRelease        # minified release build
+./gradlew assembleStandardDebug        # app/build/outputs/apk/standard/debug/
+./gradlew assembleStandardRelease      # minified release build with the anime artwork
+./gradlew assembleFdroidRelease        # the F-Droid flavour, without that artwork
+./gradlew testStandardDebugUnitTest    # JVM unit tests, no device needed
 ```
 
 The release build is signed with the debug key unless you provide your own keystore through
@@ -259,6 +315,65 @@ CI runs the unit tests and builds the debug APK on every push to `main`
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports with a device model, Android version and
 reproduction steps are welcome; please do not attach logs containing anything you typed.
+
+## Privacy
+
+The full policy is in [PRIVACY.md](PRIVACY.md). In short:
+
+- **Input.** Keystrokes are handled in the keyboard's own process and committed to the target
+  app through `InputConnection`. Nothing is logged, stored or transmitted. Password fields run
+  in a reduced mode with no suggestions and no learning.
+- **Local storage.** Settings, the personal dictionary and clipboard history live in app-private
+  storage. `android:allowBackup="false"`, so none of it reaches Google's backup service.
+- **Network.** `INTERNET` is used in four user-triggered cases only: downloading a language
+  dictionary, GIF search (your own Klipy/Giphy key), AI text fixing (the provider you configure),
+  and assets a plugin fetches. There is no telemetry, no update check and no heartbeat.
+- **Permissions.** `VIBRATE`; `INTERNET`; `RECORD_AUDIO` only when you tap the microphone;
+  and the media permissions only if you switch on "screenshots in clipboard", which is off by
+  default and uses the system photo picker rather than broad library access.
+- **Optional services.** Every network feature is off unless you configure it. The app is fully
+  usable as a keyboard with no account, no key and no network.
+
+## Open-source licences
+
+| Component | Licence |
+| --- | --- |
+| GenZ Keyboard code | MIT ([LICENSE](LICENSE)) |
+| Upstream keyboard engine | MIT, notice retained in [LICENSE](LICENSE) |
+| Jetpack Compose, AndroidX, Material 3 | Apache 2.0 |
+| Coil, OkHttp, Jackson (via the Anthropic SDK) | Apache 2.0 |
+| Mozilla Rhino | MPL 2.0 |
+| Anthropic Java SDK | Apache 2.0 |
+| Twemoji | CC-BY 4.0 |
+| Noto Emoji, Blobmoji | Apache 2.0 |
+| OpenMoji | CC BY-SA 4.0 |
+| Unicode CLDR emoji names | Unicode License |
+| Word frequencies (FrequencyWords) | MIT |
+| Russian word pairs (Google Books Ngram) | CC BY 3.0 |
+| Nunito font | SIL OFL 1.1 |
+| Anime theme artwork | **not** MIT — see below |
+
+The anime artwork is supplied by the project owner and is not covered by the code licence; it is
+excluded from the F-Droid flavour for that reason. Details in [NOTICE.md](NOTICE.md).
+
+## F-Droid maintenance
+
+Notes for whoever maintains the F-Droid listing:
+
+| | |
+| --- | --- |
+| Application ID | `com.genz.keyboard` |
+| Source | https://github.com/sufiyan-sabeel/genZ-keyboard |
+| Issue tracker | https://github.com/sufiyan-sabeel/genZ-keyboard/issues |
+| Licence | MIT |
+| Release tags | `vMAJOR.MINOR.PATCH`, e.g. `v1.0.3` |
+| Versioning | `versionName` follows the tag; `versionCode` increments on **every** build, including rebuilds of the same version |
+| Build flavour | `fdroid` (`gradle: - fdroid`), no proprietary dependencies, no bundled third-party artwork |
+| Update check | `Tags` |
+| Auto-update | `Version` |
+
+`versionCode` is never reused for a different binary: v1.0.3 shipped as versionCode 7 and was
+rebuilt as versionCode 8 when its palette bug was fixed. The next release starts at 9.
 
 ## License
 

@@ -1,0 +1,5 @@
+- Anime themes now use their own artwork behind the keys, with palettes sampled from each picture
+- Fixed: keyboard themes were being repainted in the brand colour instead of keeping their own palette
+- Special keys (Shift, Backspace, language, emoji, mode) and the suggestion bar are styled per theme
+- Removed a proprietary on-device AI dependency so the app can be built entirely from free software
+- App language is English only, with a System option

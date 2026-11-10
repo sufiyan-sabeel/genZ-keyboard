@@ -1,0 +1,28 @@
+GenZ Keyboard is a complete Android keyboard: it registers with the system, types into any app, and never watches what you type.
+
+TYPING
+- 138 built-in layouts, including English variants, Hindi, Marathi, Bengali, Tamil, Telugu, Urdu, Arabic, Persian, Hebrew, Greek, Cyrillic, Chinese pinyin, Japanese and Korean
+- Word prediction, autocorrection and next-word suggestions from bundled frequency dictionaries, plus a personal dictionary that learns your words
+- Glide (swipe) typing
+- Emoji keyboard with search
+- Clipboard history, text shortcuts and voice input through the system speech recogniser
+- One-handed mode, adjustable height, key size and spacing
+
+LOOKS
+- Nine ready-made styles: Material 3 Expressive, Material You, Liquid Glass, Classic, Neon, Neumorphism, Minecraft, Samsung One UI and Nothing
+- Ten anime themes, each with its own artwork and a palette sampled from that picture
+- Custom themes: background, key colours, accent colour, key shape, shadows and font
+- AMOLED dark theme, a light theme, and a one-tap dark mode switch
+
+PRIVACY
+- Nothing you type leaves the device. No analytics, no telemetry, no ads, no tracking SDKs
+- Settings and learned words stay in local storage
+- No account, no sign-in, no network call while you type
+
+OPTIONAL FEATURES
+- GIF search and AI text fixing need your own API keys and are off unless you configure them
+- Voice typing asks for the microphone permission only when you tap the microphone
+
+GenZ Keyboard is free software under the MIT License, and it is built from source by F-Droid.
+
+Created by Umaiz Sufiyan.

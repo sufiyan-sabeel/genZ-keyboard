@@ -72,24 +72,60 @@ Target `fdroid/fdroiddata` `master`, source your branch.
 
 ## 7. What to write in the merge request
 
-Keep it short. Reviewers read a lot of these:
+Keep it short, but paste the evidence — reviewers ask for it anyway.
 
 ```
 New app: GenZ Keyboard (com.genz.keyboard)
 
 Android IME (keyboard) in Kotlin + Jetpack Compose, MIT licensed.
 
-- Builds the `fdroid` flavour: assembleFdroidRelease, no submodules, no NDK.
-- No proprietary dependencies. Google ML Kit (on-device Gemini Nano proofreading) was
-  removed specifically for F-Droid; CI fails if a proprietary group reappears on the
-  runtime classpath.
+  Repository : https://github.com/sufiyan-sabeel/genZ-keyboard
+  Release    : v1.0.5  (versionName 1.0.5, versionCode 10)
+  Source     : c111eac0b88de808b31533b8528aac760ef8a8e3
+  APK sha256 : 9118922a6f15111cfe9d3b0ddaf9d6f9ebabff1fe7b6cf72f1c7099b3a2a4403
+
+Build
+- Gradle flavour `fdroid`, task `assembleFdroidRelease`, no submodules, no NDK.
+- `fdroid readmeta` parses this file cleanly; all required fields present.
+
+Free software
+- No proprietary dependencies on the fdroid runtime classpath (668 artifacts resolved,
+  checked automatically on every push).
+- Google ML Kit (on-device Gemini Nano proofreading) was removed specifically for F-Droid.
+- CI fails the build if a known proprietary group (mlkit, firebase, gms, play, ad SDKs)
+  reappears on that classpath.
+
+Assets
 - The `standard` flavour used for GitHub releases bundles ten anime illustrations whose
-  redistribution rights are unresolved. The `fdroid` flavour excludes them, so the
-  metadata declares no NonFreeAssets; the themes fall back to colour palettes.
-- Declared NonFreeNet: optional GIF search and AI text fixing use third-party services
-  with a user-supplied key. Off by default, no keys bundled, no analytics or tracking.
-- Source, licence and third-party notices: see NOTICE.md in the repository.
+  redistribution rights are unresolved; the `fdroid` flavour excludes them, so this
+  metadata declares no NonFreeAssets. Themes fall back to colour palettes.
+- CI verifies the split: standard build has 10 artwork files, fdroid build has 0, and fails
+  otherwise.
+- Emoji: Twemoji CC-BY 4.0, Noto/Blobmoji Apache 2.0, OpenMoji CC BY-SA 4.0.
+  Font: Pixelify Sans, SIL OFL 1.1 (full text in licenses/). Dictionaries: MIT / CC BY 3.0.
+  All documented in NOTICE.md.
+
+AntiFeatures
+- Declared NonFreeNet: optional GIF search and AI text fixing use third-party services with
+  a user-supplied key. Off by default, no keys bundled, no analytics, no tracking.
 ```
+
+## 7a. Verification already performed on this repository
+
+Useful if a reviewer asks "how do you know?":
+
+| Check | Result |
+| --- | --- |
+| Published APK metadata (read from the APK, not the build log) | `com.genz.keyboard`, versionName 1.0.5, versionCode 10, minSdk 26, targetSdk 35, v2 signed |
+| Release asset checksum | `9118922a…` matches the digest GitHub reports for the asset |
+| Tag → commit | `v1.0.5` → `c111eac0…` (the commit this metadata names) |
+| v1.0.4 left untouched | its APK still hashes to `3785e86e…`, unchanged since publication |
+| Proprietary dependency gate | deliberately reintroducing `com.google.mlkit:genai-proofreading` fails CI at the dependency step, naming `mlkit:common` and `genai-common` as the transitive hits |
+| Flavour separation gate | deliberately adding one artwork file to the shared source set fails CI with `standard 11 / fdroid 1` |
+| Metadata | `fdroid readmeta` exits 0; required fields all present |
+
+Both gates were tested by breaking them on throwaway branches, confirming the failure, then
+deleting the branches — so they are known to be live checks, not decoration.
 
 ## 8. Expect these review questions
 

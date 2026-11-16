@@ -444,7 +444,7 @@ class ComposeKeyboardService : InputMethodService(),
         // на длинной истории это заметная пауза перед первым кадром
         val bootSettings = settings
         val pinned = kb.pinnedClips.toList()
-        if (bootSettings.clipboardHistory && !bootSettings.incognito) {
+        if (bootSettings.clipboardHistory && !PrivacyState.derive(bootSettings.incognito, null).isIncognito) {
             serviceScope.launch(Dispatchers.IO) {
                 val loaded = ClipStore.load(this@ComposeKeyboardService, bootSettings).take(bootSettings.clipboardSize)
                 val keep = withContext(Dispatchers.Main.immediate) {
@@ -494,7 +494,7 @@ class ComposeKeyboardService : InputMethodService(),
     /** Новый скриншот: в историю буфера и, если он свежий, — предложение вставить над клавиатурой. */
     private fun onScreenshot(uri: Uri, mime: String, at: Long) {
         val s = settings
-        if (!s.clipboardHistory || !s.clipScreenshots || s.incognito) return
+        if (!s.clipboardHistory || !s.clipScreenshots || privacy.isIncognito) return
         serviceScope.launch {
             val entry = ClipImages.save(this@ComposeKeyboardService, uri, mime, at) ?: return@launch
             if (kb.clipboard.contains(entry) || kb.pinnedClips.contains(entry)) return@launch
@@ -844,26 +844,56 @@ class ComposeKeyboardService : InputMethodService(),
 
     // ------------------------------------------------------------------ поле ввода
 
-    private fun computeFlags(info: EditorInfo?): FieldFlags {
-        if (info == null) return FieldFlags()
-        // The rules live in EditorFieldSpecs so they can be unit-tested without a service.
-        val spec = EditorFieldSpecs.of(info.inputType, info.imeOptions, settings.correctEverywhere)
-        return FieldFlags(
+    /** What the current editor accepts; null when no editor is attached. */
+    private fun fieldSpecOf(info: EditorInfo?): EditorFieldSpec? =
+        info?.let { EditorFieldSpecs.of(it.inputType, it.imeOptions, settings.correctEverywhere) }
+
+    private fun flagsFor(spec: EditorFieldSpec?): FieldFlags =
+        if (spec == null) FieldFlags()
+        else FieldFlags(
             isPassword = spec.isPassword,
             suggestions = spec.acceptsSuggestions,
             autoCorrect = spec.autoCorrect,
             autoCap = spec.autoCapitalize
         )
-    }
+
+    // ------------------------------------------------------------------ приватность
+
+    /** Field signals for the session; replaced on every field start. */
+    private var fieldSpec: EditorFieldSpec? = null
+
+    private var privacyManual: Boolean? = null
+    private var privacySpec: EditorFieldSpec? = null
+    private var privacyCached: PrivacyState = PrivacyState.OFF
+
+    /**
+     * The one answer to "is the keyboard private right now?" — manual switch plus field signals.
+     *
+     * Cached on its two inputs so that repeated reads during typing allocate nothing, while a
+     * manual toggle or a field change is picked up immediately (no stale state to invalidate).
+     */
+    private val privacy: PrivacyState
+        get() {
+            val manual = settings.incognito
+            val spec = fieldSpec
+            if (manual != privacyManual || spec != privacySpec) {
+                privacyManual = manual
+                privacySpec = spec
+                privacyCached = PrivacyState.derive(manual, spec)
+            }
+            return privacyCached
+        }
 
     /** Поле ввода, чтобы отличить перезапуск окна в том же поле от перехода в новое. */
     private fun fieldKey(info: EditorInfo?): String =
         (info?.packageName ?: "") + "/" + (info?.fieldId ?: -1)
 
     private fun resetForInput(info: EditorInfo?, restarting: Boolean) {
-        flags = computeFlags(info)
+        val spec = fieldSpecOf(info)
+        fieldSpec = spec
+        flags = flagsFor(spec)
         // в поле пароля и в инкогнито моды не видят ни набираемого текста, ни буфера
-        ScriptHost.privateMode = flags.isPassword || settings.incognito
+        ScriptHost.privateMode = privacy.isIncognito
         kb.glideAllowed = flags.suggestions
         glideWord = false
         tokenHasSymbol = true
@@ -1114,7 +1144,7 @@ class ComposeKeyboardService : InputMethodService(),
     /** Системная проверка правописания: не для паролей, инкогнито и письменностей без пробелов или со сборкой слогов. */
     private fun systemSpellAllowed(): Boolean {
         val s = settings
-        return s.systemSpellcheck && !s.incognito && flags.suggestions && !flags.isPassword &&
+        return s.systemSpellcheck && !privacy.isIncognito && flags.suggestions &&
             kb.language.autoCorrect && kb.language.composer == Composer.NONE
     }
 
@@ -1297,8 +1327,8 @@ class ComposeKeyboardService : InputMethodService(),
     private fun learn(previous: String, word: String, boost: Int = 1) {
         // латиница пиньиня/ромадзи — не слова языка
         if (Cjk.isCjk(kb.language.composer)) return
-        if (!flags.isPassword && flags.suggestions && !settings.incognito) WordPredictorEngine.learn(kb.language, previous, word, boost)
-        if (ScriptHost.has("word") && !flags.isPassword && !settings.incognito) ScriptHost.emit("word", mapOf("word" to word, "previous" to previous))
+        if (flags.suggestions && !privacy.isIncognito) WordPredictorEngine.learn(kb.language, previous, word, boost)
+        if (ScriptHost.has("word") && !privacy.isIncognito) ScriptHost.emit("word", mapOf("word" to word, "previous" to previous))
     }
 
     // ------------------------------------------------------------------ корейский и Telex
@@ -1495,7 +1525,7 @@ class ComposeKeyboardService : InputMethodService(),
         cjk = emptyList()
         cjkFor = ""
         // запомнить выбор: и кусок, и всю фразу, если её собирали по частям
-        if (!flags.isPassword && !settings.incognito) {
+        if (!privacy.isIncognito) {
             val lang = kb.language
             val usedRaw = raw.substring(0, minOf(raw.length, raw.length - rest.length))
             if (c.text != raw) CjkUser.learn(lang, usedRaw.trimEnd('\''), c.text)
@@ -2437,7 +2467,7 @@ class ComposeKeyboardService : InputMethodService(),
         val s = settings
         // в Rambler чистим всегда, даже короткие фразы и с выключенной очисткой диктовки
         val rambler = kb.rambler
-        if ((!s.aiVoiceCleanup && !rambler) || flags.isPassword || committed.trim().split(' ').size < (if (rambler) 2 else 3)) return
+        if ((!s.aiVoiceCleanup && !rambler) || privacy.isIncognito || committed.trim().split(' ').size < (if (rambler) 2 else 3)) return
         val keys = AiKeys.of(s)
         val llm = AiFix.hasLlm(keys)
         val langId = kb.language.id.substringBefore('-')
@@ -2521,7 +2551,7 @@ class ComposeKeyboardService : InputMethodService(),
             kb.clipboard.removeAt(i)
             kb.clipboard.add(0, entry)
         }
-        if (i >= 0 && !settings.incognito) ClipStore.save(this, kb.clipboard)
+        if (i >= 0 && !privacy.isIncognito) ClipStore.save(this, kb.clipboard)
     }
 
     override fun commitClip(entry: String) {
@@ -2609,7 +2639,8 @@ class ComposeKeyboardService : InputMethodService(),
     private fun aiRun(task: AiTask, instruction: String) {
         if (kb.aiBusy) return
         val ic = currentInputConnection ?: return
-        if (flags.isPassword) return
+        // incognito wins over every optional AI pathway: this text would leave the device
+        if (privacy.isIncognito) return
         HapticsEngine.keyPress(this, inputView, settings, false)
         val t = runCatching {
             if (task == AiTask.CONTINUE) {
@@ -2672,7 +2703,8 @@ class ComposeKeyboardService : InputMethodService(),
     override fun aiFix() {
         if (kb.aiBusy) return
         val ic = currentInputConnection ?: return
-        if (flags.isPassword) return
+        // incognito wins over every optional AI pathway: this text would leave the device
+        if (privacy.isIncognito) return
         HapticsEngine.keyPress(this, inputView, settings, false)
         val t = runCatching { takeTarget(ic, "selection_or_text") }.getOrNull()
         if (t == null || t.text.isBlank()) {
@@ -2777,7 +2809,7 @@ class ComposeKeyboardService : InputMethodService(),
         ClipStore.save(this, kb.clipboard)
         // скопировали только что — предложить вставить (как в Gboard)
         val now = System.currentTimeMillis()
-        if (stamp > 0 && now - stamp in 0..CLIP_OFFER_MS && !flags.isPassword) {
+        if (stamp > 0 && now - stamp in 0..CLIP_OFFER_MS && !privacy.isIncognito) {
             kb.clipOffer = entry
             clipOfferAt = stamp
         }
@@ -2830,7 +2862,7 @@ class ComposeKeyboardService : InputMethodService(),
     private fun syncClipboard() {
         val s = settings
         // инкогнито и поле пароля: скопированное не попадает ни в историю, ни к модам
-        if (s.incognito || flags.isPassword) return
+        if (privacy.isIncognito) return
         if (!s.clipboardHistory) {
             if (kb.clipboard.isNotEmpty()) {
                 kb.clipboard.clear()

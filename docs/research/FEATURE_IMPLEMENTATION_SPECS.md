@@ -32,6 +32,10 @@ deliberate seam for #13: the value is computed and tested before any behaviour d
 
 ## 1. Feature #13 — Zero-Trace Auto-Incognito
 
+> **Status: IMPLEMENTED in v1.1 Phase 1 (see §1.8).** The specification below is kept as written
+> so the implementation can be reviewed against the plan rather than against itself. #3 and #23
+> remain unimplemented.
+
 ### 1.1 Existing implementation
 
 | Piece | Location | State |
@@ -107,6 +111,32 @@ incognito session.
 4. Leaving the field clears automatic reasons; manual persists.
 5. Zero `settings.incognito` reads remain outside `PrivacyState`.
 6. No new permission; no network use.
+
+### 1.8 Implementation record
+
+What was actually built, and how it differs from the plan above:
+
+| Plan | Implemented |
+| --- | --- |
+| `PrivacyState.kt` with `IncognitoReason` | yes — `MANUAL`, `PASSWORD_FIELD`, `NO_PERSONALIZED_LEARNING` |
+| One derived `effectiveIncognito` | yes — `PrivacyState.derive(manual, fieldSpec)`, exposed as the service's `privacy` |
+| Replace the 8 reads | 9 sites routed through `privacy.isIncognito` (the plan counted 8; `ScriptHost.privateMode` was a ninth) |
+| Package rule | **not built** — out of scope for this milestone, and a package name is a weak signal |
+| Indicator showing the reason | **not built** — UI change, deliberately left for review |
+
+Four additional paths were upgraded from `flags.isPassword` to `privacy.isIncognito` because they
+transmit text off the device or retain it: AI voice cleanup, `aiRun`, `aiFix`, and the clipboard
+paste offer. This **strengthens** privacy (previously manual incognito did not stop AI calls) and
+is required by "incognito takes priority over every optional AI pathway".
+
+Deliberately **not** changed: the suggestion strip still shows dictionary predictions in
+incognito. Incognito has always meant "does not remember", not "cannot suggest"; hiding the strip
+would remove working functionality the brief protects. Learning, plugin visibility and clipboard
+retention are all suppressed.
+
+`privacy` is cached on its two inputs (`settings.incognito` and the current `EditorFieldSpec`), so
+repeated reads during typing allocate nothing, and a manual toggle is picked up on the next read
+with no invalidation step to forget.
 
 ---
 

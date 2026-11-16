@@ -233,6 +233,26 @@ class ComposeKeyboardService : InputMethodService(),
     private var lastCommittedWord = ""
     private var lastTypedChar: Char? = null
     private var undo: UndoAutoCorrectState? = null
+
+    /** Identity of the editor field currently bound, for undo scoping. */
+    private fun currentFieldKey(): String = fieldKey(currentInputEditorInfo)
+
+    /** Record a correction that may be taken back, scoped to this field and this moment. */
+    private fun newUndo(originalWord: String, committedText: String) =
+        UndoAutoCorrectState(
+            originalWord = originalWord,
+            committedText = committedText,
+            fieldKey = currentFieldKey(),
+            expiresAtMillis = System.currentTimeMillis() + UndoGuard.TTL_MILLIS
+        )
+
+    /** The undo offer, but only while it is still current. */
+    private fun liveUndo(): UndoAutoCorrectState? {
+        val u = undo
+        if (UndoGuard.isLive(u, currentFieldKey(), System.currentTimeMillis())) return u
+        if (u != null) undo = null
+        return null
+    }
     private var autoSpace = false
     private var lastActionWasSpace = false
     private var charBeforeSpace: Char? = null
@@ -1209,7 +1229,7 @@ class ComposeKeyboardService : InputMethodService(),
         }
         val word = composing
         val prev = lastCommittedWord
-        val u = undo
+        val u = liveUndo()
         val lang = Languages.withUser(kb.language)
         val capNext = kb.shift != ShiftState.OFF && lang.hasCase
         val s = settings
@@ -1621,7 +1641,7 @@ class ComposeKeyboardService : InputMethodService(),
         icDeleteBefore(ic, tail.length)
         icCommit(ic, correction + suffix)
         ic.endBatchEdit()
-        undo = UndoAutoCorrectState(tail, correction + suffix)
+        undo = newUndo(tail, correction + suffix)
         if (' ' !in correction) learn(lastCommittedWord, correction)
         lastCommittedWord = correction.substringAfterLast(' ')
         autoSpace = false
@@ -1652,7 +1672,7 @@ class ComposeKeyboardService : InputMethodService(),
         if (correction != null) {
             val committed = correction + suffix
             icCommit(ic, committed)
-            undo = UndoAutoCorrectState(word, committed)
+            undo = newUndo(word, committed)
             // исправленное слово тоже учится — растут частота и пары слов, как в Gboard
             if (' ' !in correction) learn(lastCommittedWord, correction)
             lastCommittedWord = correction.substringAfterLast(' ')
@@ -2285,14 +2305,33 @@ class ComposeKeyboardService : InputMethodService(),
             replaceTapWord(ic, tw, chip)
             return
         }
-        val u = undo
-        if (chip.isUndo && u != null) {
+        val u = liveUndo()
+        if (chip.isUndo) {
+            // A stale undo must do nothing at all. Falling through to the normal chip path would
+            // commit the undo chip's empty word — i.e. insert a bare space.
+            if (u == null) {
+                undo = null
+                schedulePredictions()
+                return
+            }
+            // Never delete on an assumption: the editor must still end with exactly the text the
+            // correction committed. If it does not, the cursor moved, the user typed, or the app
+            // rewrote the field — drop the offer and change nothing.
+            val before = runCatching { ic.getTextBeforeCursor(u.committedText.length, 0) }.getOrNull()
+            if (!UndoGuard.matchesEditor(u, before)) {
+                undo = null
+                schedulePredictions()
+                return
+            }
             ic.beginBatchEdit()
             icDeleteBefore(ic, u.committedText.length)
             icCommit(ic, u.originalWord + " ")
             ic.endBatchEdit()
-            WordPredictorEngine.rejectCorrection(kb.language, u.originalWord)
-            learn("", u.originalWord, WordPredictorEngine.LEARNED_TYPO)
+            // in incognito the undo still works, but nothing about it may be remembered
+            if (!privacy.isIncognito) {
+                WordPredictorEngine.rejectCorrection(kb.language, u.originalWord)
+                learn("", u.originalWord, WordPredictorEngine.LEARNED_TYPO)
+            }
             lastCommittedWord = u.originalWord
         } else {
             var word = chip.commitWord

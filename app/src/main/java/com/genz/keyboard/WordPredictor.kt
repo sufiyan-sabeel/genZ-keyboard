@@ -154,7 +154,21 @@ import kotlin.math.sqrt
 /** Куда попал палец: смещение от центра нажатой клавиши в долях её ширины и высоты (-0.5…0.5). */
 data class KeyTouch(val dx: Float, val dy: Float)
 
-data class UndoAutoCorrectState(val originalWord: String, val committedText: String)
+/**
+ * A correction the user may take back.
+ *
+ * [fieldKey] and [expiresAtMillis] were added for v1.1: an undo recorded in one field must never
+ * be offered in another, and it must stop being offered after a few seconds. Both are enforced by
+ * [UndoGuard] rather than by scattered `null` assignments.
+ */
+data class UndoAutoCorrectState(
+    val originalWord: String,
+    val committedText: String,
+    /** Identity of the editor field the correction happened in ("package/fieldId"). */
+    val fieldKey: String = "",
+    /** Wall-clock deadline; `0` means "no deadline" only for callers that predate this field. */
+    val expiresAtMillis: Long = 0L
+)
 
 @Immutable
 data class SuggestionChipModel(

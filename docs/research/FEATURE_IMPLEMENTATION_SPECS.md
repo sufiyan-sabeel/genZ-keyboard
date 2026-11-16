@@ -142,6 +142,9 @@ with no invalidation step to forget.
 
 ## 2. Feature #3 — Typo-Undo Pill
 
+> **Status: IMPLEMENTED in v1.1 Phase 1 (see §2.8).** The specification below is kept as written so
+> the implementation can be reviewed against the plan. #23 remains unimplemented.
+
 ### 2.1 Existing implementation
 
 | Piece | Location | State |
@@ -207,6 +210,31 @@ untouched; `InputConnection` returning false must not throw.
 3. Chip disappears on cursor move, field change, backspace, or expiry.
 4. No crash when the connection is null or returns `false`.
 5. Typing latency unchanged.
+
+### 2.8 Implementation record
+
+What was actually built, and what the audit changed about the plan:
+
+| Plan | Implemented |
+| --- | --- |
+| `fieldKey` + `expiresAtMillis` on `UndoAutoCorrectState` | yes, with defaults so existing call sites keep compiling |
+| Expiry | `UndoGuard.TTL_MILLIS` = 6 s, enforced on every read via `liveUndo()` |
+| Cancel on cursor move | **already existed** (`KeyboardService.kt` `onUpdateSelection` sets `undo = null`) — not duplicated |
+| Cancel on editor switch | **already existed** (`resetForInput` sets `undo = null`) — field identity added as a second, independent guard |
+| Verify the editor before replacing | `UndoGuard.matchesEditor(...)` against `getTextBeforeCursor(committedText.length, 0)`; mismatch ⇒ clear and change nothing |
+| Stale chip must be inert | yes — an undo chip with no live state now returns instead of falling through, which would have committed a bare space |
+| Incognito | the undo still works, but `rejectCorrection` and `learn(LEARNED_TYPO)` are skipped, so nothing about a private session is written to the dictionary |
+
+Two findings from the audit worth recording:
+
+1. **Most cancellation already worked.** `onUpdateSelection` already cleared `undo` when the cursor
+   moved and `resetForInput` already cleared it on a field change. The plan proposed adding both;
+   adding them again would have been duplicate logic, so only the *independent* guard (field
+   identity) was added.
+2. **The real defect was the apply path.** It deleted `committedText.length` characters with no
+   check that those characters were still there. That is the data-loss bug this feature fixes.
+
+The chip's appearance, layout and accessibility are untouched: no UI change was made.
 
 ---
 

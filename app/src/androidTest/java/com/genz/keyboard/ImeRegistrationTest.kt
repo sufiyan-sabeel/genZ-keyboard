@@ -2,7 +2,6 @@ package com.genz.keyboard
 
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.view.inputmethod.InputMethodService
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
@@ -12,21 +11,40 @@ import org.junit.runner.RunWith
 
 /**
  * Instrumentation tests — these need a device or emulator and are **not** run by the JVM unit
- * test task.
+ * test task. Run with:
  *
- * They verify the things a unit test cannot: that the IME is really declared, really requires
- * the system permission, and is discoverable by the platform. They do not require the keyboard
- * to be enabled by the user, so they pass on a clean device.
+ *     ./gradlew connectedStandardDebugAndroidTest
  *
- * Run with:  ./gradlew connectedStandardDebugAndroidTest
+ * They verify what a unit test cannot: that the IME is really declared, really requires the
+ * system binding permission, and is discoverable by the platform. None of them require the user
+ * to have enabled the keyboard, so they pass on a clean device.
  *
- * Status: this suite compiles in CI but has **never been executed** — the environment that
- * produced it has no device, no emulator and no KVM. Nothing here is claimed as passing.
+ * Status: this suite **compiles in CI** (step "Compile instrumentation tests") but has **never
+ * been executed** — the environment that produced it has no device, no emulator and no KVM.
+ * Nothing here is claimed as passing.
  */
 @RunWith(AndroidJUnit4::class)
 class ImeRegistrationTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+    /**
+     * `InputMethodService.SERVICE_INTERFACE`. Written out as a literal because referencing the
+     * framework class directly did not resolve in the androidTest compilation of this project;
+     * the value is fixed by the platform API and cannot change.
+     */
+    private val imeServiceAction = "android.view.InputMethod"
+
+    private fun imeServices() = context.packageManager
+        .queryIntentServices(Intent(imeServiceAction), PackageManager.GET_META_DATA)
+        .orEmpty()
+
+    @Test
+    fun theActionStringFindsInputMethodsOnThisDevice() {
+        // guards the literal above: every Android device ships at least one IME, so an empty
+        // result means the action string is wrong, not that the device is unusual
+        assertFalse("no input method services found for $imeServiceAction", imeServices().isEmpty())
+    }
 
     @Test
     fun packageNameIsStable() {
@@ -36,32 +54,24 @@ class ImeRegistrationTest {
 
     @Test
     fun theKeyboardIsDiscoverableAsAnInputMethod() {
-        val services = context.packageManager.queryIntentServices(
-            Intent(InputMethodService.SERVICE_INTERFACE),
-            PackageManager.GET_META_DATA
-        )
-        val ours = services.filter { it.serviceInfo.packageName == context.packageName }
+        val ours = imeServices().filter { it.serviceInfo.packageName == context.packageName }
         assertFalse("no InputMethodService declared for this package", ours.isEmpty())
     }
 
     @Test
     fun theKeyboardRequiresTheSystemBindingPermission() {
-        val services = context.packageManager.queryIntentServices(
-            Intent(InputMethodService.SERVICE_INTERFACE),
-            PackageManager.GET_META_DATA
-        )
-        val ours = services.firstOrNull { it.serviceInfo.packageName == context.packageName }
+        val ours = imeServices().firstOrNull { it.serviceInfo.packageName == context.packageName }
         assertTrue("keyboard service not found", ours != null)
         // an IME that does not require BIND_INPUT_METHOD cannot be bound by the system
         assertTrue(
             "the IME service must require android.permission.BIND_INPUT_METHOD",
-            ours!!.serviceInfo.permission == "android.permission.BIND_INPUT_METHOD"
+            ours?.serviceInfo?.permission == "android.permission.BIND_INPUT_METHOD"
         )
     }
 
     @Test
-    fun onlyTheExpectedDangerousPermissionsAreDeclared() {
-        // guards the privacy claim: no new dangerous permission may appear without a test change
+    fun onlyTheExpectedPermissionsAreDeclared() {
+        // guards the privacy claim: a new dangerous permission must fail this test, not slip in
         val info = context.packageManager.getPackageInfo(
             context.packageName,
             PackageManager.GET_PERMISSIONS

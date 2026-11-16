@@ -846,28 +846,13 @@ class ComposeKeyboardService : InputMethodService(),
 
     private fun computeFlags(info: EditorInfo?): FieldFlags {
         if (info == null) return FieldFlags()
-        val type = info.inputType
-        val cls = type and InputType.TYPE_MASK_CLASS
-        val variation = type and InputType.TYPE_MASK_VARIATION
-        val text = cls == InputType.TYPE_CLASS_TEXT
-        val password = (text && (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD)) ||
-            (cls == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD)
-        val addressLike = text && (variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
-            variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS ||
-            variation == InputType.TYPE_TEXT_VARIATION_URI)
-        val noSuggest = (type and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) != 0
-        val capFlags = InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or InputType.TYPE_TEXT_FLAG_CAP_WORDS or
-            InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
-        val suggestions = text && !password && !addressLike
+        // The rules live in EditorFieldSpecs so they can be unit-tested without a service.
+        val spec = EditorFieldSpecs.of(info.inputType, info.imeOptions, settings.correctEverywhere)
         return FieldFlags(
-            isPassword = password,
-            suggestions = suggestions,
-            // многие приложения ставят «без подсказок» в обычные поля сообщений — из-за этого исправления
-            // работали лишь в части приложений; по настройке исправляем везде, кроме паролей, почты и адресов
-            autoCorrect = suggestions && (!noSuggest || settings.correctEverywhere),
-            autoCap = text && !password && !addressLike && (type and capFlags) != 0
+            isPassword = spec.isPassword,
+            suggestions = spec.acceptsSuggestions,
+            autoCorrect = spec.autoCorrect,
+            autoCap = spec.autoCapitalize
         )
     }
 

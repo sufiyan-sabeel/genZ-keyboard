@@ -59,6 +59,9 @@ jobs:
       - name: Unit tests
         run: ./gradlew testStandardDebugUnitTest --stacktrace
 
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleStandardDebugAndroidTest --stacktrace
+
       - name: Dependency policy check (F-Droid)
         run: |
           ./gradlew :app:dependencies --configuration fdroidReleaseRuntimeClasspath > deps.txt 2>&1 || {

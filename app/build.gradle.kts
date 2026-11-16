@@ -29,6 +29,8 @@ android {
         }
         buildConfigField("String", "KLIPY_API_KEY", "\"${local.getProperty("KLIPY_API_KEY", "").trim()}\"")
         buildConfigField("String", "GIPHY_API_KEY", "\"${local.getProperty("GIPHY_API_KEY", "").trim()}\"")
+        // instrumentation tests need a device; they are kept apart from the JVM unit tests
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // своя подпись релиза — если в local.properties (он не попадает в git) указан keystore:
@@ -169,4 +171,9 @@ dependencies {
     implementation("androidx.profileinstaller:profileinstaller:1.3.1")
 
     testImplementation("junit:junit:4.13.2")
+
+    // instrumentation only: never on the app's runtime classpath, so the F-Droid dependency gate
+    // and the shipped APK are unaffected
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
 }

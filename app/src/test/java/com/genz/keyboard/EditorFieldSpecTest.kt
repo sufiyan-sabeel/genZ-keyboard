@@ -31,7 +31,9 @@ class EditorFieldSpecTest {
         assertEquals(0x00000ff0, InputType.TYPE_MASK_VARIATION)
         assertEquals(0x00000001, InputType.TYPE_CLASS_TEXT)
         assertEquals(0x00000002, InputType.TYPE_CLASS_NUMBER)
-        assertEquals(0x00010000, InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
+        // 0x00080000: this assertion is the reason the canary exists. The first draft of this
+        // test asserted 0x00010000 (that is TYPE_TEXT_FLAG_AUTO_COMPLETE) and CI caught it.
+        assertEquals(0x00080000, InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
         assertEquals(0x01000000, EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING)
     }
 

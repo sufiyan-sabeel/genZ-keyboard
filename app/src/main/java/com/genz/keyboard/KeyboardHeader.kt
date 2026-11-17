@@ -163,8 +163,11 @@ internal fun HeaderBar(
     val candidates = state.candidates
     val showCandidates = candidates.isNotEmpty() && (panel == ActivePanel.KEYBOARD)
     // пароли и логины от службы автозаполнения — пока ничего не набрано; потом уступают подсказкам слов
+    // never shown in a private session: toggling incognito must take the credentials off screen
+    // immediately, not at the next field change
     val inline = state.inlineSuggestions.takeIf {
         it.isNotEmpty() && panel == ActivePanel.KEYBOARD && !state.toolbarOpen && !showCandidates &&
+            InlineAutofillPolicy.mayShow(settings.incognito, state.privateField) &&
             state.suggestions.none { c -> !c.isEmpty && !c.isUndo && c.isKeepExact && c.isPrimary }
     }
     // только что скопированное — предложить вставить, даже если подсказки выключены

@@ -689,7 +689,13 @@ class ComposeKeyboardService : InputMethodService(),
         val views = arrayOfNulls<View>(list.size)
         var left = list.size
         val size = android.util.Size(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
-        val publish = { if (gen == inlineGeneration) kb.inlineSuggestions = views.filterNotNull() }
+        // Re-check privacy at publish time: inflation is asynchronous, and incognito can be
+        // switched on after the response arrived but before these views finish inflating.
+        val publish = {
+            if (gen == inlineGeneration && InlineAutofillPolicy.isAllowed(privacyForCurrentField())) {
+                kb.inlineSuggestions = views.filterNotNull()
+            }
+        }
         list.forEachIndexed { i, s ->
             runCatching {
                 s.inflate(this, size, mainExecutor) { v ->
@@ -934,6 +940,10 @@ class ComposeKeyboardService : InputMethodService(),
                 privacyManual = manual
                 privacySpec = spec
                 privacyCached = PrivacyState.derive(manual, spec)
+                // Plugins read this flag directly. Without this line, turning incognito on while a
+                // field stayed active left ScriptHost.privateMode stale until the next
+                // onStartInputView — i.e. plugins kept seeing text after the user asked for privacy.
+                ScriptHost.privateMode = privacyCached.isIncognito
             }
             return privacyCached
         }
@@ -948,6 +958,8 @@ class ComposeKeyboardService : InputMethodService(),
         // suggestions inflated for the previous field must never render in this one
         inlineGeneration++
         kb.inlineSuggestions = emptyList()
+        // the strip also hides itself when the field demands privacy (see KeyboardHeader)
+        kb.privateField = spec?.isPrivate == true
         flags = flagsFor(spec)
         // в поле пароля и в инкогнито моды не видят ни набираемого текста, ни буфера
         ScriptHost.privateMode = privacy.isIncognito
@@ -1365,7 +1377,7 @@ class ComposeKeyboardService : InputMethodService(),
     private fun replaceTapWord(ic: InputConnection, tw: TapWord, chip: SuggestionChipModel) {
         val word = chip.commitWord
         if (chip.isKeepExact && word == tw.word) {
-            WordPredictorEngine.rejectCorrection(kb.language, word)
+            if (!privacy.isIncognito) WordPredictorEngine.rejectCorrection(kb.language, word)
             learn("", word, WordPredictorEngine.LEARNED_TYPO)
         } else {
             ic.beginBatchEdit()
@@ -1852,7 +1864,7 @@ class ComposeKeyboardService : InputMethodService(),
             undo = null
             // отменённое исправление какое-то время не повторяется; навсегда слово не запоминается — ⌫ часто жмут
             // не ради отмены, и одной случайной отмены хватало, чтобы опечатка («привит») больше не исправлялась
-            WordPredictorEngine.rejectCorrection(kb.language, u.originalWord)
+            if (!privacy.isIncognito) WordPredictorEngine.rejectCorrection(kb.language, u.originalWord)
             schedulePredictions()
             return
         }
@@ -2352,15 +2364,17 @@ class ComposeKeyboardService : InputMethodService(),
                 return
             }
             // Never delete on an assumption: the editor must still end with exactly the text the
-            // correction committed. If it does not, the cursor moved, the user typed, or the app
-            // rewrote the field — drop the offer and change nothing.
+            // correction committed. The read happens *inside* the batch edit so that the editor is
+            // not applying its own changes between the check and the delete — the window is
+            // narrowed, though InputConnection offers no atomic compare-and-delete.
+            ic.beginBatchEdit()
             val before = runCatching { ic.getTextBeforeCursor(u.committedText.length, 0) }.getOrNull()
             if (!UndoGuard.matchesEditor(u, before)) {
+                ic.endBatchEdit()
                 undo = null
                 schedulePredictions()
                 return
             }
-            ic.beginBatchEdit()
             icDeleteBefore(ic, u.committedText.length)
             icCommit(ic, u.originalWord + " ")
             ic.endBatchEdit()
@@ -2373,7 +2387,7 @@ class ComposeKeyboardService : InputMethodService(),
         } else {
             var word = chip.commitWord
             // «оставить как есть» — это слово больше не исправлять
-            if (chip.isKeepExact && composing.isNotEmpty() && word == composing) WordPredictorEngine.rejectCorrection(kb.language, word)
+            if (chip.isKeepExact && composing.isNotEmpty() && word == composing && !privacy.isIncognito) WordPredictorEngine.rejectCorrection(kb.language, word)
             if (composing.isEmpty() && kb.shift != ShiftState.OFF) word = word.replaceFirstChar { it.uppercase() }
             // курсор стоит вплотную к слову (его переставили) — следующее слово не должно к нему приклеиться
             val glue = composing.isEmpty() && ic.getTextBeforeCursor(1, 0)?.lastOrNull()?.let { isWordLetter(it) || it.isDigit() } == true
@@ -2409,7 +2423,8 @@ class ComposeKeyboardService : InputMethodService(),
 
     override fun commitEmoji(emoji: String) {
         HapticsEngine.keyPress(this, inputView, settings, false)
-        EmojiRecents.add(this, emoji)
+        // which emoji someone sends is user data: not recorded in a private session
+        if (!privacy.isIncognito) EmojiRecents.add(this, emoji)
         commitText(emoji)
         // как в Gboard: выбрали эмодзи — сразу вернулись к буквам, не закрывая панель вручную
         if (settings.emojiReturnToKeyboard && (kb.panel == ActivePanel.EMOJI || kb.panel == ActivePanel.EMOJI_SEARCH)) {

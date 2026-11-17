@@ -54,6 +54,15 @@ object InlineAutofillPolicy {
      */
     fun isAllowed(privacy: PrivacyState): Boolean = !privacy.isIncognito
 
+    /**
+     * Whether the inline strip may be displayed, from the two signals the UI actually has.
+     *
+     * Kept here so the rendering rule and the request/response rule cannot drift apart: the strip
+     * must disappear the moment either signal says private, not at the next field change.
+     */
+    fun mayShow(manualIncognito: Boolean, privateField: Boolean): Boolean =
+        !manualIncognito && !privateField
+
     /** Clamp a requested suggestion count into the range the keyboard will render. */
     fun suggestionCount(requested: Int): Int = requested.coerceIn(0, MAX_SUGGESTIONS)
 

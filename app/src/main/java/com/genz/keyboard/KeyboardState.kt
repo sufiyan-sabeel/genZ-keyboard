@@ -167,6 +167,11 @@ class KeyboardState {
     var emojiQuery by mutableStateOf("")
     /** Подсказки автозаполнения (пароли, логины из Google Паролей и т. п.) — готовые View от системы. */
     var inlineSuggestions by mutableStateOf<List<View>>(emptyList())
+    /**
+     * The current editor demands privacy (password field or IME_FLAG_NO_PERSONALIZED_LEARNING).
+     * Field-only: the manual incognito switch is read separately, so the two cannot disagree.
+     */
+    var privateField by mutableStateOf(false)
     /** Идёт исправление текста — кнопка на панели крутится, по клавиатуре бежит сияние. */
     var aiBusy by mutableStateOf(false)
     /** Текст только что исправлен — короткая вспышка. Число растёт с каждым исправлением. */

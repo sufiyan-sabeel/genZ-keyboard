@@ -208,6 +208,31 @@ class PrivacyStateTest {
     }
 
     @Test
+    fun forcedByFieldIsTrueWhenManualAndAFieldReasonCoexist() {
+        // regression guard: an earlier version reported "forced" only when the manual switch was
+        // off, which would mislabel a password field the user had also switched on by hand
+        assertTrue(derive(true, password).forcedByField)
+        assertTrue(derive(true, noLearning).forcedByField)
+        assertFalse(derive(true, plain).forcedByField)
+    }
+
+    @Test
+    fun turningTheManualSwitchOffKeepsTheFieldReasonMarkedAsForced() {
+        val on = derive(true, password)
+        val off = derive(false, password)
+        assertTrue(on.forcedByField)
+        assertTrue("the field still forces privacy after the switch is turned off", off.forcedByField)
+        assertFalse(off.has(IncognitoReason.MANUAL))
+    }
+
+    @Test
+    fun aFieldOnlyStateIsAlwaysForced() {
+        listOf(password, noLearning).forEach { spec ->
+            assertTrue(PrivacyState.derive(false, spec).forcedByField)
+        }
+    }
+
+    @Test
     fun equalInputsProduceEqualStates() {
         // the service caches on its inputs, so equality has to behave
         assertEquals(derive(true, password), derive(true, password))

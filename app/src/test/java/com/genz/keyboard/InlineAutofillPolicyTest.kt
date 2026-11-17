@@ -159,4 +159,41 @@ class InlineAutofillPolicyTest {
         assertTrue(InlineAutofillPolicy.accepts(1))
         assertTrue(InlineAutofillPolicy.accepts(6))
     }
+
+    // ---------------------------------------------------------------- strip visibility
+
+    @Test
+    fun theStripIsHiddenByEitherPrivacySignal() {
+        // the UI only has these two signals; either one must hide the credentials
+        assertTrue(InlineAutofillPolicy.mayShow(manualIncognito = false, privateField = false))
+        assertFalse(InlineAutofillPolicy.mayShow(manualIncognito = true, privateField = false))
+        assertFalse(InlineAutofillPolicy.mayShow(manualIncognito = false, privateField = true))
+        assertFalse(InlineAutofillPolicy.mayShow(manualIncognito = true, privateField = true))
+    }
+
+    @Test
+    fun theStripVisibilityRuleAgreesWithTheRequestGate() {
+        // both derive from the same privacy idea; they must not diverge
+        listOf(
+            privacy(false, plain), privacy(false, password),
+            privacy(true, plain), privacy(false, noLearning)
+        ).forEach { p ->
+            assertEquals(
+                "gate and strip disagree for $p",
+                InlineAutofillPolicy.isAllowed(p),
+                InlineAutofillPolicy.mayShow(p.has(IncognitoReason.MANUAL), p.forcedByField)
+            )
+        }
+    }
+
+    @Test
+    fun everyReasonBlocksInlineAutofill() {
+        // manual + password + learning-request all at once must still be blocked
+        val all = PrivacyState.derive(true, EditorFieldSpecs.of(
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING, false
+        ))
+        assertEquals(3, all.reasons.size)
+        assertFalse(InlineAutofillPolicy.isAllowed(all))
+    }
 }

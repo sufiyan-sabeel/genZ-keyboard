@@ -685,35 +685,36 @@ class ComposeKeyboardService : InputMethodService(),
      */
     override fun setIncognito(on: Boolean) {
         KeyboardPrefs.edit(this) { putBoolean("incognito", on) }
-        // the listener below also fires, so this is belt-and-braces: whichever runs first applies
-        // the transition, and the second sees no change to apply.
-        refreshPrivacyFromPrefs()
-    }
-
-    /**
-     * Recompute privacy from the stored preference and apply any transition.
-     *
-     * Called by [setIncognito] and by [incognitoWatcher]. The second path matters because the
-     * Settings screen writes the preference directly — a toolbar-only path left plugins and
-     * on-screen autofill suggestions stale when incognito was switched on from there.
-     */
-    private fun refreshPrivacyFromPrefs() {
-        val manual = settings.incognito
-        val spec = fieldSpec
-        if (manual == privacyManual && spec == privacySpec) return
-        val previous = privacyCached
-        privacyManual = manual
-        privacySpec = spec
-        privacyCached = PrivacyState.derive(manual, spec)
-        applyPrivacyEffects(previous, privacyCached)
-        schedulePredictions()
+        // We know the value we just wrote, so apply it directly instead of reading it back.
+        applyIncognito(on)
     }
 
     /** Any writer of the incognito preference reaches the transition, not just the toolbar. */
     private val incognitoWatcher =
-        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == "incognito") refreshPrivacyFromPrefs()
+        SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+            // The listener is handed the preferences that changed, so read the new value from
+            // there rather than from the cached settings object.
+            if (key == "incognito") applyIncognito(p.getBoolean("incognito", false))
         }
+
+    /**
+     * Apply a known incognito value.
+     *
+     * The value is a parameter on purpose. `KeyboardPrefs.edit` uses `apply()`, which notifies
+     * listeners in an unspecified order; reading the cached settings back here could therefore
+     * observe the *old* value, hit the early return below, and skip the transition entirely —
+     * leaving `ScriptHost.privateMode` stale until the next keystroke. That is the exact interval
+     * this must cover, so the value is never re-read.
+     */
+    private fun applyIncognito(manual: Boolean) {
+        val spec = fieldSpec
+        val result = IncognitoTransition.apply(manual, spec, privacyCached)
+        privacyManual = manual
+        privacySpec = spec
+        privacyCached = result.state
+        applyEffects(result.effects)
+        if (result.changed) schedulePredictions()
+    }
 
     /** Подсказки пришли: раздуваем их в View и показываем в строке подсказок. */
     @RequiresApi(Build.VERSION_CODES.R)
@@ -968,7 +969,11 @@ class ComposeKeyboardService : InputMethodService(),
 
     /** Applies the privacy transition effects: plugins, on-screen credentials, in-flight results. */
     private fun applyPrivacyEffects(previous: PrivacyState?, next: PrivacyState) {
-        PrivacyTransitions.effectsOf(previous, next).forEach { effect ->
+        applyEffects(PrivacyTransitions.effectsOf(previous, next))
+    }
+
+    private fun applyEffects(effects: List<PrivacyEffect>) {
+        effects.forEach { effect ->
             when (effect) {
                 is PrivacyEffect.SetScriptPrivate -> ScriptHost.privateMode = effect.value
                 PrivacyEffect.DropInlineSuggestions -> kb.inlineSuggestions = emptyList()

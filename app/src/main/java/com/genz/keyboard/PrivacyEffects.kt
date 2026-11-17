@@ -41,6 +41,34 @@ object PrivacyTransitions {
 }
 
 /**
+ * A privacy transition for a *known* incognito value.
+ *
+ * This exists as a separate, pure function because of a real defect: the service used to read the
+ * new value back from a cached settings object, and `KeyboardPrefs.edit` uses `apply()`, whose
+ * listener notification order is unspecified. When the keyboard's own listener ran first, the cache
+ * still held the old value, the transition looked like "no change", and nothing was applied — so
+ * plugins kept reading text until the next keystroke.
+ *
+ * The value is a parameter here, so a caller cannot accidentally depend on a cache being fresh.
+ */
+object IncognitoTransition {
+
+    class Result(val state: PrivacyState, val effects: List<PrivacyEffect>) {
+        val changed: Boolean get() = effects.isNotEmpty()
+    }
+
+    /**
+     * @param manual the authoritative value, supplied by whoever changed it
+     * @param spec the current editor field, or null when none is attached
+     * @param previous the state before this change
+     */
+    fun apply(manual: Boolean, spec: EditorFieldSpec?, previous: PrivacyState): Result {
+        val next = PrivacyState.derive(manual, spec)
+        return Result(next, PrivacyTransitions.effectsOf(previous, next))
+    }
+}
+
+/**
  * The persistent writes that must not happen in a private session.
  *
  * Implemented by the service; faked in tests so the routing can be observed without Android.

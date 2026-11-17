@@ -338,10 +338,16 @@ What cannot be revoked: text already handed into the JS heap before the toggle. 
 a string keeps it until its scope is torn down. There is no host API to retract a value already
 passed to script. This is a limitation of running user scripts, not a missing check.
 
-**Additional finding, not changed:** the `press` event carries the key *label* (not editor text) and
-is gated by `flags.isPassword` only, so in manual incognito a mod still learns which keys were
-pressed. Reported rather than changed — it is mod-facing behaviour, and blocking it would disable
-key effects in incognito. Needs a product decision.
+**Correction to an earlier finding in this document.** It previously claimed that the `press` event
+leaked key labels in manual incognito because it was gated by `flags.isPassword` only. **That was
+wrong.** `ScriptHost.emit` skips any event whose `EVENT_PERMS` entry is a permission the mod lacks
+or that is blocked by `privateMode`, and `press` is mapped to `read_text` — so it was already
+blocked in incognito. The finding is withdrawn.
+
+The real gap was structural rather than behavioural: that protection depended on each content
+event happening to have a permission-map entry, so an event added later without one would have been
+delivered silently. `PluginEventPolicy` now states the rule and `emit` enforces it before any
+handler runs, independent of the map.
 
 ## GIF network isolation — verified
 
@@ -376,3 +382,39 @@ decision functions.
 **181 tests, 0 failures.** One test added (`repeatedApplicationOfTheSameStateProducesNoFurtherEffects`).
 CI green: unit tests, instrumentation compilation, dependency policy, standard and F-Droid builds,
 flavour separation.
+
+---
+
+# Plugin event policy (follow-up)
+
+`PluginEventPolicy` now states which mod-facing events carry what the user typed, and
+`ScriptHost.emit` refuses them while `privateMode` is set, before any handler runs.
+
+Content events: `press`, `key`, `word`, `suggest`, `start`, `selection`, `pick`, `voice`,
+`autocorrect`, `glide`, `pointer`, `clipboard`. Non-content events (panel, shift, device, finish,
+show, hide, language, gyro, tilt, audio) are unaffected, so mods that only draw effects keep
+working in incognito.
+
+## Script lifecycle during a privacy transition
+
+Established by reading `ScriptHost.emit` and `exec`:
+
+| Question | Answer |
+| --- | --- |
+| Can an existing execution be cancelled? | **No.** Rhino runs on the calling thread inside `exec`; there is no cancellation token or interrupt. A 300 ms deadline thread-local bounds a runaway script. |
+| Is there a pending event queue to drain? | **No.** `emit` calls `exec` inline and returns. Once it returns, nothing is pending. |
+| Can a stale callback expose new editor content? | **No.** Every text accessor re-checks `privateMode` at call time, so a later callback receives empty strings. |
+| Does previously delivered data remain accessible? | **Yes**, inside the script's own scope, for as long as it lives. No host API can retract it. |
+
+Because delivery is synchronous on the main thread and the transition also happens on the main
+thread, a key event cannot be half-delivered across a toggle: the event either completes before
+the transition or is refused after it.
+
+**No cancellation mechanism was added.** There is nothing to cancel, and inventing one (killing the
+Rhino context on toggle) would break every installed mod mid-session — an unsupported change to a
+public surface, for no privacy gain over refusing the next event.
+
+## Device verification
+
+`docs/research/DEVICE_TEST_CHECKLIST.md` lists the eight scenarios that still need hardware. None
+has been run.

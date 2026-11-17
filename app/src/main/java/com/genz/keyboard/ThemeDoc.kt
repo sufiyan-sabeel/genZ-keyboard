@@ -46,7 +46,8 @@ object ThemeCodec {
 
     private val ID = Regex("^[a-z0-9][a-z0-9._-]{0,63}$")
     private val PRESET = Regex("^[a-z0-9][a-z0-9._-]{0,63}$")
-    private val KEY = Regex("^[a-z][a-zA-Z0-9_.]{0,47}$")
+    // `*` is a legitimate path segment: the skin schema uses `keys.*` for "every key".
+    private val KEY = Regex("^[a-z*][a-zA-Z0-9_.*]{0,47}$")
     private val HEX = Regex("^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
     private val NUM = Regex("^-?[0-9]{1,4}(?:\\.[0-9]{1,3})?$")
     /** A bare file name with an image extension: no slashes, no scheme, no traversal. */

@@ -151,6 +151,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by KeyboardPrefs.observe()
             ExpressiveTheme(settings, appUi = true) {
+                // Background release check: never blocks, silent when offline or rate-limited.
+                UpdateHost(
+                    installedCode = BuildConfig.VERSION_CODE,
+                    installedName = BuildConfig.VERSION_NAME
+                )
                 // «Разрешить микрофон» из панели голосового ввода: системный запрос сразу при открытии
                 val micPromptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
                 LaunchedEffect(MicPermissionPrompt.pending) {

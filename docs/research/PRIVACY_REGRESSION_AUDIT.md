@@ -299,3 +299,80 @@ rule on the same two signals, so the two surfaces cannot drift apart.
 6. Rotation with a chip visible: confirm no stale view survives.
 
 Until these are run, the three features are **PASS WITH LIMITATIONS**, not PASS.
+
+---
+
+# Acceptance review — live privacy, plugins, GIF isolation
+
+Reviewed: `309aa96c`, `a80532ed`, `19b4037a`, `1140313f555f8876a7e1c48a2c1b4bb936f363fc`.
+Defect fixed by this review: `13e91d876153799edebeaea3aff7538697f5cc9f`.
+
+## Defect found: the Settings toggle bypassed the transition
+
+`KeyboardActions.setIncognito` was called only by the toolbar. The Settings screen writes the same
+preference directly (`SettingsTyping.kt`), so switching incognito on there updated Compose state but
+left `ScriptHost.privateMode` and the inline generation untouched until the next read.
+
+Fixed by registering an `OnSharedPreferenceChangeListener` for the `incognito` key in
+`onCreate`, removed in `onDestroy`. **Every** writer now reaches the transition, whichever screen it
+came from. `setIncognito` keeps its explicit call as belt-and-braces; the shared routine is
+idempotent, so the second caller applies nothing (test:
+`repeatedApplicationOfTheSameStateProducesNoFurtherEffects`).
+
+## Verified by reading, not assumed
+
+| Claim | Evidence |
+| --- | --- |
+| Preference is written | `setIncognito` → `KeyboardPrefs.edit`; Settings writes it too |
+| Effective state recalculated | `refreshPrivacyFromPrefs` → `PrivacyState.derive` |
+| ScriptHost updated immediately | `applyPrivacyEffects` → `SetScriptPrivate` |
+| Pending autofill invalidated | same → `InvalidatePendingInline` → `inlineGeneration++` |
+| Observable UI state cleared | same → `DropInlineSuggestions` → `kb.inlineSuggestions = emptyList()` |
+| No Compose state written off-thread | no read of `privacy` occurs inside any `Dispatchers.IO`/`Default` block |
+
+## Async plugin exposure — residual, documented
+
+`ScriptHost.privateMode` gates `textBefore`, `textAfter`, `allText`, `dict.learn`, app info, mic
+level, pointer, selection and permission-carrying events. Once set, **new** reads return empty.
+What cannot be revoked: text already handed into the JS heap before the toggle. A mod that captured
+a string keeps it until its scope is torn down. There is no host API to retract a value already
+passed to script. This is a limitation of running user scripts, not a missing check.
+
+**Additional finding, not changed:** the `press` event carries the key *label* (not editor text) and
+is gated by `flags.isPassword` only, so in manual incognito a mod still learns which keys were
+pressed. Reported rather than changed — it is mod-facing behaviour, and blocking it would disable
+key effects in incognito. Needs a product decision.
+
+## GIF network isolation — verified
+
+`GifCatalog.fetch` has exactly **one** caller (`Panels.kt`), which passes `allowNetwork = gifNetwork`.
+`klipy(...)` and `giphy(...)` are private and reachable only from `fetch`, which returns the locally
+filtered built-in catalogue before any key is read when `allowNetwork` is false. No other route
+transmits the query; dictionary downloads send only a language code.
+
+## Other persistent writes during incognito — reported, not expanded
+
+| Write | Status |
+| --- | --- |
+| learned words / bigrams | gated via `learn()` |
+| CJK learning | gated |
+| `rejectCorrection` | gated by `PrivacyWriteRouter` |
+| emoji recents | gated by `PrivacyWriteRouter` |
+| clipboard history | gated in `syncClipboard`; panel actions write an already-empty list |
+| pinned clips | **not gated** — explicit user action on existing data, persists in incognito |
+| `last_language` | **not gated** — the chosen language, not user text |
+| settings, themes, AI keys | user-authored configuration |
+
+## Compose state
+
+`privateField` and `inlineSuggestions` are `mutableStateOf` on `KeyboardState`; `settings` is a
+Compose state refreshed by `KeyboardPrefs`' own preference listener. `mayShow` is evaluated during
+composition from those two, so a toggle recomposes the strip. **Not verified:** that recomposition
+actually occurs on a device — there is no Compose UI test here, only pure Kotlin tests of the
+decision functions.
+
+## Results at `13e91d87`
+
+**181 tests, 0 failures.** One test added (`repeatedApplicationOfTheSameStateProducesNoFurtherEffects`).
+CI green: unit tests, instrumentation compilation, dependency policy, standard and F-Droid builds,
+flavour separation.

@@ -84,7 +84,7 @@ object ThemeAssets {
             return null
         }
         name
-    }
+    }.getOrNull()
 
     /** Read an imported theme file, capped at [MAX_THEME_BYTES]. Null when unreadable. */
     fun readTheme(context: Context, uri: Uri): String? = runCatching {

@@ -96,6 +96,34 @@ object ThemeApply {
         )
     }
 
+    /** Preference key holding the id of the theme currently applied, or "" for none. */
+    const val APPLIED_THEME_KEY = "applied_theme_id"
+
+    /**
+     * Persist a theme as the active one.
+     *
+     * Writes the same settings the preview reads, so what the Studio showed is what the keyboard
+     * draws after the app restarts. Returns true when the write succeeded.
+     */
+    fun applyAndPersist(context: android.content.Context, doc: ThemeDoc, base: KeyboardSettings): Boolean {
+        val s = applyTo(doc, base)
+        return runCatching {
+            KeyboardPrefs.edit(context) { editor ->
+                if (s.colorBackground != 0) editor.putInt("color_background", s.colorBackground)
+                if (s.colorKey != 0) editor.putInt("color_key", s.colorKey)
+                if (s.colorKeyText != 0) editor.putInt("color_key_text", s.colorKeyText)
+                if (s.colorFunc != 0) editor.putInt("color_func", s.colorFunc)
+                if (s.colorFuncText != 0) editor.putInt("color_func_text", s.colorFuncText)
+                if (s.colorAccent != 0) editor.putInt("color_accent", s.colorAccent)
+                if (s.colorAccentText != 0) editor.putInt("color_accent_text", s.colorAccentText)
+                editor.putFloat("key_opacity", s.keyOpacity)
+                editor.putFloat("corner_radius_dp", s.cornerRadiusDp)
+                editor.putString(APPLIED_THEME_KEY, doc.id)
+            }
+            true
+        }.getOrDefault(false)
+    }
+
     /** The base preset a theme is built on, as an asset file name. */
     fun presetAsset(basePreset: String): String =
         "plugins/" + basePreset.substringAfterLast('.').let { "preset_$it.json" }

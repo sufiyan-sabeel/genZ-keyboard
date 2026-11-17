@@ -353,7 +353,17 @@ internal fun SettingsPageScaffold(
                     SettingsPage.WHATS_NEW -> WhatsNewPage(settings, onNavigate)
                     SettingsPage.POWER -> PowerPage(settings)
                     SettingsPage.THEMES -> ThemesPage(settings, onNavigate)
-                    SettingsPage.THEME_EDITOR -> ThemeEditorPage(settings, onNavigate)
+                    SettingsPage.THEME_EDITOR -> {
+                        var studioOpen by remember { mutableStateOf(false) }
+                        if (studioOpen) {
+                            ThemeStudioScreen(onClose = { studioOpen = false })
+                        } else {
+                            Column {
+                                StudioEntryButton(onOpen = { studioOpen = true })
+                                ThemeEditorPage(settings, onNavigate)
+                            }
+                        }
+                    }
                     SettingsPage.ANIMATIONS -> AnimationsPage(settings)
                     SettingsPage.COLORS -> ColorsPage(settings)
                     SettingsPage.KEYS -> KeysPage(settings, onNavigate)

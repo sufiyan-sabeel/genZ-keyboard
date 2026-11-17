@@ -525,6 +525,9 @@ object ScriptHost {
 
     fun emit(event: String, vararg args: Any?): List<Any?> {
         if (!has(event) || !running.add(event)) return emptyList()
+        // Enforced here, before any handler runs, so the rule does not depend on every content
+        // event remembering to have a permission entry in EVENT_PERMS.
+        if (privateMode && PluginEventPolicy.carriesTypedContent(event)) return emptyList()
         val out = ArrayList<Any?>()
         try {
             for (m in mods.values) {

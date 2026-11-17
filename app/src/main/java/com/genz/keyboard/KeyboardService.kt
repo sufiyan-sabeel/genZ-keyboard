@@ -1078,7 +1078,7 @@ class ComposeKeyboardService : InputMethodService(),
         autoShift = kb.shift == ShiftState.SINGLE
         noCorrectWord = false
         schedulePredictions()
-        if (ScriptHost.has("start")) ScriptHost.emit("start", scriptField())
+        if (ScriptHost.has("start") && PluginEventPolicy.allows("start", privacy)) ScriptHost.emit("start", scriptField())
         ScriptHost.appChanged(info?.packageName.orEmpty())
     }
 
@@ -1133,7 +1133,7 @@ class ComposeKeyboardService : InputMethodService(),
             return
         }
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        if (ScriptHost.has("selection")) ScriptHost.emit("selection", mapOf("start" to newSelStart, "end" to newSelEnd))
+        if (ScriptHost.has("selection") && PluginEventPolicy.allows("selection", privacy)) ScriptHost.emit("selection", mapOf("start" to newSelStart, "end" to newSelEnd))
         // в поле появился текст — панель функций уступает подсказкам сразу, без ожидания предсказаний
         if (kb.fieldEmpty && (newSelStart > 0 || newSelEnd > 0 || candidatesEnd > 0)) kb.fieldEmpty = false
         if (expSelStart < 0 || expSelEnd < 0) {
@@ -1269,7 +1269,7 @@ class ComposeKeyboardService : InputMethodService(),
         else SystemSpell.cached(lang, word) ?: if (own != null) SystemSpell.await(lang, word, 8L) else null
         var c = if (systemSpellAllowed()) WordPredictorEngine.mergeSystem(word, own, sys, lang, strength) else own
         // мод может отменить исправление (false) или предложить своё (строка)
-        if (ScriptHost.has("autocorrect") && !flags.isPassword) {
+        if (ScriptHost.has("autocorrect") && PluginEventPolicy.allows("autocorrect", privacy)) {
             for (r in ScriptHost.emit("autocorrect", mapOf("word" to word, "correction" to c))) {
                 if (r == false) return null
                 if (r is String && r.isNotEmpty()) c = r
@@ -1465,7 +1465,7 @@ class ComposeKeyboardService : InputMethodService(),
         // латиница пиньиня/ромадзи — не слова языка
         if (Cjk.isCjk(kb.language.composer)) return
         if (flags.suggestions && !privacy.isIncognito) WordPredictorEngine.learn(kb.language, previous, word, boost)
-        if (ScriptHost.has("word") && !privacy.isIncognito) ScriptHost.emit("word", mapOf("word" to word, "previous" to previous))
+        if (ScriptHost.has("word") && PluginEventPolicy.allows("word", privacy)) ScriptHost.emit("word", mapOf("word" to word, "previous" to previous))
     }
 
     // ------------------------------------------------------------------ корейский и Telex
@@ -2105,7 +2105,7 @@ class ComposeKeyboardService : InputMethodService(),
         val special = key.type == KeyType.SPACE || key.type == KeyType.ENTER ||
             key.type == KeyType.BACKSPACE || key.type == KeyType.SHIFT
         HapticsEngine.keyPress(this, inputView, settings, special)
-        if (ScriptHost.has("press") && !flags.isPassword) {
+        if (ScriptHost.has("press") && PluginEventPolicy.allows("press", privacy)) {
             ScriptHost.emit("press", mapOf("label" to KeyboardGeometry.nameOf(key), "type" to key.type.name.lowercase()))
         }
     }
@@ -2167,7 +2167,10 @@ class ComposeKeyboardService : InputMethodService(),
                         pi.dropLast(e.delete) + e.insert
                     } else if (text == "-" && pi.endsWith('-') && settings.dashMerge) pi.dropLast(1) + "—" else pi + text
                 } else {
-                    val t = if (ScriptHost.has("key") && !flags.isPassword) ScriptHost.filterKey(text) ?: return else text
+                    // "key" carries the committed text itself: same rule as "press"
+                    val t = if (ScriptHost.has("key") && PluginEventPolicy.allows("key", privacy)) {
+                        ScriptHost.filterKey(text) ?: return
+                    } else text
                     if (t.isNotEmpty() && (kb.language.id != "my" || !typeMyanmar(t))) typeCharacter(t, pendingTouch)
                 }
                 pendingTouch = null
@@ -2383,7 +2386,7 @@ class ComposeKeyboardService : InputMethodService(),
             pick(chip.commitWord, kb.suggestions.indexOf(chip).let { listOf(1, 0, 2).getOrElse(it) { it } })
             return
         }
-        if (ScriptHost.has("pick") && !flags.isPassword && ScriptHost.cancelled("pick", mapOf("word" to chip.commitWord))) return
+        if (ScriptHost.has("pick") && PluginEventPolicy.allows("pick", privacy) && ScriptHost.cancelled("pick", mapOf("word" to chip.commitWord))) return
         HapticsEngine.keyPress(this, inputView, settings, false)
         // подсказка в переводчике заменяет слово под курсором (не только последнее)
         if (kb.panel == ActivePanel.TRANSLATE) {
@@ -2603,7 +2606,7 @@ class ComposeKeyboardService : InputMethodService(),
         var t = text.trim()
         if (t.isEmpty()) return
         // мод может заменить распознанное (строка) или не вставлять его (false)
-        if (ScriptHost.has("voice")) for (r in ScriptHost.emit("voice", mapOf("text" to t))) {
+        if (ScriptHost.has("voice") && PluginEventPolicy.allows("voice", privacy)) for (r in ScriptHost.emit("voice", mapOf("text" to t))) {
             if (r == false) return
             if (r is String) t = r.trim()
         }
@@ -3055,7 +3058,7 @@ class ComposeKeyboardService : InputMethodService(),
             if (stamp == 0L && kb.clipboard.firstOrNull() == text) return
             addClip(text, stamp)
             val entry = text
-            if (!ScriptHost.privateMode) ScriptHost.emit("clipboard", entry)
+            if (PluginEventPolicy.allows("clipboard", privacy)) ScriptHost.emit("clipboard", entry)
         }
     }
 
@@ -3126,7 +3129,7 @@ class ComposeKeyboardService : InputMethodService(),
 
     private fun insertGlideWords(words: List<String>, tapLetter: String? = null) {
         var best = words.first()
-        if (ScriptHost.has("glide")) for (r in ScriptHost.emit("glide", mapOf("word" to best, "alternatives" to words))) {
+        if (ScriptHost.has("glide") && PluginEventPolicy.allows("glide", privacy)) for (r in ScriptHost.emit("glide", mapOf("word" to best, "alternatives" to words))) {
             if (r == false) return
             if (r is String && r.isNotBlank()) best = r
         }

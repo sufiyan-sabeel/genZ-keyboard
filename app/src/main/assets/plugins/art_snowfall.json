@@ -1,0 +1,50 @@
+{
+  "id": "builtin.art.snowfall",
+  "name": "Snowfall Pines",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "Snow under a hard blue sky, with the daffodils in the foreground supplying a yellow accent instead of more blue.",
+  "icon": "❄",
+  "backgroundImage": "anime/art_snowfall.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#3F676D",
+          "#77948C"
+        ],
+        "angle": 90
+      },
+      "corner": 14
+    },
+    "colors": {
+      "background": "#3F676D",
+      "key": "#2A3A40",
+      "keyText": "#F4F1EA",
+      "func": "#35484E",
+      "funcText": "#F4F1EA",
+      "accent": "#E3C044",
+      "accentText": "#12130F"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#CC2A3A40",
+        "text": "#F4F1EA",
+        "radius": 14
+      },
+      "func": {
+        "material": "solid",
+        "background": "#CC35484E",
+        "text": "#F4F1EA",
+        "radius": 14
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#E3C044",
+        "text": "#12130F",
+        "radius": 14
+      }
+    }
+  }
+}

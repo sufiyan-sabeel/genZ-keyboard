@@ -1,0 +1,50 @@
+{
+  "id": "builtin.art.rainytokyo",
+  "name": "Rainy Tokyo",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "A wet back street at dusk: graphite keycaps over the sign-lit road, copper accent taken from the shop signs.",
+  "icon": "🏙",
+  "backgroundImage": "anime/art_rainytokyo.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#3A3838",
+          "#0D0E0E"
+        ],
+        "angle": 90
+      },
+      "corner": 10
+    },
+    "colors": {
+      "background": "#3A3838",
+      "key": "#1E1E1E",
+      "keyText": "#F4F1EA",
+      "func": "#2A2724",
+      "funcText": "#F4F1EA",
+      "accent": "#B87333",
+      "accentText": "#12130F"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#CC1E1E1E",
+        "text": "#F4F1EA",
+        "radius": 10
+      },
+      "func": {
+        "material": "solid",
+        "background": "#CC2A2724",
+        "text": "#F4F1EA",
+        "radius": 10
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#B87333",
+        "text": "#12130F",
+        "radius": 10
+      }
+    }
+  }
+}

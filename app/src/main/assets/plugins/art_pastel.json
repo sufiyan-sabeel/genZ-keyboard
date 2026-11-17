@@ -1,0 +1,50 @@
+{
+  "id": "builtin.art.pastel",
+  "name": "Pastel Garden",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "The one light theme: cream keys over a soft rose garden, warm brown labels for legibility.",
+  "icon": "🌷",
+  "backgroundImage": "anime/art_pastel.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#E2CDB5",
+          "#C2A483"
+        ],
+        "angle": 90
+      },
+      "corner": 20
+    },
+    "colors": {
+      "background": "#E2CDB5",
+      "key": "#F6EDE2",
+      "keyText": "#12130F",
+      "func": "#EBDCC9",
+      "funcText": "#12130F",
+      "accent": "#C98A80",
+      "accentText": "#12130F"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#CCF6EDE2",
+        "text": "#12130F",
+        "radius": 20
+      },
+      "func": {
+        "material": "solid",
+        "background": "#CCEBDCC9",
+        "text": "#12130F",
+        "radius": 20
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#C98A80",
+        "text": "#12130F",
+        "radius": 20
+      }
+    }
+  }
+}

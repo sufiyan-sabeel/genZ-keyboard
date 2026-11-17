@@ -1,0 +1,50 @@
+{
+  "id": "builtin.art.sunset",
+  "name": "Anime Sunset",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "Clouds lit from below against a slate-teal sky; the cloud orange drives the accent, not a generic purple.",
+  "icon": "🌅",
+  "backgroundImage": "anime/art_sunset.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#886749",
+          "#5D3328"
+        ],
+        "angle": 90
+      },
+      "corner": 12
+    },
+    "colors": {
+      "background": "#886749",
+      "key": "#2A211C",
+      "keyText": "#F4F1EA",
+      "func": "#3A2A22",
+      "funcText": "#F4F1EA",
+      "accent": "#D9611F",
+      "accentText": "#12130F"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#CC2A211C",
+        "text": "#F4F1EA",
+        "radius": 12
+      },
+      "func": {
+        "material": "solid",
+        "background": "#CC3A2A22",
+        "text": "#F4F1EA",
+        "radius": 12
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#D9611F",
+        "text": "#12130F",
+        "radius": 12
+      }
+    }
+  }
+}

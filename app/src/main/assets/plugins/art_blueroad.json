@@ -1,0 +1,50 @@
+{
+  "id": "builtin.art.blueroad",
+  "name": "Blue Hour Road",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "A flooded road at blue hour; the sodium streetlamp reflecting in the water gives the warm accent.",
+  "icon": "🌊",
+  "backgroundImage": "anime/art_blueroad.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#165494",
+          "#0B2B50"
+        ],
+        "angle": 90
+      },
+      "corner": 12
+    },
+    "colors": {
+      "background": "#165494",
+      "key": "#14263C",
+      "keyText": "#F4F1EA",
+      "func": "#1C3350",
+      "funcText": "#F4F1EA",
+      "accent": "#E8A94A",
+      "accentText": "#12130F"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#CC14263C",
+        "text": "#F4F1EA",
+        "radius": 12
+      },
+      "func": {
+        "material": "solid",
+        "background": "#CC1C3350",
+        "text": "#F4F1EA",
+        "radius": 12
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#E8A94A",
+        "text": "#12130F",
+        "radius": 12
+      }
+    }
+  }
+}

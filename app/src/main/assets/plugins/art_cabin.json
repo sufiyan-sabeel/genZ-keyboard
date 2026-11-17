@@ -1,0 +1,50 @@
+{
+  "id": "builtin.art.cabin",
+  "name": "Moonlit Cabin",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "A full moon over the meadow, with the lit window's amber as the accent against dark green grass.",
+  "icon": "🏚",
+  "backgroundImage": "anime/art_cabin.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#1E1E24",
+          "#2B321D"
+        ],
+        "angle": 90
+      },
+      "corner": 14
+    },
+    "colors": {
+      "background": "#1E1E24",
+      "key": "#23261F",
+      "keyText": "#F4F1EA",
+      "func": "#2E3327",
+      "funcText": "#F4F1EA",
+      "accent": "#E0A94F",
+      "accentText": "#12130F"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#CC23261F",
+        "text": "#F4F1EA",
+        "radius": 14
+      },
+      "func": {
+        "material": "solid",
+        "background": "#CC2E3327",
+        "text": "#F4F1EA",
+        "radius": 14
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#E0A94F",
+        "text": "#12130F",
+        "radius": 14
+      }
+    }
+  }
+}

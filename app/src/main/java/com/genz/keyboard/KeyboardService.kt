@@ -546,6 +546,9 @@ class ComposeKeyboardService : InputMethodService(),
         // Android пересоздаёт окно клавиатуры (поворот, смена темы): старая разметка живёт до уничтожения сервиса,
         // и её клавиши путаются с новыми — освобождаем её явно
         composeView?.disposeComposition()
+        // the inflated suggestion Views belonged to the composition that just went away
+        inlineGeneration++
+        kb.inlineSuggestions = emptyList()
         window?.window?.decorView?.let { d ->
             d.setViewTreeLifecycleOwner(this)
             d.setViewTreeViewModelStoreOwner(this)
@@ -634,52 +637,71 @@ class ComposeKeyboardService : InputMethodService(),
 
     /** Просим у службы автозаполнения (Google Пароли и др.) подсказки для поля — как Gboard. */
     @RequiresApi(Build.VERSION_CODES.R)
-    override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? = runCatching {
-        val d = resources.displayMetrics.density
-        val p = KeyboardGeometry.palette
-        val chipColor = (p?.func ?: androidx.compose.ui.graphics.Color(0xFF3A3F4B)).toArgb()
-        val textColor = (p?.onFunc ?: androidx.compose.ui.graphics.Color.White).toArgb()
-        val chip = androidx.autofill.inline.common.ViewStyle.Builder()
-            .setBackground(android.graphics.drawable.Icon.createWithResource(this, R.drawable.inline_chip).setTint(chipColor))
-            .setPadding((12 * d).toInt(), 0, (12 * d).toInt(), 0)
-            .build()
-        val style = androidx.autofill.inline.v1.InlineSuggestionUi.newStyleBuilder()
-            .setSingleIconChipStyle(chip)
-            .setChipStyle(chip)
-            .setTitleStyle(androidx.autofill.inline.common.TextViewStyle.Builder().setTextColor(textColor).setTextSize(14f).build())
-            .setSubtitleStyle(
-                androidx.autofill.inline.common.TextViewStyle.Builder()
-                    .setTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(textColor, 170)).setTextSize(12f).build()
-            )
-            .setStartIconStyle(androidx.autofill.inline.common.ImageViewStyle.Builder().setLayoutMargin(0, 0, (6 * d).toInt(), 0).build())
-            .build()
-        val styles = androidx.autofill.inline.UiVersions.newStylesBuilder().addStyle(style).build()
-        val spec = android.widget.inline.InlinePresentationSpec.Builder(
-            // не шире места между кнопками меню и микрофона: широкая подсказка там бы не поместилась
-            android.util.Size((64 * d).toInt(), (34 * d).toInt()),
-            android.util.Size((200 * d).toInt(), (38 * d).toInt())
-        ).setStyle(styles).build()
-        InlineSuggestionsRequest.Builder(listOf(spec)).setMaxSuggestionCount(6).build()
-    }.getOrNull()
+    override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? {
+        // Never ask an autofill service for stored credentials in a private session. Derive the
+        // state from the editor directly: this call can arrive before onStartInputView, so the
+        // cached `privacy` may not describe this field yet.
+        if (!InlineAutofillPolicy.isAllowed(privacyForCurrentField())) return null
+        return runCatching {
+            val d = resources.displayMetrics.density
+            val p = KeyboardGeometry.palette
+            val chipColor = (p?.func ?: androidx.compose.ui.graphics.Color(0xFF3A3F4B)).toArgb()
+            val textColor = (p?.onFunc ?: androidx.compose.ui.graphics.Color.White).toArgb()
+            val chip = androidx.autofill.inline.common.ViewStyle.Builder()
+                .setBackground(android.graphics.drawable.Icon.createWithResource(this, R.drawable.inline_chip).setTint(chipColor))
+                .setPadding((12 * d).toInt(), 0, (12 * d).toInt(), 0)
+                .build()
+            val style = androidx.autofill.inline.v1.InlineSuggestionUi.newStyleBuilder()
+                .setSingleIconChipStyle(chip)
+                .setChipStyle(chip)
+                .setTitleStyle(androidx.autofill.inline.common.TextViewStyle.Builder().setTextColor(textColor).setTextSize(14f).build())
+                .setSubtitleStyle(
+                    androidx.autofill.inline.common.TextViewStyle.Builder()
+                        .setTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(textColor, 170)).setTextSize(12f).build()
+                )
+                .setStartIconStyle(androidx.autofill.inline.common.ImageViewStyle.Builder().setLayoutMargin(0, 0, (6 * d).toInt(), 0).build())
+                .build()
+            val styles = androidx.autofill.inline.UiVersions.newStylesBuilder().addStyle(style).build()
+            val b = InlineAutofillPolicy.bounds(d)
+            if (!b.isValid) return@runCatching null
+            val spec = android.widget.inline.InlinePresentationSpec.Builder(
+                // не шире места между кнопками меню и микрофона: широкая подсказка там бы не поместилась
+                android.util.Size(b.minWidth, b.minHeight),
+                android.util.Size(b.maxWidth, b.maxHeight)
+            ).setStyle(styles).build()
+            InlineSuggestionsRequest.Builder(listOf(spec))
+                .setMaxSuggestionCount(InlineAutofillPolicy.suggestionCount(6))
+                .build()
+        }.getOrNull()
+    }
 
     /** Подсказки пришли: раздуваем их в View и показываем в строке подсказок. */
     @RequiresApi(Build.VERSION_CODES.R)
     override fun onInlineSuggestionsResponse(response: InlineSuggestionsResponse): Boolean {
+        // A response can arrive after the field changed or incognito was switched on: the
+        // credentials it carries must not be shown then, even though the service produced them.
+        val gen = ++inlineGeneration
+        kb.inlineSuggestions = emptyList()
         val list = response.inlineSuggestions
-        if (list.isEmpty()) {
-            kb.inlineSuggestions = emptyList()
+        if (!InlineAutofillPolicy.isAllowed(privacyForCurrentField()) || !InlineAutofillPolicy.accepts(list.size)) {
             return true
         }
         val views = arrayOfNulls<View>(list.size)
         var left = list.size
         val size = android.util.Size(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+        val publish = { if (gen == inlineGeneration) kb.inlineSuggestions = views.filterNotNull() }
         list.forEachIndexed { i, s ->
             runCatching {
                 s.inflate(this, size, mainExecutor) { v ->
-                    views[i] = v
-                    if (--left == 0) kb.inlineSuggestions = views.filterNotNull()
+                    // a newer response (or a field change) owns the strip now
+                    if (gen == inlineGeneration) {
+                        views[i] = v
+                        if (--left == 0) publish()
+                    }
                 }
-            }.onFailure { if (--left == 0) kb.inlineSuggestions = views.filterNotNull() }
+            }.onFailure {
+                if (gen == inlineGeneration && --left == 0) publish()
+            }
         }
         return true
     }
@@ -882,6 +904,18 @@ class ComposeKeyboardService : InputMethodService(),
     /** Field signals for the session; replaced on every field start. */
     private var fieldSpec: EditorFieldSpec? = null
 
+    /** Bumped whenever a new inline response starts or the field changes, so stale inflations lose. */
+    private var inlineGeneration = 0
+
+    /**
+     * Privacy for the editor currently bound, computed on the spot.
+     *
+     * Used by the inline-autofill callbacks, which the platform may invoke before
+     * `onStartInputView` has refreshed the cached [fieldSpec].
+     */
+    private fun privacyForCurrentField(): PrivacyState =
+        PrivacyState.derive(settings.incognito, fieldSpecOf(currentInputEditorInfo))
+
     private var privacyManual: Boolean? = null
     private var privacySpec: EditorFieldSpec? = null
     private var privacyCached: PrivacyState = PrivacyState.OFF
@@ -911,6 +945,9 @@ class ComposeKeyboardService : InputMethodService(),
     private fun resetForInput(info: EditorInfo?, restarting: Boolean) {
         val spec = fieldSpecOf(info)
         fieldSpec = spec
+        // suggestions inflated for the previous field must never render in this one
+        inlineGeneration++
+        kb.inlineSuggestions = emptyList()
         flags = flagsFor(spec)
         // в поле пароля и в инкогнито моды не видят ни набираемого текста, ни буфера
         ScriptHost.privateMode = privacy.isIncognito

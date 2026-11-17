@@ -240,6 +240,9 @@ The chip's appearance, layout and accessibility are untouched: no UI change was 
 
 ## 3. Feature #23 — Android 11+ Inline Autofill
 
+> **Status: IMPLEMENTED (hardening) in v1.1 Phase 1 (see §3.8).** The specification below is kept
+> as written so the implementation can be reviewed against the plan.
+
 ### 3.1 Existing implementation
 
 `KeyboardService.kt:617`, `@RequiresApi(Build.VERSION_CODES.R)`:
@@ -309,6 +312,34 @@ Regression: keyboard still renders if the request throws.
 3. API 26–29: no inline path; clipboard offer still works.
 4. Dismissal and field change leave no stale state.
 5. No use of an API that does not exist.
+
+### 3.8 Implementation record
+
+The audit found the feature **already built end to end**, including something the earlier design
+document did not know about: an `onInlineSuggestionsResponse` override that inflates the system's
+suggestion views into `KeyboardState.inlineSuggestions`, which `KeyboardHeader.kt` renders in the
+suggestion row. So this milestone is genuinely hardening, not construction.
+
+Three real defects were found and fixed (a fourth suspected issue turned out not to exist):
+
+| Defect | Consequence | Fix |
+| --- | --- | --- |
+| **No privacy gate at all** | an autofill service was asked for stored credentials in password fields and in incognito — the most sensitive thing the keyboard could display | `InlineAutofillPolicy.isAllowed(privacy)` checked when building the request **and** again before showing a response; the request returns `null` (the documented opt-out) |
+| **Suggestions not cleared on field change** | views inflated for field A could render in field B, because only `onFinishInputView` cleared them | `resetForInput` clears the list and bumps a generation counter; `onCreateInputView` does the same because the composition was disposed |
+| **Overlapping responses could mix** | two in-flight responses both wrote the strip; the slower one won, showing stale credentials | monotonic `inlineGeneration`; a callback whose generation is stale is ignored |
+| ~~Missing `@RequiresApi(30)`~~ | **not a defect** — the original already carried the annotation; my first pass duplicated it and CI-side review caught the duplicate | duplicate removed, annotation unchanged |
+
+Privacy is derived with `privacyForCurrentField()`, which reads `currentInputEditorInfo` directly
+rather than the cached `fieldSpec`. This matters: the platform can call
+`onCreateInlineSuggestionsRequest` **before** `onStartInputView` has run `resetForInput`, so the
+cached value may still describe the previous field. Using the live editor removes that ordering
+assumption.
+
+Sizes and the suggestion count now come from `InlineAutofillPolicy.bounds(density)` and
+`suggestionCount(...)`, so the 64×34dp … 200×38dp window and the 6-suggestion cap exist in one
+place and are covered by tests.
+
+No UI was changed: the chip geometry, colours and the row it renders in are untouched.
 
 ---
 

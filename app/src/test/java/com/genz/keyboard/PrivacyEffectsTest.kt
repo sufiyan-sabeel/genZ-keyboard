@@ -37,9 +37,19 @@ class PrivacyEffectsTest {
         effects.filterIsInstance<PrivacyEffect.SetScriptPrivate>().singleOrNull()?.value
 
     @Test
-    fun noPreviousStateMeansNoChangeToApply() {
-        // first evaluation at service start; nothing to undo
-        assertTrue(PrivacyTransitions.effectsOf(null, off).isEmpty())
+    fun anUnknownPreviousStateAppliesTheEffectsRatherThanAssumingPublic() {
+        // null means "we do not know what came before". Applying the effects is idempotent —
+        // clearing an empty strip, bumping a counter, setting a boolean — and it is safer than
+        // assuming the session was public, which would leave plugins able to read text if the
+        // service ever starts in a private field. (This test originally asserted the opposite;
+        // the assertion was wrong, not the behaviour.)
+        val private = PrivacyTransitions.effectsOf(null, manualOn)
+        assertEquals(3, private.size)
+        assertEquals(true, scriptPrivate(private))
+
+        val public = PrivacyTransitions.effectsOf(null, off)
+        assertEquals(3, public.size)
+        assertEquals(false, scriptPrivate(public))
     }
 
     @Test

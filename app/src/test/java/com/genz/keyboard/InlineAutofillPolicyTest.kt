@@ -186,6 +186,32 @@ class InlineAutofillPolicyTest {
         }
     }
 
+    // ---------------------------------------------------------------- publish decision
+
+    @Test
+    fun theNewestResponseInAPublicSessionMayPublish() {
+        assertTrue(InlineAutofillPolicy.mayPublish(4, 4, privacy(false, plain)))
+    }
+
+    @Test
+    fun aStaleResponseMayNotPublishEvenWhenPublic() {
+        // an older response finishing late must not overwrite the newer one
+        assertFalse(InlineAutofillPolicy.mayPublish(3, 4, privacy(false, plain)))
+    }
+
+    @Test
+    fun theNewestResponseMayNotPublishOncePrivate() {
+        // inflation is asynchronous: incognito can arrive after the response did
+        assertFalse(InlineAutofillPolicy.mayPublish(4, 4, privacy(true, plain)))
+        assertFalse(InlineAutofillPolicy.mayPublish(4, 4, privacy(false, password)))
+        assertFalse(InlineAutofillPolicy.mayPublish(4, 4, privacy(false, noLearning)))
+    }
+
+    @Test
+    fun bothConditionsAreRequiredTogether() {
+        assertFalse(InlineAutofillPolicy.mayPublish(1, 2, privacy(true, password)))
+    }
+
     @Test
     fun everyReasonBlocksInlineAutofill() {
         // manual + password + learning-request all at once must still be blocked

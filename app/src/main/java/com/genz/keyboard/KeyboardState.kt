@@ -219,6 +219,8 @@ interface KeyboardActions {
     fun commitGif(gif: TenorGifResult)
     fun headerMenu()
     fun togglePanel(panel: ActivePanel)
+    /** Manual incognito from the toolbar. The service applies the transition immediately. */
+    fun setIncognito(on: Boolean) {}
     fun toggleVoice()
     fun openSettings()
     fun openVoiceFallback()

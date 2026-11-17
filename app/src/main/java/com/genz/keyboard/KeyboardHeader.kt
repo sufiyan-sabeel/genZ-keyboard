@@ -649,8 +649,11 @@ internal fun ToolbarPill(state: KeyboardState, actions: KeyboardActions, setting
             id == "one_handed" -> KeyboardPrefs.edit(context) { putString("one_handed", if (settings.oneHanded == "OFF") "RIGHT" else "OFF") }
             id == "floating" -> KeyboardPrefs.edit(context) { putBoolean("floating_keyboard", !settings.floating) }
             id == "incognito" -> {
-                KeyboardPrefs.edit(context) { putBoolean("incognito", !settings.incognito) }
-                Toast.makeText(context, tr(if (settings.incognito) "Инкогнито выключено" else "Инкогнито: слова и буфер не запоминаются"), Toast.LENGTH_SHORT).show()
+                // the service applies the transition now; writing the pref alone left plugins and
+                // on-screen autofill suggestions stale until the next keystroke
+                val next = !settings.incognito
+                actions.setIncognito(next)
+                Toast.makeText(context, tr(if (!next) "Инкогнито выключено" else "Инкогнито: слова и буфер не запоминаются"), Toast.LENGTH_SHORT).show()
             }
             id == "settings" -> actions.openSettings()
             id == "hide" -> actions.hideKeyboard()

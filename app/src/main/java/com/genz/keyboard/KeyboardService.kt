@@ -675,6 +675,23 @@ class ComposeKeyboardService : InputMethodService(),
         }.getOrNull()
     }
 
+    /**
+     * Manual incognito toggled from the toolbar.
+     *
+     * The [privacy] getter only refreshes when something reads it, and nothing reads it between a
+     * toggle and the next keystroke — so the transition is applied here, immediately, instead of
+     * waiting for a keystroke to notice.
+     */
+    override fun setIncognito(on: Boolean) {
+        KeyboardPrefs.edit(this) { putBoolean("incognito", on) }
+        val previous = privacyCached
+        privacyManual = on
+        privacySpec = fieldSpec
+        privacyCached = PrivacyState.derive(on, fieldSpec)
+        applyPrivacyEffects(previous, privacyCached)
+        schedulePredictions()
+    }
+
     /** Подсказки пришли: раздуваем их в View и показываем в строке подсказок. */
     @RequiresApi(Build.VERSION_CODES.R)
     override fun onInlineSuggestionsResponse(response: InlineSuggestionsResponse): Boolean {
@@ -692,7 +709,8 @@ class ComposeKeyboardService : InputMethodService(),
         // Re-check privacy at publish time: inflation is asynchronous, and incognito can be
         // switched on after the response arrived but before these views finish inflating.
         val publish = {
-            if (gen == inlineGeneration && InlineAutofillPolicy.isAllowed(privacyForCurrentField())) {
+            // one decision, tested in InlineAutofillPolicyTest: newest response *and* still public
+            if (InlineAutofillPolicy.mayPublish(gen, inlineGeneration, privacyForCurrentField())) {
                 kb.inlineSuggestions = views.filterNotNull()
             }
         }
@@ -922,6 +940,30 @@ class ComposeKeyboardService : InputMethodService(),
     private fun privacyForCurrentField(): PrivacyState =
         PrivacyState.derive(settings.incognito, fieldSpecOf(currentInputEditorInfo))
 
+    /** Applies the privacy transition effects: plugins, on-screen credentials, in-flight results. */
+    private fun applyPrivacyEffects(previous: PrivacyState?, next: PrivacyState) {
+        PrivacyTransitions.effectsOf(previous, next).forEach { effect ->
+            when (effect) {
+                is PrivacyEffect.SetScriptPrivate -> ScriptHost.privateMode = effect.value
+                PrivacyEffect.DropInlineSuggestions -> kb.inlineSuggestions = emptyList()
+                PrivacyEffect.InvalidatePendingInline -> inlineGeneration++
+            }
+        }
+    }
+
+    /** The real persistent writes; reachable only through [privacyWrites]. */
+    private val privacyWriteSink = object : PrivacySensitiveWrites {
+        override fun rejectCorrection(word: String) {
+            WordPredictorEngine.rejectCorrection(kb.language, word)
+        }
+
+        override fun rememberEmoji(emoji: String) {
+            EmojiRecents.add(this@ComposeKeyboardService, emoji)
+        }
+    }
+
+    private val privacyWrites = PrivacyWriteRouter({ privacy }, privacyWriteSink)
+
     private var privacyManual: Boolean? = null
     private var privacySpec: EditorFieldSpec? = null
     private var privacyCached: PrivacyState = PrivacyState.OFF
@@ -937,13 +979,13 @@ class ComposeKeyboardService : InputMethodService(),
             val manual = settings.incognito
             val spec = fieldSpec
             if (manual != privacyManual || spec != privacySpec) {
+                val previous = privacyCached
                 privacyManual = manual
                 privacySpec = spec
                 privacyCached = PrivacyState.derive(manual, spec)
-                // Plugins read this flag directly. Without this line, turning incognito on while a
-                // field stayed active left ScriptHost.privateMode stale until the next
-                // onStartInputView — i.e. plugins kept seeing text after the user asked for privacy.
-                ScriptHost.privateMode = privacyCached.isIncognito
+                // A change here can come from a field change or from the switch being flipped;
+                // either way plugins and on-screen credentials must follow immediately.
+                applyPrivacyEffects(previous, privacyCached)
             }
             return privacyCached
         }
@@ -1377,7 +1419,7 @@ class ComposeKeyboardService : InputMethodService(),
     private fun replaceTapWord(ic: InputConnection, tw: TapWord, chip: SuggestionChipModel) {
         val word = chip.commitWord
         if (chip.isKeepExact && word == tw.word) {
-            if (!privacy.isIncognito) WordPredictorEngine.rejectCorrection(kb.language, word)
+            privacyWrites.rejectCorrection(word)
             learn("", word, WordPredictorEngine.LEARNED_TYPO)
         } else {
             ic.beginBatchEdit()
@@ -1864,7 +1906,7 @@ class ComposeKeyboardService : InputMethodService(),
             undo = null
             // отменённое исправление какое-то время не повторяется; навсегда слово не запоминается — ⌫ часто жмут
             // не ради отмены, и одной случайной отмены хватало, чтобы опечатка («привит») больше не исправлялась
-            if (!privacy.isIncognito) WordPredictorEngine.rejectCorrection(kb.language, u.originalWord)
+            privacyWrites.rejectCorrection(u.originalWord)
             schedulePredictions()
             return
         }
@@ -2379,15 +2421,13 @@ class ComposeKeyboardService : InputMethodService(),
             icCommit(ic, u.originalWord + " ")
             ic.endBatchEdit()
             // in incognito the undo still works, but nothing about it may be remembered
-            if (!privacy.isIncognito) {
-                WordPredictorEngine.rejectCorrection(kb.language, u.originalWord)
-                learn("", u.originalWord, WordPredictorEngine.LEARNED_TYPO)
-            }
+            privacyWrites.rejectCorrection(u.originalWord)
+            learn("", u.originalWord, WordPredictorEngine.LEARNED_TYPO)
             lastCommittedWord = u.originalWord
         } else {
             var word = chip.commitWord
             // «оставить как есть» — это слово больше не исправлять
-            if (chip.isKeepExact && composing.isNotEmpty() && word == composing && !privacy.isIncognito) WordPredictorEngine.rejectCorrection(kb.language, word)
+            if (chip.isKeepExact && composing.isNotEmpty() && word == composing) privacyWrites.rejectCorrection(word)
             if (composing.isEmpty() && kb.shift != ShiftState.OFF) word = word.replaceFirstChar { it.uppercase() }
             // курсор стоит вплотную к слову (его переставили) — следующее слово не должно к нему приклеиться
             val glue = composing.isEmpty() && ic.getTextBeforeCursor(1, 0)?.lastOrNull()?.let { isWordLetter(it) || it.isDigit() } == true
@@ -2423,8 +2463,8 @@ class ComposeKeyboardService : InputMethodService(),
 
     override fun commitEmoji(emoji: String) {
         HapticsEngine.keyPress(this, inputView, settings, false)
-        // which emoji someone sends is user data: not recorded in a private session
-        if (!privacy.isIncognito) EmojiRecents.add(this, emoji)
+        // which emoji someone sends is user data: the router refuses in a private session
+        privacyWrites.rememberEmoji(emoji)
         commitText(emoji)
         // как в Gboard: выбрали эмодзи — сразу вернулись к буквам, не закрывая панель вручную
         if (settings.emojiReturnToKeyboard && (kb.panel == ActivePanel.EMOJI || kb.panel == ActivePanel.EMOJI_SEARCH)) {

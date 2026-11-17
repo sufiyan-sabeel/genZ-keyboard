@@ -63,6 +63,16 @@ object InlineAutofillPolicy {
     fun mayShow(manualIncognito: Boolean, privateField: Boolean): Boolean =
         !manualIncognito && !privateField
 
+    /**
+     * Whether an inflated response may be published.
+     *
+     * Two independent things must hold: it must still be the newest response, and the session must
+     * not have become private while the views were inflating. Either alone is not enough — a fresh
+     * response in a private session, or a stale response in a public one, must both be dropped.
+     */
+    fun mayPublish(generation: Int, currentGeneration: Int, privacy: PrivacyState): Boolean =
+        generation == currentGeneration && isAllowed(privacy)
+
     /** Clamp a requested suggestion count into the range the keyboard will render. */
     fun suggestionCount(requested: Int): Int = requested.coerceIn(0, MAX_SUGGESTIONS)
 

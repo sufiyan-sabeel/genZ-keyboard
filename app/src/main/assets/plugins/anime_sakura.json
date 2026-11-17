@@ -1,0 +1,49 @@
+{
+  "id": "builtin.anime.sakura",
+  "name": "Sakura Dreams",
+  "version": "2.0",
+  "author": "GenZ Keyboard",
+  "description": "palette from the supplied sakura-night reference. Palette-only: no artwork is bundled, so the preset renders identically in both flavours.",
+  "icon": "🌸",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#59488C",
+          "#463345"
+        ],
+        "angle": 90
+      },
+      "corner": 18
+    },
+    "colors": {
+      "background": "#59488C",
+      "key": "#4A3A5C",
+      "keyText": "#F2E9F5",
+      "func": "#5B476B",
+      "funcText": "#F2E9F5",
+      "accent": "#C77FB0",
+      "accentText": "#2A1B2E"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#4A3A5C",
+        "text": "#F2E9F5",
+        "radius": 18
+      },
+      "func": {
+        "material": "solid",
+        "background": "#5B476B",
+        "text": "#F2E9F5",
+        "radius": 18
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#C77FB0",
+        "text": "#2A1B2E",
+        "radius": 18
+      }
+    }
+  }
+}

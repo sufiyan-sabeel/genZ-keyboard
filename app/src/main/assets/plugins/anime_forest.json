@@ -1,0 +1,49 @@
+{
+  "id": "builtin.anime.forest",
+  "name": "Moonlit Forest",
+  "version": "2.0",
+  "author": "GenZ Keyboard",
+  "description": "palette from the supplied moonlit-cabin reference. Palette-only: no artwork is bundled, so the preset renders identically in both flavours.",
+  "icon": "🌲",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#1E1E24",
+          "#2B321D"
+        ],
+        "angle": 90
+      },
+      "corner": 16
+    },
+    "colors": {
+      "background": "#1E1E24",
+      "key": "#24261F",
+      "keyText": "#E2E4DA",
+      "func": "#2C3325",
+      "funcText": "#E2E4DA",
+      "accent": "#7F9A5E",
+      "accentText": "#10140D"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#24261F",
+        "text": "#E2E4DA",
+        "radius": 16
+      },
+      "func": {
+        "material": "solid",
+        "background": "#2C3325",
+        "text": "#E2E4DA",
+        "radius": 16
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#7F9A5E",
+        "text": "#10140D",
+        "radius": 16
+      }
+    }
+  }
+}

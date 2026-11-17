@@ -171,6 +171,9 @@ dependencies {
     implementation("androidx.profileinstaller:profileinstaller:1.3.1")
 
     testImplementation("junit:junit:4.13.2")
+    // The platform's org.json is a stub in JVM unit tests (methods return defaults), so the real
+    // implementation is needed on the test classpath for any test that parses JSON.
+    testImplementation("org.json:json:20240303")
 
     // instrumentation only: never on the app's runtime classpath, so the F-Droid dependency gate
     // and the shipped APK are unaffected

@@ -1,0 +1,49 @@
+{
+  "id": "builtin.anime.ocean",
+  "name": "Ocean Dreams",
+  "version": "2.0",
+  "author": "GenZ Keyboard",
+  "description": "palette from the supplied rainy-road reference. Palette-only: no artwork is bundled, so the preset renders identically in both flavours.",
+  "icon": "🌊",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#165494",
+          "#0B2B50"
+        ],
+        "angle": 90
+      },
+      "corner": 16
+    },
+    "colors": {
+      "background": "#165494",
+      "key": "#123F65",
+      "keyText": "#DCE9F5",
+      "func": "#1B4A72",
+      "funcText": "#DCE9F5",
+      "accent": "#5C9BD6",
+      "accentText": "#0A1A2A"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#123F65",
+        "text": "#DCE9F5",
+        "radius": 16
+      },
+      "func": {
+        "material": "solid",
+        "background": "#1B4A72",
+        "text": "#DCE9F5",
+        "radius": 16
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#5C9BD6",
+        "text": "#0A1A2A",
+        "radius": 16
+      }
+    }
+  }
+}

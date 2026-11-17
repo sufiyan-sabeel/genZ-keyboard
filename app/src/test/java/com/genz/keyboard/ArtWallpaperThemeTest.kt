@@ -17,9 +17,13 @@ class ArtWallpaperThemeTest {
     private val themeDir = File("src/main/assets/plugins")
     private val artDir = File("src/standard/assets/anime")
 
+    /**
+     * The six themes whose artwork is cleared for distribution. The windmill, samurai and sakura
+     * images carry other artists' signatures and were withheld from 1.0.7 pending permission.
+     */
     private val expected = listOf(
-        "art_blueroad", "art_cabin", "art_pastel", "art_rainytokyo", "art_sakura",
-        "art_samurai", "art_snowfall", "art_sunset", "art_windmill"
+        "art_blueroad", "art_cabin", "art_pastel", "art_rainytokyo",
+        "art_snowfall", "art_sunset"
     )
 
     private fun files() = themeDir.listFiles { f -> f.name.startsWith("art_") && f.name.endsWith(".json") }
@@ -58,7 +62,7 @@ class ArtWallpaperThemeTest {
     // ---------------------------------------------------------------- the nine exist
 
     @Test
-    fun allNineImageThemesArePresent() {
+    fun theApprovedImageThemesArePresent() {
         assertEquals(expected.map { "$it.json" }, files().map { it.name })
     }
 
@@ -136,13 +140,13 @@ class ArtWallpaperThemeTest {
     fun eachThemeHasItsOwnAccent() {
         // the brief forbids one palette applied to nine images
         val accents = themes().map { str(colours(it.second), "accent")!!.lowercase() }.toSet()
-        assertEquals("nine themes must have nine accents", 9, accents.size)
+        assertEquals("each approved theme must have its own accent", expected.size, accents.size)
     }
 
     @Test
     fun eachThemeHasItsOwnKeycapColour() {
         val keys = themes().map { str(colours(it.second), "key")!!.lowercase() }.toSet()
-        assertEquals("nine themes must have nine keycap colours", 9, keys.size)
+        assertEquals("each approved theme must have its own keycap colour", expected.size, keys.size)
     }
 
     @Test

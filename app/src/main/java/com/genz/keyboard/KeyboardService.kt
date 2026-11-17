@@ -442,6 +442,7 @@ class ComposeKeyboardService : InputMethodService(),
         savedStateController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         KeyboardPrefs.ensureInit(this)
+        KeyboardPrefs.prefs(this).registerOnSharedPreferenceChangeListener(incognitoWatcher)
         WordPredictorEngine.ensureInitialized(this)
         EmojiCatalog.warmUp(this)
         EmojiRecents.load(this)
@@ -684,13 +685,35 @@ class ComposeKeyboardService : InputMethodService(),
      */
     override fun setIncognito(on: Boolean) {
         KeyboardPrefs.edit(this) { putBoolean("incognito", on) }
+        // the listener below also fires, so this is belt-and-braces: whichever runs first applies
+        // the transition, and the second sees no change to apply.
+        refreshPrivacyFromPrefs()
+    }
+
+    /**
+     * Recompute privacy from the stored preference and apply any transition.
+     *
+     * Called by [setIncognito] and by [incognitoWatcher]. The second path matters because the
+     * Settings screen writes the preference directly — a toolbar-only path left plugins and
+     * on-screen autofill suggestions stale when incognito was switched on from there.
+     */
+    private fun refreshPrivacyFromPrefs() {
+        val manual = settings.incognito
+        val spec = fieldSpec
+        if (manual == privacyManual && spec == privacySpec) return
         val previous = privacyCached
-        privacyManual = on
-        privacySpec = fieldSpec
-        privacyCached = PrivacyState.derive(on, fieldSpec)
+        privacyManual = manual
+        privacySpec = spec
+        privacyCached = PrivacyState.derive(manual, spec)
         applyPrivacyEffects(previous, privacyCached)
         schedulePredictions()
     }
+
+    /** Any writer of the incognito preference reaches the transition, not just the toolbar. */
+    private val incognitoWatcher =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "incognito") refreshPrivacyFromPrefs()
+        }
 
     /** Подсказки пришли: раздуваем их в View и показываем в строке подсказок. */
     @RequiresApi(Build.VERSION_CODES.R)
@@ -801,6 +824,9 @@ class ComposeKeyboardService : InputMethodService(),
     }
 
     override fun onDestroy() {
+        runCatching {
+            KeyboardPrefs.prefs(this).unregisterOnSharedPreferenceChangeListener(incognitoWatcher)
+        }
         if (ScriptHost.bridge === this) ScriptHost.bridge = null
         WordPredictorEngine.onDictionaryLoaded = null
         SystemSpell.onResult = null

@@ -89,6 +89,20 @@ class PrivacyEffectsTest {
     }
 
     @Test
+    fun repeatedApplicationOfTheSameStateProducesNoFurtherEffects() {
+        // Two things can fire for one toggle: the toolbar action, and the preference listener that
+        // catches the Settings screen. The second must be a no-op, or the strip would be torn down
+        // twice and in-flight autofill work invalidated twice for a single user action.
+        var current = off
+        val sizes = mutableListOf<Int>()
+        listOf(manualOn, manualOn, manualOn, off, off).forEach { next ->
+            sizes += PrivacyTransitions.effectsOf(current, next).size
+            current = next
+        }
+        assertEquals(listOf(3, 0, 0, 3, 0), sizes)
+    }
+
+    @Test
     fun aTransitionCarriesExactlyThreeEffects() {
         assertEquals(3, PrivacyTransitions.effectsOf(off, passwordOn).size)
     }

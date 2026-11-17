@@ -2,6 +2,9 @@
 
 - **Audited commits:** `f8f2a759` (#13), `0177b2ea` (#3), `dfc844b0` (#23)
 - **Fix commit produced by this audit:** `9d19041d4200c9660e684cbdc898872b6bc1c66e`
+- **Follow-up — testability seams:** `309aa96c7ccf25aa994b232106e10bce270d1ac7`
+- **Follow-up — GIF privacy policy:** `a80532ed26a17083ccc5dbdea810ef0a79a08e11`
+- **Follow-up — corrected test assertion:** `19b4037af327d688a45231cbb86aa51cfa9885b9`
 - **Method:** source-level reading of every call site, plus the JVM suite executed in CI.
 - **Not performed:** any run on a device or emulator. Nothing below claims device verification.
 
@@ -162,9 +165,12 @@ observing it on a device.
 
 ## 5. Tests executed and exact results
 
-Executed in CI on the fix commit `9d19041d`. Counts parsed from the uploaded Gradle report.
+Executed in CI; counts parsed from the uploaded Gradle report at `19b4037a`.
 
-**153 tests, 0 failures, 0 skipped.**
+**180 tests, 0 failures, 0 skipped** (at `19b4037a`, after the follow-up).
+
+Previously 153; the follow-up added 27: `PrivacyEffectsTest` 14, `GifSearchPolicyTest` 9, and 4
+`mayPublish` cases in `InlineAutofillPolicyTest`.
 
 | Suite | Tests | Failures |
 | --- | ---: | ---: |
@@ -174,21 +180,24 @@ Executed in CI on the fix commit `9d19041d`. Counts parsed from the uploaded Gra
 | `CustomAiTest` | 3 | 0 |
 | `EditorFieldSpecTest` | 17 | 0 |
 | `EmojiSuggestTest` | 5 | 0 |
+| `GifSearchPolicyTest` | 9 | 0 |
 | `GlideEval` | 2 | 0 |
-| `InlineAutofillPolicyTest` | 22 | 0 |
+| `InlineAutofillPolicyTest` | 26 | 0 |
 | `KeySoundsTest` | 1 | 0 |
 | `LearnedTypoTest` | 1 | 0 |
 | `ModEffectsTest` | 10 | 0 |
 | `MyanmarInputTest` | 11 | 0 |
 | `PhraseEval` | 2 | 0 |
 | `PredictionTest` | 4 | 0 |
+| `PrivacyEffectsTest` | 14 | 0 |
 | `PrivacyStateTest` | 23 | 0 |
 | `SuggestionChipModelTest` | 9 | 0 |
 | `ThemePaletteTest` | 5 | 0 |
 | `UndoGuardTest` | 20 | 0 |
 | `UserLayoutsTest` | 5 | 0 |
 
-Six tests were added by this audit, for invariants that were genuinely uncovered:
+
+Six tests were added by the first audit pass, for invariants that were genuinely uncovered:
 
 - `forcedByFieldIsTrueWhenManualAndAFieldReasonCoexist`
 - `turningTheManualSwitchOffKeepsTheFieldReasonMarkedAsForced`
@@ -204,12 +213,63 @@ build, flavour separation (`standard` 10 artwork files / `fdroid` 0).
 not wired into CI — `checkReleaseBuilds = false` is a pre-existing project decision for
 material3 1.5, so the only static analysis enforced is the Kotlin compiler.
 
-### What the tests do not cover
+### Coverage added by the follow-up (was: "the five fixes are untested")
 
-The five fixed defects are **side-effect gating in the service** — "does this call happen in
-incognito". There is no unit-test seam for that: it needs a bound `InputMethodService` and a fake
-`InputConnection`. Those fixes are verified by reading the code and by compilation, not by test.
-Stating this plainly is more useful than implying coverage that does not exist.
+That limitation has been closed. The five service-side fixes now have seams that a plain JVM test
+can drive, without constructing an `InputMethodService`:
+
+| Fix | Seam | What the test observes |
+| --- | --- | --- |
+| P1 script privacy updates immediately | `PrivacyTransitions.effectsOf` → `SetScriptPrivate` | the effect list for each transition, including "reason swapped, not a change" |
+| P2 `rejectCorrection` suppressed | `PrivacyWriteRouter` + a recording `PrivacySensitiveWrites` | whether the word **reached the sink** |
+| P3 emoji recents suppressed | same router | whether the emoji reached the sink |
+| P4 late result rejected | `InlineAutofillPolicy.mayPublish(gen, current, privacy)` | publish/no-publish for stale × private |
+| P5 inflated suggestions hidden | `InlineAutofillPolicy.mayShow` | visibility for each signal pair |
+
+The write tests use a fake sink that records calls, so they assert an **observable side effect**
+rather than restating the predicate. One case deliberately proves the router reads *live* state:
+flipping the switch between three writes yields exactly the first and third in the sink.
+
+The service now has no direct route to those writes — `rejectCorrection` and `EmojiRecents.add`
+appear only inside the sink implementation, so a call site cannot forget the check.
+
+**Still not unit-tested:** that the *service* applies the effect list correctly, and that Compose
+recomposes. Those remain verified by reading the code, compilation, and the CI build.
+
+### Reactive behaviour of a mid-field toggle
+
+Checked rather than assumed. The toolbar used to write the preference directly, and the `privacy`
+getter only refreshes when something reads it — so between a toggle and the next keystroke
+`ScriptHost.privateMode` stayed stale. The toggle now calls a `KeyboardActions.setIncognito(...)`
+method that applies the transition immediately. Consequences, per signal:
+
+| Signal | Mechanism | Verified by |
+| --- | --- | --- |
+| `ScriptHost` | `setIncognito` → `applyPrivacyEffects` | `PrivacyEffectsTest` |
+| Rendered autofill strip | `mayShow(settings.incognito, state.privateField)` in `HeaderBar`; `settings` is Compose state | recomposition on toggle — code reading, not device |
+| Pending inflations | `setIncognito` bumps `inlineGeneration`; publish re-checks `mayPublish` | `InlineAutofillPolicyTest` |
+| Existing sensitive suggestions | dropped by `DropInlineSuggestions` **and** hidden by `mayShow` | both |
+
+The last row is belt-and-braces on purpose: the state is cleared so it cannot reappear, and the
+render gate hides it even if a recomposition wins the race.
+
+### GIF search privacy decision (follow-up)
+
+**Audited:** the query comes from `state.gifQuery`, typed in the GIF search bar; it is sent by
+`GifCatalog.fetch` to Klipy or Giphy over HTTPS as a request parameter. It is not copied from the
+editor, but it is still text a person typed leaving the device.
+
+**Policy implemented:** in effective incognito the network path is closed *before* any key is read
+or request built — `fetch(..., allowNetwork = false)` returns the built-in catalogue filtered
+locally by title. No alternative request is made and the query is not transmitted by another
+route. Outside incognito, behaviour is unchanged.
+
+The panel shows one quiet line — "Incognito: built-in GIFs only" — and the grid below keeps
+working, so the restriction is explained without a dialog or an empty screen. The line appears
+only when privacy is the cause, not when no GIF key is configured.
+
+`GifSearchPolicyTest` pins the matrix and asserts the GIF rule agrees with the inline-autofill
+rule on the same two signals, so the two surfaces cannot drift apart.
 
 ---
 
@@ -218,10 +278,11 @@ Stating this plainly is more useful than implying coverage that does not exist.
 | # | Risk | Severity | Needs |
 | --- | --- | --- | --- |
 | 1 | Undo check→delete race with a host that edits concurrently | medium | accepted; documented above |
-| 2 | GIF search bypasses incognito | medium | product decision |
+| 2 | ~~GIF search bypasses incognito~~ | — | **fixed** in `a80532ed`; built-in catalogue preserved |
 | 3 | Nothing has run on hardware | **high** | device or emulator |
 | 4 | Inline autofill inflate-and-render never observed | high | device + autofill service |
-| 5 | `ScriptHost.privateMode` is now written from a property getter | low | review; it is a volatile boolean write, thread-safe, but it is a side effect in a getter |
+| 5 | `ScriptHost.privateMode` written from a property getter | low | now also written explicitly by `setIncognito`; the getter path remains for field changes. Still a side effect in a getter — flagged for review |
+| 7 | The GIF panel's notice is a plain text line, not an accessible announcement | low | confirm with a screen reader on a device |
 | 6 | Emoji recents remain enabled in a password field (by design, not field-gated) | low | confirm intended |
 
 ### Device testing still required

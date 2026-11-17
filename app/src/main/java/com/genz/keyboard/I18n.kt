@@ -724,6 +724,7 @@ internal val EN_STRINGS: Map<String, String> = hashMapOf(
     "Нет плагинов с действиями или символами" to "No plugins with actions or symbols",
     "Открыть плагины" to "Open plugins",
     "Инкогнито выключено" to "Incognito off",
+    "Инкогнито: только встроенные GIF" to "Incognito: built-in GIFs only",
     "Инкогнито: слова и буфер не запоминаются" to "Incognito: words and clipboard aren't remembered",
     "Перенести" to "Move",
     "Развернуть" to "Expand",

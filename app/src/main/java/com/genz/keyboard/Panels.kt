@@ -587,6 +587,11 @@ internal fun GifPanel(state: KeyboardState, actions: KeyboardActions, settings: 
     val search = state.gifQuery.trim()
     var cat by remember { mutableIntStateOf(0) }
     val online = GifCatalog.online(settings.klipyKey, settings.giphyKey)
+    // A private session keeps the built-in catalogue but closes the network path: the search text
+    // is never sent to a GIF service.
+    val gifMode = GifSearchPolicy.mode(settings.incognito, state.privateField, online)
+    val gifNetwork = GifSearchPolicy.allowsNetwork(gifMode)
+    val gifPrivate = GifSearchPolicy.blockedByPrivacy(settings.incognito, state.privateField)
     val gifs = remember { mutableStateListOf<TenorGifResult>() }
     var next by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
@@ -599,14 +604,14 @@ internal fun GifPanel(state: KeyboardState, actions: KeyboardActions, settings: 
     suspend fun load(reset: Boolean) {
         if (loading) return
         loading = true
-        val page = GifCatalog.fetch(title, query, if (reset) null else next, settings.klipyKey, settings.giphyKey)
+        val page = GifCatalog.fetch(title, query, if (reset) null else next, settings.klipyKey, settings.giphyKey, allowNetwork = gifNetwork)
         if (reset) gifs.clear()
         gifs.addAll(page.items.filter { n -> gifs.none { it.id == n.id } })
         next = page.next
         error = page.error
         loading = false
     }
-    LaunchedEffect(query, settings.klipyKey, settings.giphyKey) {
+    LaunchedEffect(query, settings.klipyKey, settings.giphyKey, gifNetwork) {
         next = null
         loading = false
         load(true)
@@ -622,6 +627,17 @@ internal fun GifPanel(state: KeyboardState, actions: KeyboardActions, settings: 
         modifier = Modifier.fillMaxSize().panelSurface(palette).padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
+        if (gifPrivate) {
+            // a quiet line, not a dialog: the catalogue below still works
+            Text(
+                tr("Инкогнито: только встроенные GIF"),
+                color = palette.onFunc,
+                fontFamily = font,
+                fontSize = 12.sp,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp),

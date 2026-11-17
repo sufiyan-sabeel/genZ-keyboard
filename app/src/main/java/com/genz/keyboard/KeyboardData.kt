@@ -618,8 +618,15 @@ object GifCatalog {
         query: String,
         next: String?,
         klipyUser: String,
-        giphyUser: String
+        giphyUser: String,
+        /** False in a private session: the query must not leave the device. */
+        allowNetwork: Boolean = true
     ): GifPage = withContext(Dispatchers.IO) {
+        // Closed before any key is read or any request built, so the query cannot be transmitted
+        // by another route. The built-in catalogue is filtered locally instead.
+        if (!allowNetwork) {
+            return@withContext GifPage(if (next == null) fallback(category, query) else emptyList(), null)
+        }
         val klipy = klipyKey(klipyUser)
         val giphy = giphyKey(giphyUser)
         if (klipy.isBlank() && giphy.isBlank()) {

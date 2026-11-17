@@ -23,19 +23,15 @@ class UpdateCheckerTest {
         body: String = "What changed",
         assetName: String = "GenZKeyboard-v1.0.6.apk",
         assetUrl: String = UpdateChecker.DOWNLOAD_PREFIX + "v1.0.6/GenZKeyboard-v1.0.6.apk"
-    ): String = """
-        {
-          "tag_name": "$tag",
-          "name": "GenZ Keyboard $tag",
-          "body": ${"\"\"\""}$body${"\"\"\""},
-          "draft": $draft,
-          "prerelease": $prerelease,
-          "published_at": "2026-11-17T10:00:00Z",
-          "assets": [
-            {"name": "$assetName", "browser_download_url": "$assetUrl"}
-          ]
-        }
-    """.trimIndent()
+    ): String {
+        val escaped = body
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+        return """{"tag_name":"$tag","name":"GenZ Keyboard $tag","body":"$escaped",""" +
+            """"draft":$draft,"prerelease":$prerelease,"published_at":"2026-11-17T10:00:00Z",""" +
+            """"assets":[{"name":"$assetName","browser_download_url":"$assetUrl"}]}"""
+    }
 
     // ---------------------------------------------------------------- parsing
 

@@ -1,0 +1,49 @@
+{
+  "id": "builtin.preset.pastel",
+  "name": "Pastel Anime",
+  "version": "2.0",
+  "author": "GenZ Keyboard",
+  "description": "palette from the supplied pastel reference; the only light preset. Palette-only: no artwork is bundled, so the preset renders identically in both flavours.",
+  "icon": "🌷",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#E2CDB5",
+          "#C2A483"
+        ],
+        "angle": 90
+      },
+      "corner": 20
+    },
+    "colors": {
+      "background": "#E2CDB5",
+      "key": "#F3E8DA",
+      "keyText": "#4A3B2E",
+      "func": "#E2CDB5",
+      "funcText": "#4A3B2E",
+      "accent": "#C98F86",
+      "accentText": "#3A2A20"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#F3E8DA",
+        "text": "#4A3B2E",
+        "radius": 20
+      },
+      "func": {
+        "material": "solid",
+        "background": "#E2CDB5",
+        "text": "#4A3B2E",
+        "radius": 20
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#C98F86",
+        "text": "#3A2A20",
+        "radius": 20
+      }
+    }
+  }
+}

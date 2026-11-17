@@ -1,7 +1,5 @@
 package com.genz.keyboard
 
-import org.json.JSONObject
-
 /**
  * A user-authored theme: a base preset plus only the properties the user changed.
  *
@@ -55,16 +53,16 @@ object ThemeCodec {
     private val WALLPAPER = Regex("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}\\.(?:png|jpg|jpeg|webp)$")
 
     fun encode(doc: ThemeDoc): String {
-        val o = JSONObject()
-        o.put("schema", doc.schemaVersion)
-        o.put("id", doc.id)
-        o.put("name", doc.name)
-        o.put("base", doc.basePreset)
-        doc.wallpaper?.let { o.put("wallpaper", it) }
-        val ov = JSONObject()
-        doc.overrides.toSortedMap().forEach { (k, v) -> ov.put(k, v) }
-        o.put("overrides", ov)
-        return o.toString(2)
+        val ov = LinkedHashMap<String, Any?>()
+        doc.overrides.toSortedMap().forEach { (k, v) -> ov[k] = v }
+        val fields = LinkedHashMap<String, Any?>()
+        fields["schema"] = doc.schemaVersion
+        fields["id"] = doc.id
+        fields["name"] = doc.name
+        fields["base"] = doc.basePreset
+        doc.wallpaper?.let { fields["wallpaper"] = it }
+        fields["overrides"] = ov
+        return ThemeJson.encode(fields)
     }
 
     /**
@@ -78,47 +76,58 @@ object ThemeCodec {
         if (json.toByteArray().size > ThemeDoc.MAX_JSON_BYTES) {
             return ThemeValidation.Invalid("theme file is too large")
         }
-        val o = runCatching { JSONObject(json) }
-            .getOrElse { return ThemeValidation.Invalid("not valid JSON") }
+        val o = ThemeJson.decode(json) ?: return ThemeValidation.Invalid("not valid JSON")
 
-        val schema = o.optInt("schema", -1)
+        val schema = (o["schema"] as? Number)?.toInt() ?: -1
         if (schema != ThemeDoc.SCHEMA) {
             return ThemeValidation.Invalid("unsupported theme version")
         }
-        val id = o.optString("id", "").trim()
+        val id = (o["id"] as? String)?.trim().orEmpty()
         if (!ID.matches(id)) return ThemeValidation.Invalid("invalid theme id")
 
-        val name = o.optString("name", "").trim()
+        val name = (o["name"] as? String)?.trim().orEmpty()
         if (name.isEmpty()) return ThemeValidation.Invalid("theme name is required")
         if (name.length > ThemeDoc.MAX_NAME) return ThemeValidation.Invalid("theme name is too long")
 
-        val base = o.optString("base", "").trim()
+        val base = (o["base"] as? String)?.trim().orEmpty()
         if (!PRESET.matches(base)) return ThemeValidation.Invalid("invalid base preset")
 
-        val wallpaper = if (o.has("wallpaper") && !o.isNull("wallpaper")) {
-            val w = o.optString("wallpaper", "").trim()
-            // Reject anything that is not a plain file name: no URLs, no absolute paths, no "..".
-            if (!WALLPAPER.matches(w)) return ThemeValidation.Invalid("invalid wallpaper reference")
-            w
-        } else null
+        val wallpaper = when (val w = o["wallpaper"]) {
+            null -> null
+            is String -> {
+                val t = w.trim()
+                // Reject anything that is not a plain file name: no URLs, no absolute paths, no "..".
+                if (!WALLPAPER.matches(t)) return ThemeValidation.Invalid("invalid wallpaper reference")
+                t
+            }
+            else -> return ThemeValidation.Invalid("invalid wallpaper reference")
+        }
 
         val overrides = LinkedHashMap<String, String>()
-        val ov = o.optJSONObject("overrides")
-        if (ov != null) {
-            if (ov.length() > ThemeDoc.MAX_OVERRIDES) {
-                return ThemeValidation.Invalid("too many overrides")
-            }
-            for (key in ov.keys()) {
-                if (!KEY.matches(key)) return ThemeValidation.Invalid("invalid property: $key")
-                val value = ov.optString(key, "").trim()
-                if (value.isEmpty() || value.length > ThemeDoc.MAX_VALUE) {
-                    return ThemeValidation.Invalid("invalid value for $key")
+        when (val ov = o["overrides"]) {
+            null -> Unit
+            is Map<*, *> -> {
+                if (ov.size > ThemeDoc.MAX_OVERRIDES) {
+                    return ThemeValidation.Invalid("too many overrides")
                 }
-                if (!HEX.matches(value) && !NUM.matches(value)) {
-                    return ThemeValidation.Invalid("invalid value for $key")
+                for ((k, raw) in ov) {
+                    val key = k as? String ?: return ThemeValidation.Invalid("invalid property name")
+                    if (!KEY.matches(key)) return ThemeValidation.Invalid("invalid property: $key")
+                    val value = when (raw) {
+                        is String -> raw.trim()
+                        is Number -> if (raw.toDouble() == raw.toLong().toDouble()) raw.toLong().toString() else raw.toString()
+                        else -> return ThemeValidation.Invalid("invalid value for $key")
+                    }
+                    if (value.isEmpty() || value.length > ThemeDoc.MAX_VALUE) {
+                        return ThemeValidation.Invalid("invalid value for $key")
+                    }
+                    if (!HEX.matches(value) && !NUM.matches(value)) {
+                        return ThemeValidation.Invalid("invalid value for $key")
+                    }
+                    overrides[key] = value
                 }
-                overrides[key] = value
             }
+            else -> return ThemeValidation.Invalid("invalid overrides")
         }
         return ThemeValidation.Ok(
             ThemeDoc(

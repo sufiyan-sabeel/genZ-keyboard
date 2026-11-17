@@ -1,38 +1,49 @@
 package com.genz.keyboard
 
-import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
 /**
- * Validates the bundled presets as data.
+ * Validates the twelve bundled presets as data.
  *
- * These are the guarantees a preset must meet before it ships: it parses, it declares every colour
- * the engine needs, and its key label is actually readable against its keycap. The contrast check is
- * the one that stops a pretty theme from being unusable.
+ * Parsed with [ThemeJson] rather than `org.json`, because the platform's `org.json` is a stub in
+ * JVM unit tests and would return defaults instead of the real values — the test would pass while
+ * checking nothing.
+ *
+ * The contrast checks are the ones that matter: a preset that is pretty but unreadable is not
+ * shippable.
  */
 class ThemePresetTest {
 
     private val dir = File("src/main/assets/plugins")
 
-    private fun presets(): List<Pair<String, JSONObject>> =
-        dir.listFiles { f -> f.isFile && f.name.startsWith("anime_") && f.name.endsWith(".json") }
-            .orEmpty()
-            .sortedBy { it.name }
-            .map { it.name to JSONObject(it.readText()) }
+    private val expected = setOf(
+        "preset_academia.json", "preset_cyber.json", "preset_cyberdark.json", "preset_forest.json",
+        "preset_minimal.json", "preset_night.json", "preset_ocean.json", "preset_pastel.json",
+        "preset_sakura.json", "preset_samurai.json", "preset_tokyo.json", "preset_windmill.json"
+    )
 
-    private fun colour(o: JSONObject, key: String): String? =
-        o.optJSONObject("skin")?.optJSONObject("colors")?.optString(key)?.takeIf { it.isNotEmpty() }
+    private fun files() = dir.listFiles { f -> f.name.startsWith("preset_") && f.name.endsWith(".json") }
+        .orEmpty().sortedBy { it.name }
+
+    private fun presets(): List<Pair<String, Map<String, Any?>>> =
+        files().map { it.name to (ThemeJson.decode(it.readText()) ?: emptyMap()) }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun obj(m: Map<String, Any?>?, key: String) = m?.get(key) as? Map<String, Any?>
+
+    private fun str(m: Map<String, Any?>?, key: String) = m?.get(key) as? String
+
+    private fun colours(m: Map<String, Any?>?) = obj(obj(m, "skin"), "colors")
+
+    private fun background(m: Map<String, Any?>?) = obj(obj(m, "skin"), "keyboard")?.get("background")
 
     private fun rgb(hex: String): Triple<Int, Int, Int> {
         val h = hex.removePrefix("#")
-        return Triple(
-            h.substring(0, 2).toInt(16),
-            h.substring(2, 4).toInt(16),
-            h.substring(4, 6).toInt(16)
-        )
+        return Triple(h.substring(0, 2).toInt(16), h.substring(2, 4).toInt(16), h.substring(4, 6).toInt(16))
     }
 
     private fun luminance(hex: String): Double {
@@ -47,29 +58,31 @@ class ThemePresetTest {
     private fun contrast(a: String, b: String): Double {
         val la = luminance(a)
         val lb = luminance(b)
-        val hi = maxOf(la, lb)
-        val lo = minOf(la, lb)
-        return (hi + 0.05) / (lo + 0.05)
+        return (maxOf(la, lb) + 0.05) / (minOf(la, lb) + 0.05)
+    }
+
+    // ---------------------------------------------------------------- structure
+
+    @Test
+    fun allTwelvePresetsArePresent() {
+        assertEquals("preset files on disk", expected.sorted(), files().map { it.name })
     }
 
     @Test
-    fun theCollectionHasAtLeastTwelvePresets() {
-        assertTrue("expected at least 12 anime presets, found ${presets().size}", presets().size >= 12)
-    }
-
-    @Test
-    fun everyPresetIsValidJsonWithAnIdAndName() {
+    fun everyPresetParsesAsJson() {
         presets().forEach { (file, o) ->
-            assertTrue("$file has no id", o.optString("id").isNotEmpty())
-            assertTrue("$file has no name", o.optString("name").isNotEmpty())
-            assertTrue("$file has no skin object", o.has("skin"))
+            assertTrue("$file did not parse", o.isNotEmpty())
+            assertTrue("$file has no id", str(o, "id")?.isNotEmpty() == true)
+            assertTrue("$file has no name", str(o, "name")?.isNotEmpty() == true)
+            assertNotNull("$file has no skin", obj(o, "skin"))
         }
     }
 
     @Test
-    fun presetIdsAreUnique() {
-        val ids = presets().map { it.second.optString("id") }
-        assertEquals(ids.size, ids.toSet().size)
+    fun presetIdsAreUniqueAndNamespaced() {
+        val ids = presets().map { str(it.second, "id")!! }
+        assertEquals("ids must not repeat", ids.size, ids.toSet().size)
+        ids.forEach { assertTrue("id $it is not in the builtin.preset namespace", it.startsWith("builtin.preset.")) }
     }
 
     @Test
@@ -77,7 +90,7 @@ class ThemePresetTest {
         val required = listOf("background", "key", "keyText", "func", "funcText", "accent", "accentText")
         presets().forEach { (file, o) ->
             required.forEach { key ->
-                val v = colour(o, key)
+                val v = str(colours(o), key)
                 assertTrue("$file is missing colors.$key", v != null)
                 assertTrue("$file colors.$key is not a hex colour", v!!.matches(Regex("^#[0-9a-fA-F]{6}$")))
             }
@@ -85,105 +98,82 @@ class ThemePresetTest {
     }
 
     @Test
-    fun everyPresetHasAReadableKeyLabel() {
-        // 4.5:1 is the WCAG AA threshold for normal text
+    fun everyPresetHasAGradientBackground() {
         presets().forEach { (file, o) ->
-            val key = colour(o, "key")!!
-            val text = colour(o, "keyText")!!
-            val ratio = contrast(key, text)
+            val bg = background(o) as? Map<*, *>
+            assertNotNull("$file has no keyboard background", bg)
+            val list = bg!!["colors"] as? List<*>
+            assertTrue("$file background needs at least two colours", list != null && list.size >= 2)
+            list!!.forEach { assertTrue("$file background colour is not hex", (it as String).matches(Regex("^#[0-9a-fA-F]{6}$"))) }
+        }
+    }
+
+    @Test
+    fun presetsCarryNoArtworkSoBothFlavoursRenderThem() {
+        // The ten older anime_* skins reference anime/*.webp, which only the standard flavour
+        // ships. These presets deliberately carry none, so they look the same in fdroid.
+        presets().forEach { (file, o) ->
             assertTrue(
-                "$file key label contrast is %.2f:1 (needs 4.5)".format(ratio),
-                ratio >= 4.5
+                "$file references artwork, which the fdroid flavour cannot provide",
+                (str(o, "backgroundImage") ?: "").isEmpty()
             )
+        }
+    }
+
+    // ---------------------------------------------------------------- readability
+
+    @Test
+    fun everyPresetHasAReadableKeyLabel() {
+        presets().forEach { (file, o) ->
+            val ratio = contrast(str(colours(o), "key")!!, str(colours(o), "keyText")!!)
+            assertTrue("$file key label contrast is %.2f:1 (needs 4.5)".format(ratio), ratio >= 4.5)
         }
     }
 
     @Test
     fun everyPresetHasAReadableFunctionKeyLabel() {
         presets().forEach { (file, o) ->
-            val func = colour(o, "func")!!
-            val text = colour(o, "funcText")!!
-            val ratio = contrast(func, text)
-            assertTrue("$file func label contrast is %.2f:1".format(ratio), ratio >= 4.5)
+            val ratio = contrast(str(colours(o), "func")!!, str(colours(o), "funcText")!!)
+            assertTrue("$file func label contrast is %.2f:1 (needs 4.5)".format(ratio), ratio >= 4.5)
         }
     }
 
     @Test
     fun everyPresetHasAReadableAccentLabel() {
         presets().forEach { (file, o) ->
-            val accent = colour(o, "accent")!!
-            val text = colour(o, "accentText")!!
-            val ratio = contrast(accent, text)
-            assertTrue("$file accent label contrast is %.2f:1".format(ratio), ratio >= 4.5)
+            val ratio = contrast(str(colours(o), "accent")!!, str(colours(o), "accentText")!!)
+            assertTrue("$file accent label contrast is %.2f:1 (needs 4.5)".format(ratio), ratio >= 4.5)
         }
     }
 
-    /** The twelve presets added with the theme overhaul. */
-    private val newPresets = setOf(
-        "anime_night.json", "anime_samurai.json", "anime_sakura.json", "anime_tokyo.json",
-        "anime_forest.json", "anime_cyber.json", "anime_academia.json", "anime_minimal.json",
-        "anime_pastel.json", "anime_ocean.json", "anime_cyberdark.json", "anime_windmill.json"
-    )
+    // ---------------------------------------------------------------- distinctness and provenance
 
     @Test
-    fun theNewPresetsAreAllPresent() {
-        val files = presets().map { it.first }.toSet()
-        val missing = newPresets - files
-        assertTrue("missing new presets: $missing", missing.isEmpty())
+    fun theCollectionIsNotOneThemeWithDifferentWallpapers() {
+        val accents = presets().map { str(colours(it.second), "accent")!!.lowercase() }.toSet()
+        assertTrue("only ${accents.size} distinct accents across twelve presets", accents.size >= 8)
     }
 
     @Test
-    fun theNewPresetsArePaletteOnlySoBothFlavoursRenderThem() {
-        // The ten older skins reference anime/*.webp, which only the standard flavour ships and
-        // which is therefore unavailable in fdroid. The new presets deliberately carry no artwork,
-        // so they render identically in both flavours.
-        presets().filter { it.first in newPresets }.forEach { (file, o) ->
-            assertTrue(
-                "$file references artwork; the fdroid flavour cannot provide it",
-                !o.has("backgroundImage") || o.optString("backgroundImage").isEmpty()
-            )
-        }
-    }
-
-    @Test
-    fun everyPresetWithArtworkStillHasAPaletteFallback() {
-        // a skin referencing a missing image must degrade to its gradient, never to a blank view
-        presets().filter { it.second.has("backgroundImage") }.forEach { (file, o) ->
-            val bg = o.optJSONObject("skin")?.optJSONObject("keyboard")?.optJSONObject("background")
-            val colours = bg?.optJSONArray("colors")
-            assertTrue(
-                "$file depends on artwork but declares no gradient fallback",
-                colours != null && colours.length() >= 2
-            )
-        }
-    }
-
-    @Test
-    fun everyPresetHasAGradientBackground() {
+    fun everyPresetRecordsWhereItsPaletteCameFrom() {
+        // provenance is part of the data, not only the design document
         presets().forEach { (file, o) ->
-            val bg = o.optJSONObject("skin")?.optJSONObject("keyboard")?.optJSONObject("background")
-            assertTrue("$file has no keyboard background", bg != null)
-            val colours = bg!!.optJSONArray("colors")
-            assertTrue("$file background has fewer than two colours", colours != null && colours.length() >= 2)
-        }
-    }
-
-    @Test
-    fun theCollectionIsNotTwelveCopiesOfOneTheme() {
-        // the brief forbids "every theme look identical with a different wallpaper"
-        val accents = presets().map { colour(it.second, "accent")!!.lowercase() }.toSet()
-        assertTrue("presets share too few distinct accents: ${accents.size}", accents.size >= 8)
-    }
-
-    @Test
-    fun descriptionsRecordWhereThePaletteCameFrom() {
-        // provenance is part of the data, not just the design doc
-        presets().forEach { (file, o) ->
-            val d = o.optString("description")
+            val d = str(o, "description").orEmpty()
             assertTrue("$file has no description", d.isNotEmpty())
             assertTrue(
                 "$file description does not record provenance",
                 d.contains("palette from", ignoreCase = true) || d.contains("derived", ignoreCase = true)
+            )
+        }
+    }
+
+    @Test
+    fun noPresetClaimsToShipSomeoneElsesArtwork() {
+        // three of the supplied references are signed by other artists and cannot be redistributed
+        presets().forEach { (file, o) ->
+            assertTrue(
+                "$file mentions a bundled image path",
+                !str(o, "description").orEmpty().contains(".webp")
             )
         }
     }

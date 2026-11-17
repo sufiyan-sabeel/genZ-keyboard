@@ -1,0 +1,49 @@
+{
+  "id": "builtin.preset.cyberdark",
+  "name": "Neon-free Cyber Dark",
+  "version": "2.0",
+  "author": "GenZ Keyboard",
+  "description": "derived: darkest surface, deliberately no neon accent. Palette-only: no artwork is bundled, so the preset renders identically in both flavours.",
+  "icon": "▪",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#141414",
+          "#1E1E1E"
+        ],
+        "angle": 90
+      },
+      "corner": 10
+    },
+    "colors": {
+      "background": "#141414",
+      "key": "#1A1A1A",
+      "keyText": "#CFCFCF",
+      "func": "#222222",
+      "funcText": "#CFCFCF",
+      "accent": "#5A5A5A",
+      "accentText": "#F0F0F0"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#1A1A1A",
+        "text": "#CFCFCF",
+        "radius": 10
+      },
+      "func": {
+        "material": "solid",
+        "background": "#222222",
+        "text": "#CFCFCF",
+        "radius": 10
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#5A5A5A",
+        "text": "#F0F0F0",
+        "radius": 10
+      }
+    }
+  }
+}

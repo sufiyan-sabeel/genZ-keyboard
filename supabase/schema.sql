@@ -42,6 +42,8 @@ create table if not exists themes (
   is_public     boolean not null default true,
   is_removed    boolean not null default false,
   downloads     integer not null default 0,
+  -- set only by moderators; the Featured section shows nothing rather than guessing
+  is_featured   boolean not null default false,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -56,6 +58,19 @@ create policy "read public themes" on themes for select
   using ((is_public and not is_removed) or auth.uid() = author_id);
 create policy "insert own theme"   on themes for insert with check (auth.uid() = author_id);
 create policy "update own theme"   on themes for update using (auth.uid() = author_id);
+-- authors must not be able to feature themselves
+create or replace function protect_featured_flag() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.is_featured is distinct from old.is_featured
+     and current_user not in ('postgres','supabase_admin','service_role') then
+    new.is_featured := old.is_featured;
+  end if;
+  return new;
+end; $$;
+drop trigger if exists themes_protect_featured on themes;
+create trigger themes_protect_featured before update on themes
+  for each row execute function protect_featured_flag();
 create policy "delete own theme"   on themes for delete using (auth.uid() = author_id);
 
 -- ---------------------------------------------------------------- reviews (one per user per theme)
@@ -206,13 +221,103 @@ create unique index if not exists themes_author_hash_idx
   where content_hash is not null and not is_removed;
 
 -- ---------------------------------------------------------------- download counter
--- Incremented by a function so a client cannot set an arbitrary count, and so the row's own
--- author cannot inflate it without also being counted.
+--
+-- Design notes, because this function is the one place a client can affect a public number:
+--
+--  * `set search_path = ''` — a SECURITY DEFINER function with a mutable search_path can be
+--    hijacked by creating a shadowing table/function in a schema the attacker controls.
+--  * `authenticated` only — an anonymous caller must not be able to inflate counts.
+--  * one row per (theme, user) in theme_downloads makes the increment idempotent, so a retried
+--    request or a double tap cannot count twice.
+--  * only a public, non-removed theme is counted.
+--  * the counter column itself is protected by a trigger, so an author cannot set it directly.
+
+create table if not exists theme_downloads (
+  theme_id   uuid not null references themes(id) on delete cascade,
+  user_id    uuid not null references profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (theme_id, user_id)
+);
+
+alter table theme_downloads enable row level security;
+create policy "read own downloads" on theme_downloads
+  for select using (auth.uid() = user_id);
+-- inserts happen only inside the SECURITY DEFINER function below, never from the client
+create policy "no direct inserts" on theme_downloads for insert with check (false);
+
 create or replace function increment_downloads(p_theme_id uuid) returns void
-language sql security definer as $$
-  update themes
-     set downloads = downloads + 1
-   where id = p_theme_id and is_public and not is_removed;
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_inserted boolean := false;
+begin
+  if v_user is null then
+    raise exception 'not authenticated' using errcode = '42501';
+  end if;
+
+  -- only a live, public theme can be counted
+  if not exists (
+    select 1 from public.themes t
+     where t.id = p_theme_id and t.is_public and not t.is_removed
+  ) then
+    return;
+  end if;
+
+  insert into public.theme_downloads (theme_id, user_id)
+  values (p_theme_id, v_user)
+  on conflict (theme_id, user_id) do nothing;
+
+  get diagnostics v_inserted = row_count;
+  if v_inserted then
+    update public.themes set downloads = downloads + 1 where id = p_theme_id;
+  end if;
+end;
 $$;
 
-grant execute on function increment_downloads(uuid) to authenticated, anon;
+revoke all on function increment_downloads(uuid) from public, anon;
+grant execute on function increment_downloads(uuid) to authenticated;
+
+-- The counter is not a user-editable column: only the function above may change it.
+create or replace function protect_download_counter() returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.downloads is distinct from old.downloads
+     and current_user not in ('postgres', 'supabase_admin', 'service_role') then
+    new.downloads := old.downloads;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists themes_protect_downloads on themes;
+create trigger themes_protect_downloads before update on themes
+  for each row execute function protect_download_counter();
+
+-- ---------------------------------------------------------------- profile bootstrap
+-- A new auth user needs a profiles row, or every write that references profiles(id) fails.
+create or replace function create_profile_for_new_user() returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, handle, display_name)
+  values (
+    new.id,
+    coalesce(split_part(new.email, '@', 1), 'user') || '_' || substr(new.id::text, 1, 6),
+    coalesce(split_part(new.email, '@', 1), 'user')
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
+  for each row execute function create_profile_for_new_user();

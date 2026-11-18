@@ -12,7 +12,9 @@ data class ThemeSummary(
     val averageRating: Double,
     val reviewCount: Int,
     val downloads: Int,
-    val version: Int
+    val version: Int,
+    /** Needed to open the creator's profile: a handle is not unique enough to navigate by. */
+    val authorId: String? = null
 )
 
 /** A review as shown on a theme page. */
@@ -44,7 +46,8 @@ object CommunityModels {
             averageRating = (row["average_rating"] as? Number)?.toDouble() ?: 0.0,
             reviewCount = (row["review_count"] as? Number)?.toInt() ?: 0,
             downloads = (row["downloads"] as? Number)?.toInt() ?: 0,
-            version = (row["version"] as? Number)?.toInt() ?: 1
+            version = (row["version"] as? Number)?.toInt() ?: 1,
+            authorId = row["author_id"] as? String
         )
     }
 

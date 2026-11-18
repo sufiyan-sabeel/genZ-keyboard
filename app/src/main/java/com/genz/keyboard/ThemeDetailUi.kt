@@ -1,6 +1,7 @@
 package com.genz.keyboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.text.font.FontFamily
@@ -55,6 +56,7 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
     var favourite by remember { mutableStateOf(false) }
     var reportOpen by remember { mutableStateOf(false) }
     var previewDoc by remember { mutableStateOf<ThemeDoc?>(null) }
+    var creatorId by remember { mutableStateOf<String?>(null) }
 
     fun load() {
         loading = true; error = null
@@ -72,6 +74,15 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
                     error = if (result.code == 404) "This theme is no longer available" else "Server error (${result.code})"
             }
         }
+    }
+
+    creatorId?.let { id ->
+        CreatorProfileScreen(
+            userId = id,
+            onBack = { creatorId = null },
+            onOpenTheme = { creatorId = null; onBack() }
+        )
+        return
     }
 
     LaunchedEffect(themeId) {
@@ -142,7 +153,12 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
                     }
                     Text(t.name, color = Color(0xFFE8ECEF), fontSize = 18.sp, modifier = Modifier.padding(top = 10.dp))
                     if (t.authorHandle.isNotBlank()) {
-                        Text("by @${t.authorHandle}", color = Color(0xFF6FD3D6), fontSize = 12.sp)
+                        // navigates by id: a handle is a label, not an identifier
+                        Text(
+                            "by @${t.authorHandle}",
+                            color = Color(0xFF6FD3D6), fontSize = 12.sp,
+                            modifier = Modifier.clickable { t.authorId?.let { creatorId = it } }
+                        )
                     }
                     Text(
                         "%.1f★ · %d reviews · %d downloads · v%d".format(t.averageRating, t.reviewCount, t.downloads, t.version),

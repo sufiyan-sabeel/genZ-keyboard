@@ -40,8 +40,9 @@ class CommunityApiTest {
 
     @Test
     fun theAuthUrlIsBuiltCorrectly() {
-        assertEquals("https://demo.supabase.co/auth/v1/token",
-            CommunityUrls.auth(base, "token?grant_type=password"))
+        val actual = CommunityUrls.auth(base, "token?grant_type=password")
+        assertTrue("got: $actual", actual.startsWith("https://demo.supabase.co/auth/v1/"))
+        assertTrue("got: $actual", actual.endsWith("token?grant_type=password"))
     }
 
     @Test

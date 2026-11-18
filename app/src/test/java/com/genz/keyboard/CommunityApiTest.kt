@@ -39,11 +39,15 @@ class CommunityApiTest {
     }
 
     @Test
-    fun authAndStoragePathsAreBuiltCorrectly() {
+    fun theAuthUrlIsBuiltCorrectly() {
         assertEquals("https://demo.supabase.co/auth/v1/token",
             CommunityUrls.auth(base, "token?grant_type=password"))
-        assertEquals("https://demo.supabase.co/storage/v1/object/public/theme-previews/a%20b.png",
-            CommunityUrls.storage(base, "theme-previews", "a b.png"))
+    }
+
+    @Test
+    fun theStorageUrlEncodesSpaces() {
+        val actual = CommunityUrls.storage(base, "theme-previews", "a b.png")
+        assertEquals("https://demo.supabase.co/storage/v1/object/public/theme-previews/a%20b.png", actual)
     }
 
     // ---------------------------------------------------------------- row mapping

@@ -47,6 +47,7 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
     var signedIn by remember { mutableStateOf(CommunitySession.isSignedIn(context)) }
     var openThemeId by remember { mutableStateOf<String?>(null) }
     var showFavourites by remember { mutableStateOf(false) }
+    var showDesigns by remember { mutableStateOf(false) }
     var handle by remember { mutableStateOf(CommunitySession.handle(context)) }
 
     Column(Modifier.fillMaxSize().background(Color(0xFF0E1013))) {
@@ -64,6 +65,11 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
 
         if (!CommunityConfig.isConfigured) {
             NotConfiguredNotice()
+            return@Column
+        }
+
+        if (showDesigns) {
+            DesignFeedScreen(onBack = { showDesigns = false })
             return@Column
         }
 
@@ -88,6 +94,9 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
                 ) {
                     Text(if (handle != null) "Signed in" else "Signed in", color = Color(0xFFB9C2C8), fontSize = 12.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = { showDesigns = true }) {
+                            Text("Designs", color = Color(0xFF6FD3D6), fontSize = 12.sp)
+                        }
                         TextButton(onClick = { showFavourites = true }) {
                             Text("Saved", color = Color(0xFF6FD3D6), fontSize = 12.sp)
                         }

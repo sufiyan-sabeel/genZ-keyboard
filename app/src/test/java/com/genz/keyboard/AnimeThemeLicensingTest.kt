@@ -17,8 +17,8 @@ class AnimeThemeLicensingTest {
 
     private val pluginDir = File("src/main/assets/plugins")
     private val artDir = File("src/standard/assets/anime")
-    private val pendingDir = File("../../docs/pending-themes")
-    private val notices = File("../../THIRD_PARTY_NOTICES.md")
+    private val pendingDir = File("../docs/pending-themes")
+    private val notices = File("../THIRD_PARTY_NOTICES.md")
 
     private val shipped = listOf(
         "art_blueroad", "art_cabin", "art_pastel",

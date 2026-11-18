@@ -47,6 +47,8 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var manageState by remember { mutableStateOf<CommunityManage.State>(CommunityManage.State.Idle) }
+    var downloadState by remember { mutableStateOf<ThemeDownload.State>(ThemeDownload.State.Idle) }
+    var wallpaperPath by remember { mutableStateOf<String?>(null) }
 
     fun load() {
         loading = true; error = null
@@ -108,6 +110,33 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
                         Text(t.tags.joinToString(" · "), color = Color(0xFF6FD3D6), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
                     }
                     Text("Category: ${t.category}", color = Color(0xFFB9C2C8), fontSize = 11.sp)
+
+                    when (val d = downloadState) {
+                        is ThemeDownload.State.Fetching -> Text("Downloading…", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+                        is ThemeDownload.State.Validating -> Text("Checking the theme…", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+                        is ThemeDownload.State.Importing -> Text("Saving…", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+                        is ThemeDownload.State.NeedsConfirmation ->
+                            Text(d.reason + ". Tap Download again to replace it.", color = Color(0xFFE0A94F), fontSize = 12.sp)
+                        is ThemeDownload.State.Done -> Text("Downloaded. Applied to your keyboard.", color = Color(0xFF6FD3D6), fontSize = 12.sp)
+                        is ThemeDownload.State.Failed -> Text(d.reason, color = Color(0xFFD67A7A), fontSize = 12.sp)
+                        is ThemeDownload.State.Idle -> Unit
+                    }
+
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            // a second tap after NeedsConfirmation is the confirmation
+                            val overwrite = downloadState is ThemeDownload.State.NeedsConfirmation
+                            downloadState = ThemeDownload.State.Fetching(0f)
+                            scope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    ThemeDownload.fetchAndValidate(context, t.id, null, overwrite) { downloadState = it }
+                                }
+                                if (result is ThemeDownload.State.Done) {
+                                    withContext(Dispatchers.IO) { ThemeDownload.apply(context, result.doc) }
+                                }
+                            }
+                        }) { Text("Download and apply") }
+                    }
 
                     when (val s = manageState) {
                         is CommunityManage.State.Failed -> Text(s.reason, color = Color(0xFFD67A7A), fontSize = 12.sp)

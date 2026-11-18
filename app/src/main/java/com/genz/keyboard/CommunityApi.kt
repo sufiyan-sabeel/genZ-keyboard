@@ -68,15 +68,33 @@ object CommunityApi {
     }
 
     /** Sign in and return the access token. */
-    fun signIn(email: String, password: String): CommunityResult<String> {
+    fun signIn(email: String, password: String): CommunityResult<AuthTokens> {
         val body = """{"email":${q(email)},"password":${q(password)}}"""
         return when (val r = request("POST", CommunityUrls.auth(CommunityConfig.baseUrl, "token?grant_type=password"), null, body)) {
-            is CommunityResult.Ok -> {
-                val o = ThemeJson.decode(r.value)
-                val token = o?.get("access_token") as? String
-                if (token == null) CommunityResult.Unauthorized("no access token in response")
-                else CommunityResult.Ok(token)
-            }
+            is CommunityResult.Ok -> AuthResponse.parse(r.value)
+                ?.let { CommunityResult.Ok(it) }
+                ?: CommunityResult.Unauthorized("no access token in response")
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    /** Register a new account. The schema creates the profile row on first sign-in. */
+    fun signUp(email: String, password: String): CommunityResult<String> {
+        val body = """{"email":${q(email)},"password":${q(password)}}"""
+        return request("POST", CommunityUrls.auth(CommunityConfig.baseUrl, "signup"), null, body)
+    }
+
+    /** Exchange a refresh token for a fresh access token. */
+    fun refresh(refreshToken: String): CommunityResult<AuthTokens> {
+        val body = """{"refresh_token":${q(refreshToken)}}"""
+        val url = CommunityUrls.auth(CommunityConfig.baseUrl, "token?grant_type=refresh_token")
+        return when (val r = request("POST", url, null, body)) {
+            is CommunityResult.Ok -> AuthResponse.parse(r.value)
+                ?.let { CommunityResult.Ok(it) }
+                ?: CommunityResult.ServerError(0, "malformed token response")
             is CommunityResult.NotConfigured -> r
             is CommunityResult.Unauthorized -> r
             is CommunityResult.NetworkError -> r

@@ -22,7 +22,7 @@ class DownloadGuardTest {
 
     private fun theme(wallpaper: String? = "bundled_art_sunset.webp"): String {
         val w = if (wallpaper != null) """"wallpaper":"$wallpaper",""" else ""
-        return """{"schema":1,"id":"user.1","name":"Sunset","basePreset":"builtin.preset.windmill",$w"overrides":{"colorKey":"#1E1E1E"}}"""
+        return """{"schema":1,"id":"user.1","name":"Sunset","base":"builtin.preset.windmill",$w"overrides":{"colorKey":"#1E1E1E"}}"""
     }
 
     @Test

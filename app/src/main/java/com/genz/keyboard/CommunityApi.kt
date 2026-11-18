@@ -400,6 +400,45 @@ object CommunityApi {
         request("POST", "${CommunityConfig.baseUrl}/rest/v1/rpc/increment_downloads", token,
             """{"p_theme_id":${q(themeId)}}""")
 
+    /** Reviews for a theme, newest first. RLS hides removed reviews. */
+    fun listReviews(token: String?, themeId: String, limit: Int = 50): CommunityResult<List<ThemeReview>> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "reviews", linkedMapOf(
+            "select" to "id,rating,body,created_at,author_id,profiles(handle)",
+            "theme_id" to "eq.$themeId",
+            "is_removed" to "eq.false",
+            "order" to "created_at.desc",
+            "limit" to limit.toString()
+        ))
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value) ?: return CommunityResult.ServerError(0, "bad json")
+                CommunityResult.Ok(arr.filterIsInstance<Map<String, Any?>>().mapNotNull { CommunityModels.review(it) })
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    /** Submit a review. The unique (theme_id, author_id) index makes a retry a 409, not a duplicate. */
+    fun submitReview(token: String, themeId: String, rating: Int, body: String): CommunityResult<String> {
+        val json = """{"theme_id":${q(themeId)},"rating":$rating,"body":${q(body)}}"""
+        return request("POST", CommunityUrls.table(CommunityConfig.baseUrl, "reviews"), token, json)
+    }
+
+    /** Edit the caller's own review. RLS rejects anyone else's. */
+    fun updateReview(token: String, reviewId: String, rating: Int, body: String): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "reviews", linkedMapOf("id" to "eq.$reviewId"))
+        return request("PATCH", url, token, """{"rating":$rating,"body":${q(body)}}""")
+    }
+
+    /** Delete the caller's own review. */
+    fun deleteReview(token: String, reviewId: String): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "reviews", linkedMapOf("id" to "eq.$reviewId"))
+        return request("DELETE", url, token, null)
+    }
+
     /** File a report against a theme, review, post, comment or profile. */
     fun report(token: String, subjectType: String, subjectId: String, reason: String): CommunityResult<String> {
         val body = """{"subject_type":${q(subjectType)},"subject_id":${q(subjectId)},"reason":${q(reason)}}"""

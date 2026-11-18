@@ -579,6 +579,111 @@ object CommunityApi {
         }
     }
 
+    /** A page of the design feed, newest first. Counts come from the view's real rows. */
+    fun listPosts(offset: Int = 0, limit: Int = MarketplaceQuery.PAGE_SIZE): CommunityResult<List<DesignPost>> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "post_feed", linkedMapOf(
+            "select" to "id,author_id,title,body,tags,image_paths,theme_id,created_at,like_count,comment_count,author_handle,author_name",
+            "order" to "created_at.desc,id.desc",
+            "limit" to limit.toString(),
+            "offset" to offset.toString()
+        ))
+        return when (val r = request("GET", url, null, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value) ?: return CommunityResult.ServerError(0, "bad json")
+                CommunityResult.Ok(arr.filterIsInstance<Map<String, Any?>>().mapNotNull { CommunityModels.post(it) })
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    /**
+     * Create a design post.
+     *
+     * `author_id` is not sent: the column defaults to `auth.uid()` on the server, so a forged
+     * author cannot be submitted from the client at all.
+     */
+    fun createPost(
+        token: String, title: String, body: String, tags: List<String>,
+        imagePaths: List<String>, themeId: String?
+    ): CommunityResult<String> {
+        val tagsJson = tags.joinToString(",", "[", "]") { q(it) }
+        val imagesJson = imagePaths.joinToString(",", "[", "]") { q(it) }
+        val themeField = if (themeId != null) """"theme_id":${q(themeId)},""" else ""
+        val json = """{"title":${q(title)},"body":${q(body)},"tags":$tagsJson,""" +
+            """"image_paths":$imagesJson,$themeField"is_removed":false}"""
+        return request("POST", CommunityUrls.table(CommunityConfig.baseUrl, "design_posts"), token, json)
+    }
+
+    /** Edit an owned post. */
+    fun updatePost(token: String, postId: String, title: String, body: String, tags: List<String>): CommunityResult<String> {
+        val tagsJson = tags.joinToString(",", "[", "]") { q(it) }
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "design_posts", linkedMapOf("id" to "eq.$postId"))
+        return request("PATCH", url, token, """{"title":${q(title)},"body":${q(body)},"tags":$tagsJson}""")
+    }
+
+    /** Delete an owned post. Its likes and comments cascade. */
+    fun deletePost(token: String, postId: String): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "design_posts", linkedMapOf("id" to "eq.$postId"))
+        return request("DELETE", url, token, null)
+    }
+
+    fun likePost(token: String, postId: String): CommunityResult<String> =
+        request("POST", CommunityUrls.table(CommunityConfig.baseUrl, "post_likes"), token,
+            """{"post_id":${q(postId)}}""")
+
+    fun unlikePost(token: String, postId: String): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "post_likes", linkedMapOf("post_id" to "eq.$postId"))
+        return request("DELETE", url, token, null)
+    }
+
+    fun isLiked(token: String, postId: String): CommunityResult<Boolean> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "post_likes",
+            linkedMapOf("select" to "post_id", "post_id" to "eq.$postId", "limit" to "1"))
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value)
+                CommunityResult.Ok(arr != null && arr.isNotEmpty())
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    fun listComments(postId: String, offset: Int = 0, limit: Int = 50): CommunityResult<List<PostComment>> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "post_comments", linkedMapOf(
+            "select" to "id,author_id,body,created_at,profiles(handle)",
+            "post_id" to "eq.$postId",
+            "is_removed" to "eq.false",
+            "order" to "created_at.asc,id.asc",
+            "limit" to limit.toString(),
+            "offset" to offset.toString()
+        ))
+        return when (val r = request("GET", url, null, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value) ?: return CommunityResult.ServerError(0, "bad json")
+                CommunityResult.Ok(arr.filterIsInstance<Map<String, Any?>>().mapNotNull { CommunityModels.comment(it) })
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    fun addComment(token: String, postId: String, body: String): CommunityResult<String> =
+        request("POST", CommunityUrls.table(CommunityConfig.baseUrl, "post_comments"), token,
+            """{"post_id":${q(postId)},"body":${q(body)}}""")
+
+    fun deleteComment(token: String, commentId: String): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "post_comments", linkedMapOf("id" to "eq.$commentId"))
+        return request("DELETE", url, token, null)
+    }
+
     /** File a report against a theme, review, post, comment or profile. */
     fun report(token: String, subjectType: String, subjectId: String, reason: String): CommunityResult<String> {
         val body = """{"subject_type":${q(subjectType)},"subject_id":${q(subjectId)},"reason":${q(reason)}}"""

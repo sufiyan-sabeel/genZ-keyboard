@@ -58,6 +58,23 @@ object PostRules {
         return null
     }
 
+    /**
+     * Verify an attachment by its bytes, not its name.
+     *
+     * An extension is a claim and a MIME header is a claim; only the file signature is evidence.
+     * A post cannot carry anything that is not a decodable image, so this is checked before upload
+     * as well as on the way in.
+     */
+    fun validateImageBytes(bytes: ByteArray): String? {
+        if (bytes.isEmpty()) return "Image is empty"
+        if (bytes.size > MAX_IMAGE_BYTES) return "Image is larger than 8 MB"
+        return if (ImageMagic.detect(bytes) == null) "File is not a PNG, JPEG or WebP image" else null
+    }
+
+    /** Name and bytes together: both must agree that this is a usable image. */
+    fun validateImage(name: String, bytes: ByteArray): String? =
+        validateImages(listOf(name)) ?: validateImageBytes(bytes)
+
     fun normaliseTags(raw: List<String>): List<String> =
         raw.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.distinct().take(MAX_TAGS)
 

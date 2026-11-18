@@ -172,7 +172,7 @@ alter table moderators enable row level security;
 create policy "read moderators" on moderators for select using (true);
 
 -- ---------------------------------------------------------------- rating aggregate
-create or replace view theme_ratings as
+create or replace view theme_ratings with (security_invoker = true) as
 select t.id as theme_id,
        coalesce(round(avg(r.rating)::numeric, 2), 0) as average_rating,
        count(r.id) as review_count
@@ -327,14 +327,14 @@ create trigger on_auth_user_created after insert on auth.users
 -- ---------------------------------------------------------------- public projections
 -- profiles holds no email (that lives in auth.users), but a public view makes the exposed
 -- column set explicit and stops a future column being published by accident.
-create or replace view public_profiles as
+create or replace view public_profiles with (security_invoker = true) as
 select id, handle, display_name, bio, avatar_url, created_at
   from profiles;
 
 grant select on public_profiles to anon, authenticated;
 
 -- Themes joined to their ratings, so a creator page needs one request instead of N+1.
-create or replace view themes_with_ratings as
+create or replace view themes_with_ratings with (security_invoker = true) as
 select t.id, t.author_id, t.name, t.description, t.tags, t.category,
        t.preview_path, t.downloads, t.version, t.is_featured, t.created_at,
        coalesce(r.average_rating, 0) as average_rating,
@@ -348,7 +348,7 @@ grant select on themes_with_ratings to anon, authenticated;
 -- ---------------------------------------------------------------- favourites feed
 -- One request returns a user's saved themes with their ratings. The join to themes_with_ratings
 -- means a private, removed or unpublished theme simply drops out of the feed rather than leaking.
-create or replace view favourite_themes as
+create or replace view favourite_themes with (security_invoker = true) as
 select f.user_id, f.created_at as saved_at,
        t.id, t.author_id, t.name, t.description, t.tags, t.category,
        t.preview_path, t.downloads, t.version, t.average_rating, t.review_count
@@ -360,7 +360,7 @@ grant select on favourite_themes to authenticated;
 
 -- ---------------------------------------------------------------- post feed
 -- Counts come from the rows themselves, never from a stored number a client could set.
-create or replace view post_feed as
+create or replace view post_feed with (security_invoker = true) as
 select p.id, p.author_id, p.title, p.body, p.tags, p.image_paths, p.theme_id, p.created_at,
        (select count(*) from post_likes l where l.post_id = p.id)      as like_count,
        (select count(*) from post_comments c
@@ -375,3 +375,142 @@ grant select on post_feed to anon, authenticated;
 -- A comment must belong to a live post, and editing is limited to its author.
 create policy "authors edit own comment" on post_comments for update
   using (auth.uid() = author_id);
+
+-- ---------------------------------------------------------------- post integrity
+-- A post's author cannot change after creation, and a post may only attach the author's own theme.
+create or replace function protect_post_author() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.author_id is distinct from old.author_id then
+    new.author_id := old.author_id;
+  end if;
+  if new.theme_id is distinct from old.theme_id and new.theme_id is not null then
+    if not exists (
+      select 1 from public.themes t
+       where t.id = new.theme_id and t.author_id = old.author_id
+    ) then
+      raise exception 'theme does not belong to this author' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists design_posts_integrity on design_posts;
+create trigger design_posts_integrity before update on design_posts
+  for each row execute function protect_post_author();
+
+-- The same ownership rule at insert time.
+create or replace function check_post_insert() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.author_id is distinct from auth.uid() then
+    raise exception 'author must be the caller' using errcode = '42501';
+  end if;
+  if new.theme_id is not null and not exists (
+    select 1 from public.themes t where t.id = new.theme_id and t.author_id = auth.uid()
+  ) then
+    raise exception 'theme does not belong to this author' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists design_posts_insert_guard on design_posts;
+create trigger design_posts_insert_guard before insert on design_posts
+  for each row execute function check_post_insert();
+
+-- profiles holds no email (that lives in auth.users), but a public view makes the exposed
+-- column set explicit and stops a future column being published by accident.
+create or replace view public_profiles with (security_invoker = true) as
+select id, handle, display_name, bio, avatar_url, created_at
+  from profiles;
+
+grant select on public_profiles to anon, authenticated;
+
+-- Themes joined to their ratings, so a creator page needs one request instead of N+1.
+create or replace view themes_with_ratings with (security_invoker = true) as
+select t.id, t.author_id, t.name, t.description, t.tags, t.category,
+       t.preview_path, t.downloads, t.version, t.is_featured, t.created_at,
+       coalesce(r.average_rating, 0) as average_rating,
+       coalesce(r.review_count, 0)   as review_count
+  from themes t
+  left join theme_ratings r on r.theme_id = t.id
+ where t.is_public and not t.is_removed;
+
+grant select on themes_with_ratings to anon, authenticated;
+
+-- ---------------------------------------------------------------- favourites feed
+-- One request returns a user's saved themes with their ratings. The join to themes_with_ratings
+-- means a private, removed or unpublished theme simply drops out of the feed rather than leaking.
+create or replace view favourite_themes with (security_invoker = true) as
+select f.user_id, f.created_at as saved_at,
+       t.id, t.author_id, t.name, t.description, t.tags, t.category,
+       t.preview_path, t.downloads, t.version, t.average_rating, t.review_count
+  from favourites f
+  join themes_with_ratings t on t.id = f.theme_id;
+
+-- RLS applies to the view's underlying tables; this guard is belt-and-braces for direct use.
+grant select on favourite_themes to authenticated;
+
+-- ---------------------------------------------------------------- post feed
+-- Counts come from the rows themselves, never from a stored number a client could set.
+create or replace view post_feed with (security_invoker = true) as
+select p.id, p.author_id, p.title, p.body, p.tags, p.image_paths, p.theme_id, p.created_at,
+       (select count(*) from post_likes l where l.post_id = p.id)      as like_count,
+       (select count(*) from post_comments c
+         where c.post_id = p.id and not c.is_removed)                  as comment_count,
+       pr.handle as author_handle, pr.display_name as author_name
+  from design_posts p
+  join public_profiles pr on pr.id = p.author_id
+ where not p.is_removed;
+
+grant select on post_feed to anon, authenticated;
+
+-- A comment must belong to a live post, and editing is limited to its author.
+create policy "authors edit own comment" on post_comments for update
+  using (auth.uid() = author_id);
+
+-- ---------------------------------------------------------------- post integrity
+-- A post's author cannot change after creation, and a post may only attach the author's own theme.
+create or replace function protect_post_author() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.author_id is distinct from old.author_id then
+    new.author_id := old.author_id;
+  end if;
+  if new.theme_id is distinct from old.theme_id and new.theme_id is not null then
+    if not exists (
+      select 1 from public.themes t
+       where t.id = new.theme_id and t.author_id = old.author_id
+    ) then
+      raise exception 'theme does not belong to this author' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists design_posts_integrity on design_posts;
+create trigger design_posts_integrity before update on design_posts
+  for each row execute function protect_post_author();
+
+-- The same ownership rule at insert time.
+create or replace function check_post_insert() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.author_id is distinct from auth.uid() then
+    raise exception 'author must be the caller' using errcode = '42501';
+  end if;
+  if new.theme_id is not null and not exists (
+    select 1 from public.themes t where t.id = new.theme_id and t.author_id = auth.uid()
+  ) then
+    raise exception 'theme does not belong to this author' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists design_posts_insert_guard on design_posts;
+create trigger design_posts_insert_guard before insert on design_posts
+  for each row execute function check_post_insert();

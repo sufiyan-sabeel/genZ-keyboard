@@ -21,7 +21,8 @@ data class ThemeReview(
     val authorHandle: String,
     val rating: Int,
     val body: String,
-    val createdAt: String
+    val createdAt: String,
+    val authorId: String? = null
 )
 
 /** Maps PostgREST rows to models. Pure, so the mapping is tested without a server. */
@@ -54,7 +55,8 @@ object CommunityModels {
             authorHandle = ((row["profiles"] as? Map<*, *>)?.get("handle") as? String).orEmpty(),
             rating = (row["rating"] as? Number)?.toInt() ?: 0,
             body = (row["body"] as? String).orEmpty(),
-            createdAt = (row["created_at"] as? String).orEmpty()
+            createdAt = (row["created_at"] as? String).orEmpty(),
+            authorId = row["author_id"] as? String
         )
     }
 

@@ -62,8 +62,9 @@ create policy "update own theme"   on themes for update using (auth.uid() = auth
 create or replace function protect_featured_flag() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
+  -- same reasoning as protect_download_counter: current_user is the owner, not the caller
   if new.is_featured is distinct from old.is_featured
-     and current_user not in ('postgres','supabase_admin','service_role') then
+     and coalesce(current_setting('genz.featured_update', true), 'off') <> 'on' then
     new.is_featured := old.is_featured;
   end if;
   return new;
@@ -200,7 +201,8 @@ create policy "authors delete their own uploads" on storage.objects for delete
 
 -- ---------------------------------------------------------------- version bump
 -- The client cannot express "version = version + 1" in a PATCH body, so the server does it.
-create or replace function touch_theme() returns trigger as $$
+create or replace function touch_theme() returns trigger
+language plpgsql security definer set search_path = '' as $$
 begin
   new.updated_at := now();
   if new.name <> old.name
@@ -211,7 +213,7 @@ begin
   end if;
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 drop trigger if exists themes_touch on themes;
 create trigger themes_touch before update on themes
@@ -274,7 +276,9 @@ begin
 
   get diagnostics v_inserted = row_count;
   if v_inserted then
+    perform set_config('genz.counter_update', 'on', true);
     update public.themes set downloads = downloads + 1 where id = p_theme_id;
+    perform set_config('genz.counter_update', 'off', true);
   end if;
 end;
 $$;
@@ -289,8 +293,11 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- A SECURITY DEFINER function runs as its owner, so `current_user` is always the owner here and
+  -- cannot distinguish callers. A transaction-local flag set by the counter function is the only
+  -- reliable signal, and it cannot be forged from a PostgREST request.
   if new.downloads is distinct from old.downloads
-     and current_user not in ('postgres', 'supabase_admin', 'service_role') then
+     and coalesce(current_setting('genz.counter_update', true), 'off') <> 'on' then
     new.downloads := old.downloads;
   end if;
   return new;
@@ -332,6 +339,7 @@ select id, handle, display_name, bio, avatar_url, created_at
   from profiles;
 
 grant select on public_profiles to anon, authenticated;
+grant select on theme_ratings to anon, authenticated;
 
 -- Themes joined to their ratings, so a creator page needs one request instead of N+1.
 create or replace view themes_with_ratings with (security_invoker = true) as

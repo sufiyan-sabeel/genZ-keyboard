@@ -1,0 +1,50 @@
+{
+  "id": "builtin.art.samurai",
+  "name": "Ink Samurai",
+  "version": "1.0",
+  "author": "GenZ Keyboard",
+  "description": "Brush ink on washi paper: near-black keycaps, and the blood-red of the signature seal as the only accent.",
+  "icon": "🎴",
+  "backgroundImage": "anime/art_samurai.webp",
+  "skin": {
+    "keyboard": {
+      "background": {
+        "colors": [
+          "#B1AA99",
+          "#4A4D4F"
+        ],
+        "angle": 90
+      },
+      "corner": 12
+    },
+    "colors": {
+      "background": "#B1AA99",
+      "key": "#1C1E20",
+      "keyText": "#F4F1EA",
+      "func": "#2A2C2E",
+      "funcText": "#F4F1EA",
+      "accent": "#A32E2E",
+      "accentText": "#F4F1EA"
+    },
+    "keys": {
+      "*": {
+        "material": "solid",
+        "background": "#CC1C1E20",
+        "text": "#F4F1EA",
+        "radius": 12
+      },
+      "func": {
+        "material": "solid",
+        "background": "#CC2A2C2E",
+        "text": "#F4F1EA",
+        "radius": 12
+      },
+      "enter": {
+        "material": "solid",
+        "background": "#A32E2E",
+        "text": "#F4F1EA",
+        "radius": 12
+      }
+    }
+  }
+}

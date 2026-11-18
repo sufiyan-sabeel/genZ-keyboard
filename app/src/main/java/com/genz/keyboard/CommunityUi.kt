@@ -46,6 +46,7 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
     val context = LocalContext.current
     var signedIn by remember { mutableStateOf(CommunitySession.isSignedIn(context)) }
     var openThemeId by remember { mutableStateOf<String?>(null) }
+    var showFavourites by remember { mutableStateOf(false) }
     var handle by remember { mutableStateOf(CommunitySession.handle(context)) }
 
     Column(Modifier.fillMaxSize().background(Color(0xFF0E1013))) {
@@ -66,6 +67,18 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
             return@Column
         }
 
+        if (signedIn && showFavourites) {
+            FavouritesScreen(
+                onBack = { showFavourites = false },
+                onOpenTheme = { id -> showFavourites = false; openThemeId = id },
+                onBrowse = { showFavourites = false }
+            )
+            openThemeId?.let { id ->
+                ThemeDetailScreen(themeId = id, onBack = { openThemeId = null })
+            }
+            return@Column
+        }
+
         if (signedIn) {
             Column(Modifier.fillMaxWidth()) {
                 Row(
@@ -74,11 +87,19 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(if (handle != null) "Signed in" else "Signed in", color = Color(0xFFB9C2C8), fontSize = 12.sp)
-                    TextButton(onClick = {
-                        CommunitySession.clear(context)
-                        signedIn = false
-                        handle = null
-                    }) { Text("Sign out", color = Color(0xFFD67A7A), fontSize = 12.sp) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = { showFavourites = true }) {
+                            Text("Saved", color = Color(0xFF6FD3D6), fontSize = 12.sp)
+                        }
+                        TextButton(onClick = {
+                            CommunitySession.clear(context)
+                            // signing out must clear account-specific UI state, not just the token
+                            showFavourites = false
+                            openThemeId = null
+                            signedIn = false
+                            handle = null
+                        }) { Text("Sign out", color = Color(0xFFD67A7A), fontSize = 12.sp) }
+                    }
                 }
                 MarketplaceScreen(onOpenTheme = { id -> openThemeId = id })
             }

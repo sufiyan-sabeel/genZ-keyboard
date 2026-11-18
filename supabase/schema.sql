@@ -108,11 +108,13 @@ create policy "delete own favourite"  on favourites for delete using (auth.uid()
 -- ---------------------------------------------------------------- design posts
 create table if not exists design_posts (
   id         uuid primary key default gen_random_uuid(),
-  author_id  uuid not null references profiles(id) on delete cascade,
+  author_id  uuid not null default auth.uid() references profiles(id) on delete cascade,
   title      text not null check (char_length(title) between 1 and 120),
   body       text check (char_length(body) <= 8000),
   tags       text[] not null default '{}',
   image_paths text[] not null default '{}',
+  -- optional link to the author's own theme
+  theme_id   uuid references themes(id) on delete set null,
   is_removed boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -136,7 +138,7 @@ create policy "delete like"  on post_likes for delete using (auth.uid() = user_i
 create table if not exists post_comments (
   id         uuid primary key default gen_random_uuid(),
   post_id    uuid not null references design_posts(id) on delete cascade,
-  author_id  uuid not null references profiles(id) on delete cascade,
+  author_id  uuid not null default auth.uid() references profiles(id) on delete cascade,
   body       text not null check (char_length(body) between 1 and 2000),
   is_removed boolean not null default false,
   created_at timestamptz not null default now()
@@ -355,3 +357,21 @@ select f.user_id, f.created_at as saved_at,
 
 -- RLS applies to the view's underlying tables; this guard is belt-and-braces for direct use.
 grant select on favourite_themes to authenticated;
+
+-- ---------------------------------------------------------------- post feed
+-- Counts come from the rows themselves, never from a stored number a client could set.
+create or replace view post_feed as
+select p.id, p.author_id, p.title, p.body, p.tags, p.image_paths, p.theme_id, p.created_at,
+       (select count(*) from post_likes l where l.post_id = p.id)      as like_count,
+       (select count(*) from post_comments c
+         where c.post_id = p.id and not c.is_removed)                  as comment_count,
+       pr.handle as author_handle, pr.display_name as author_name
+  from design_posts p
+  join public_profiles pr on pr.id = p.author_id
+ where not p.is_removed;
+
+grant select on post_feed to anon, authenticated;
+
+-- A comment must belong to a live post, and editing is limited to its author.
+create policy "authors edit own comment" on post_comments for update
+  using (auth.uid() = author_id);

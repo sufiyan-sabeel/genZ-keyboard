@@ -14,6 +14,10 @@ object CommunityReviews {
     sealed interface State {
         data object Idle : State
         data object Working : State
+        /**
+         * [average] and [count] come from the server aggregate, not from [reviews]: a theme with
+         * more reviews than one page would otherwise show a wrong average.
+         */
         data class Loaded(val reviews: List<ThemeReview>, val average: String, val count: Int) : State
         data class Done(val message: String) : State
         data class Failed(val reason: String) : State
@@ -22,12 +26,23 @@ object CommunityReviews {
     private fun token(context: Context): String? = CommunityAuth.currentToken(context)
 
     /** Load reviews and compute the average from the rows actually returned. */
-    fun load(context: Context, themeId: String, order: ReviewRules.Sort = ReviewRules.Sort.NEWEST): State {
+    fun load(
+        context: Context,
+        themeId: String,
+        order: ReviewRules.Sort = ReviewRules.Sort.NEWEST,
+        limit: Int = 50
+    ): State {
         val t = token(context)
-        return when (val r = CommunityApi.listReviews(t, themeId)) {
+        return when (val r = CommunityApi.listReviews(t, themeId, limit)) {
             is CommunityResult.Ok -> {
                 val sorted = ReviewRules.sort(r.value, order)
-                State.Loaded(sorted, ReviewRules.displayAverage(sorted.map { it.rating }), sorted.size)
+                // server-authoritative totals; the page is only for display
+                val aggregate = CommunityApi.fetchRating(t, themeId)
+                val (avg, count) = if (aggregate is CommunityResult.Ok) aggregate.value
+                else ReviewRules.average(sorted.map { it.rating })?.let { it to sorted.size } ?: (0.0 to 0)
+                val shown = if (aggregate is CommunityResult.Ok && count > 0) "%.1f".format(avg)
+                else ReviewRules.displayAverage(sorted.map { it.rating })
+                State.Loaded(sorted, shown, if (aggregate is CommunityResult.Ok) count else sorted.size)
             }
             is CommunityResult.NotConfigured -> State.Failed("Community is not configured")
             is CommunityResult.Unauthorized -> State.Failed("Sign in to read reviews")

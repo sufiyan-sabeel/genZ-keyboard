@@ -36,7 +36,7 @@ object MarketplaceQuery {
      */
     fun params(page: Page, search: String? = null, category: String? = null): Map<String, String> {
         val p = LinkedHashMap<String, String>()
-        p["select"] = "id,name,description,tags,category,preview_path,downloads,version,created_at,profiles(handle)"
+        p["select"] = "id,author_id,name,description,tags,category,preview_path,downloads,version,created_at,profiles(handle)"
         p["is_public"] = "eq.true"
         p["is_removed"] = "eq.false"
         p["limit"] = page.size.toString()

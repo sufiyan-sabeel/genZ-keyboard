@@ -2,6 +2,8 @@ package com.genz.keyboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +51,10 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
     var manageState by remember { mutableStateOf<CommunityManage.State>(CommunityManage.State.Idle) }
     var downloadState by remember { mutableStateOf<ThemeDownload.State>(ThemeDownload.State.Idle) }
     var wallpaperPath by remember { mutableStateOf<String?>(null) }
+    var social by remember { mutableStateOf<CommunitySocial.State>(CommunitySocial.State.Idle) }
+    var favourite by remember { mutableStateOf(false) }
+    var reportOpen by remember { mutableStateOf(false) }
+    var previewDoc by remember { mutableStateOf<ThemeDoc?>(null) }
 
     fun load() {
         loading = true; error = null
@@ -68,12 +74,51 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
         }
     }
 
-    LaunchedEffect(themeId) { load() }
+    LaunchedEffect(themeId) {
+        load()
+        // the production renderer needs the actual document, not just the summary
+        val json = withContext(Dispatchers.IO) {
+            CommunityApi.fetchThemeDoc(CommunityAuth.currentToken(context), themeId)
+        }
+        if (json is CommunityResult.Ok) {
+            (ThemeCodec.decode(json.value) as? ThemeValidation.Ok)?.let { previewDoc = it.doc }
+        }
+        favourite = withContext(Dispatchers.IO) { CommunitySocial.isFavourite(context, themeId) }
+    }
 
     Column(Modifier.fillMaxSize().background(Color(0xFF0E1013))) {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Theme", color = Color(0xFFE8ECEF), fontSize = 20.sp)
             TextButton(onClick = onBack) { Text("Back", color = Color(0xFF6FD3D6)) }
+        }
+
+        if (reportOpen) {
+            var reason by remember { mutableStateOf("") }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { reportOpen = false },
+                title = { Text("Report this theme") },
+                text = {
+                    Column {
+                        Text("Say what is wrong: copied artwork, offensive content, a broken theme.", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+                        androidx.compose.material3.OutlinedTextField(
+                            reason, { reason = it },
+                            label = { Text("Reason") },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        reportOpen = false
+                        scope.launch {
+                            social = withContext(Dispatchers.IO) {
+                                CommunitySocial.reportTheme(context, themeId, reason)
+                            }
+                        }
+                    }) { Text("Send report") }
+                },
+                dismissButton = { TextButton(onClick = { reportOpen = false }) { Text("Cancel") } }
+            )
         }
 
         when {
@@ -111,6 +156,35 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
                     }
                     Text("Category: ${t.category}", color = Color(0xFFB9C2C8), fontSize = 11.sp)
 
+                    previewDoc?.let { doc ->
+                        Text("Keyboard preview", color = Color(0xFFB9C2C8), fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
+                        // the same renderer the keyboard uses, so the preview cannot drift
+                        ThemeKeyboardPreview(
+                            doc = doc,
+                            modifier = Modifier.fillMaxWidth().height(180.dp).padding(top = 4.dp)
+                        )
+                    }
+
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = {
+                            social = CommunitySocial.State.Working
+                            scope.launch {
+                                social = withContext(Dispatchers.IO) {
+                                    CommunitySocial.toggleFavourite(context, t.id, favourite)
+                                }
+                                if (social is CommunitySocial.State.Done) favourite = !favourite
+                            }
+                        }) { Text(if (favourite) "★ Saved" else "☆ Save", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
+                        TextButton(onClick = { reportOpen = true }) {
+                            Text("Report", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+                        }
+                    }
+                    when (val s2 = social) {
+                        is CommunitySocial.State.Done -> Text(s2.message, color = Color(0xFF6FD3D6), fontSize = 11.sp)
+                        is CommunitySocial.State.Failed -> Text(s2.reason, color = Color(0xFFD67A7A), fontSize = 11.sp)
+                        else -> Unit
+                    }
+
                     when (val d = downloadState) {
                         is ThemeDownload.State.Fetching -> Text("Downloading…", color = Color(0xFFB9C2C8), fontSize = 12.sp)
                         is ThemeDownload.State.Validating -> Text("Checking the theme…", color = Color(0xFFB9C2C8), fontSize = 12.sp)
@@ -132,7 +206,12 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
                                     ThemeDownload.fetchAndValidate(context, t.id, null, overwrite) { downloadState = it }
                                 }
                                 if (result is ThemeDownload.State.Done) {
-                                    withContext(Dispatchers.IO) { ThemeDownload.apply(context, result.doc) }
+                                    withContext(Dispatchers.IO) {
+                                        ThemeDownload.apply(context, result.doc)
+                                        // server-side counter: the client cannot choose the value
+                                        CommunitySocial.registerDownload(context, t.id)
+                                    }
+                                    load()
                                 }
                             }
                         }) { Text("Download and apply") }
@@ -168,5 +247,25 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
                 }
             }
         }
+    }
+}
+
+/**
+ * A theme rendered by the production keyboard renderer.
+ *
+ * Uses [KeyArea] with the same palette and settings bridge the keyboard uses, so what is previewed
+ * here is what the keyboard draws — not a mock-up that can drift from it.
+ */
+@Composable
+private fun ThemeKeyboardPreview(doc: ThemeDoc, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val settings = remember(doc) { ThemeApply.applyTo(doc, KeyboardPrefs.current(context)) }
+    val palette = rememberKeyPalette(settings)
+    val state = remember { KeyboardState() }
+    val popup = remember { PopupController() }
+    val layer = remember { CoordsHolder() }
+    val glide = remember { GlideController() }
+    Box(modifier) {
+        KeyArea(state, PreviewActions, settings, palette, FontFamily.Default, popup, layer, glide)
     }
 }

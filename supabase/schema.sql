@@ -458,3 +458,27 @@ $$;
 drop trigger if exists design_posts_insert_guard on design_posts;
 create trigger design_posts_insert_guard before insert on design_posts
   for each row execute function check_post_insert();
+
+-- ---------------------------------------------------------------- hardening
+--
+-- Trigger functions are not API endpoints. Without this, PostgREST exposes each SECURITY DEFINER
+-- trigger function as /rest/v1/rpc/<name> and Supabase's linter flags them as publicly callable.
+revoke execute on function public.touch_theme() from public, anon, authenticated;
+revoke execute on function public.protect_download_counter() from public, anon, authenticated;
+revoke execute on function public.protect_featured_flag() from public, anon, authenticated;
+revoke execute on function public.protect_post_author() from public, anon, authenticated;
+revoke execute on function public.check_post_insert() from public, anon, authenticated;
+revoke execute on function public.create_profile_for_new_user() from public, anon, authenticated;
+
+-- Covering indexes for every foreign key the advisors reported as unindexed. These also serve the
+-- marketplace and feed queries, which filter and order on exactly these columns.
+create index if not exists design_posts_author_idx   on design_posts(author_id);
+create index if not exists design_posts_theme_idx    on design_posts(theme_id);
+create index if not exists favourites_theme_idx      on favourites(theme_id);
+create index if not exists post_comments_author_idx  on post_comments(author_id);
+create index if not exists post_comments_post_idx    on post_comments(post_id);
+create index if not exists post_likes_post_idx       on post_likes(post_id);
+create index if not exists reviews_author_idx        on reviews(author_id);
+create index if not exists theme_downloads_user_idx  on theme_downloads(user_id);
+create index if not exists themes_created_idx        on themes(created_at desc);
+create index if not exists themes_downloads_idx      on themes(downloads desc);

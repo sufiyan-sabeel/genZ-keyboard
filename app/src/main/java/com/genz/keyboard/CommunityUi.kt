@@ -1,6 +1,7 @@
 package com.genz.keyboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -175,6 +176,12 @@ private fun MarketplaceBody(handle: String?, onSignOut: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var loadedOnce by remember { mutableStateOf(false) }
+    var openThemeId by remember { mutableStateOf<String?>(null) }
+
+    openThemeId?.let { id ->
+        ThemeDetailScreen(themeId = id, onBack = { openThemeId = null })
+        return
+    }
 
     fun refreshList() {
         busy = true; error = null
@@ -219,7 +226,9 @@ private fun MarketplaceBody(handle: String?, onSignOut: () -> Unit) {
         } else {
             LazyColumn(Modifier.fillMaxWidth().height(520.dp).padding(top = 8.dp)) {
                 items(themes) { t ->
-                    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(vertical = 6.dp).clickable { openThemeId = t.id }
+                    ) {
                         Text(t.name, color = Color(0xFFE8ECEF), fontSize = 14.sp)
                         Text(
                             buildString {

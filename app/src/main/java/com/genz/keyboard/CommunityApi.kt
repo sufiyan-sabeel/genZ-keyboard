@@ -126,6 +126,32 @@ object CommunityApi {
         }
     }
 
+    /** One page of one marketplace section. */
+    fun browse(
+        token: String?,
+        page: MarketplaceQuery.Page,
+        search: String? = null,
+        category: String? = null
+    ): CommunityResult<List<ThemeSummary>> {
+        val url = CommunityUrls.table(
+            CommunityConfig.baseUrl, "themes",
+            MarketplaceQuery.params(page, search, category)
+        )
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value) ?: return CommunityResult.ServerError(0, "bad json")
+                val rows = arr.filterIsInstance<Map<String, Any?>>()
+                CommunityResult.Ok(
+                    MarketplaceQuery.rank(page.section, CommunityModels.themes(rows, CommunityConfig.baseUrl))
+                )
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
     /** Publish a theme. [docJson] must already have passed ThemeCodec validation. */
     fun publishTheme(
         token: String,

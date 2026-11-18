@@ -27,7 +27,30 @@ class MarketplaceQueryTest {
 
     @Test
     fun newestOrdersByCreationTime() {
-        assertEquals("created_at.desc", MarketplaceQuery.params(page(MarketplaceQuery.Section.NEWEST))["order"])
+        val order = MarketplaceQuery.params(page(MarketplaceQuery.Section.NEWEST))["order"]!!
+        assertTrue("got: $order", order.startsWith("created_at.desc"))
+        // id is the unique tie-breaker, so paging cannot skip or repeat a row
+        assertTrue("got: $order", order.endsWith(",id.desc"))
+    }
+
+    @Test
+    fun everySectionHasAUniqueTieBreaker() {
+        // without this, two rows created in the same second can swap places between pages
+        MarketplaceQuery.Section.entries.forEach { s ->
+            val order = MarketplaceQuery.params(page(s))["order"]!!
+            assertTrue("$s has no id tie-breaker: $order", order.endsWith(",id.desc"))
+        }
+    }
+
+    @Test
+    fun aDuplicateRowIsDroppedWhenPagesOverlap() {
+        val acc = MarketplaceQuery.PageAccumulator(MarketplaceQuery.Section.NEWEST)
+        acc.reset("newest||")
+        fun t(id: String) = ThemeSummary(id, "n$id", "u", "", emptyList(), "x", null, 0.0, 0, 0, 1)
+        assertEquals(2, acc.addPage(listOf(t("a"), t("b"))))
+        // offset paging over a table being written to can return the same row again
+        assertEquals(1, acc.addPage(listOf(t("b"), t("c"))))
+        assertEquals(listOf("a", "b", "c"), acc.items().map { it.id })
     }
 
     @Test

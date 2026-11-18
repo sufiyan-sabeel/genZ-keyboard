@@ -105,7 +105,7 @@ object CommunityApi {
     /** Browse public themes, newest first, with an optional search term. */
     fun listThemes(token: String?, search: String? = null, limit: Int = 30): CommunityResult<List<ThemeSummary>> {
         val params = linkedMapOf(
-            "select" to "id,name,description,tags,category,preview_path,downloads,version,profiles(handle)",
+            "select" to "id,author_id,name,description,tags,category,preview_path,downloads,version,profiles(handle)",
             "is_public" to "eq.true",
             "is_removed" to "eq.false",
             "order" to "created_at.desc",
@@ -260,7 +260,7 @@ object CommunityApi {
     /** Fetch one theme by id, including its document. */
     fun fetchTheme(token: String?, themeId: String): CommunityResult<ThemeSummary> {
         val params = linkedMapOf(
-            "select" to "id,name,description,tags,category,preview_path,downloads,version,profiles(handle)",
+            "select" to "id,author_id,name,description,tags,category,preview_path,downloads,version,profiles(handle)",
             "id" to "eq.$themeId",
             "limit" to "1"
         )
@@ -487,6 +487,64 @@ object CommunityApi {
     fun deleteReview(token: String, reviewId: String): CommunityResult<String> {
         val url = CommunityUrls.table(CommunityConfig.baseUrl, "reviews", linkedMapOf("id" to "eq.$reviewId"))
         return request("DELETE", url, token, null)
+    }
+
+    /** A creator's public profile. Returns ServerError(404) when the profile is gone. */
+    fun fetchProfile(userId: String): CommunityResult<CreatorProfile> {
+        if (!CreatorProfiles.isValidUserId(userId)) {
+            return CommunityResult.ServerError(400, "invalid user id")
+        }
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "public_profiles", linkedMapOf(
+            "select" to CreatorProfiles.SELECT,
+            "id" to "eq.${userId.trim()}",
+            "limit" to "1"
+        ))
+        return when (val r = request("GET", url, null, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value)
+                val row = arr?.filterIsInstance<Map<String, Any?>>()?.firstOrNull()
+                val profile = row?.let { CreatorProfiles.parse(it) }
+                if (profile == null) CommunityResult.ServerError(404, "profile not found")
+                else CommunityResult.Ok(profile)
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    /**
+     * A creator's public themes, one page at a time.
+     *
+     * Reads `themes_with_ratings`, which joins the rating aggregate, so a page of twenty themes is
+     * one request rather than twenty-one.
+     */
+    fun fetchCreatorThemes(
+        userId: String,
+        offset: Int = 0,
+        limit: Int = MarketplaceQuery.PAGE_SIZE
+    ): CommunityResult<List<ThemeSummary>> {
+        if (!CreatorProfiles.isValidUserId(userId)) {
+            return CommunityResult.ServerError(400, "invalid user id")
+        }
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes_with_ratings", linkedMapOf(
+            "select" to "id,author_id,name,description,tags,category,preview_path,downloads,version,average_rating,review_count,profiles(handle)",
+            "author_id" to "eq.${userId.trim()}",
+            "order" to "created_at.desc,id.desc",
+            "limit" to limit.toString(),
+            "offset" to offset.toString()
+        ))
+        return when (val r = request("GET", url, null, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value) ?: return CommunityResult.ServerError(0, "bad json")
+                CommunityResult.Ok(CommunityModels.themes(arr.filterIsInstance<Map<String, Any?>>(), CommunityConfig.baseUrl))
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
     }
 
     /** File a report against a theme, review, post, comment or profile. */

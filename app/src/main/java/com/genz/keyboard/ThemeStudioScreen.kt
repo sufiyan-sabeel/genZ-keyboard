@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -67,6 +68,8 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     var pendingDelete by remember { mutableStateOf<ThemeDoc?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var importedText by remember { mutableStateOf<String?>(null) }
+    var publishOpen by remember { mutableStateOf(false) }
+    var publishState by remember { mutableStateOf<CommunityPublish.State>(CommunityPublish.State.Idle) }
 
     // Bundled themes, filtered to those whose artwork this build actually ships.
     val gallery = remember {
@@ -155,7 +158,10 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
         }
 
         draft?.let { d ->
-            ThemeEditor(d, onChange = { draft = it }, onExtract = { extractColours(d) }, onApply = {
+            ThemeEditor(d, onChange = { draft = it }, onExtract = { extractColours(d) }, onPublish = {
+                publishState = CommunityPublish.State.Idle
+                publishOpen = true
+            }, onApply = {
                 message = if (ThemeApply.applyAndPersist(context, d, base)) "Applied \"${d.name}\"" else "Could not apply"
             }, onRemoveWallpaper = {
                 d.wallpaper?.let { ThemeAssets.deleteWallpaper(context, it) }
@@ -217,6 +223,27 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
         )
     }
 
+    if (publishOpen && draft != null) {
+        PublishDialog(
+            doc = draft!!,
+            state = publishState,
+            onDismiss = { publishOpen = false },
+            onPublish = { title, description, category, tags ->
+                draft?.let { d ->
+                    publishState = CommunityPublish.publish(
+                        context = context,
+                        doc = d,
+                        title = title,
+                        description = description,
+                        tags = tags,
+                        category = category,
+                        onState = { publishState = it }
+                    )
+                }
+            }
+        )
+    }
+
     pendingDelete?.let { doc ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
@@ -235,6 +262,7 @@ private fun ThemeEditor(
     doc: ThemeDoc,
     onChange: (ThemeDoc) -> Unit,
     onExtract: () -> Unit,
+    onPublish: () -> Unit,
     onApply: (ThemeDoc) -> Unit,
     onRemoveWallpaper: () -> Unit
 ) {
@@ -317,6 +345,11 @@ private fun ThemeEditor(
             Button(onClick = { onApply(doc) }, modifier = Modifier.weight(1f)) { Text("Apply") }
             TextButton(onClick = { onChange(ThemeApply.resetToPreset(doc)) }) { Text("Reset", color = Color(0xFFB9C2C8), fontSize = 12.sp) }
         }
+        TextButton(
+            onClick = onPublish,
+            enabled = !doc.wallpaper.isNullOrBlank(),
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Publish to community", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
     }
 }
 
@@ -407,4 +440,92 @@ private fun ThemePreview(doc: ThemeDoc?, base: KeyboardSettings, modifier: Modif
         }
         KeyArea(state, PreviewActions, settings, palette, FontFamily.Default, popup, layer, glide)
     }
+}
+
+/**
+ * Publish sheet.
+ *
+ * Shows genuine progress: validating, uploading, saving, then the server's answer. A failure keeps
+ * the dialog open with the reason, because closing it would leave the user unsure whether anything
+ * was published.
+ */
+@Composable
+private fun PublishDialog(
+    doc: ThemeDoc,
+    state: CommunityPublish.State,
+    onDismiss: () -> Unit,
+    onPublish: (title: String, description: String, category: String, tags: List<String>) -> Unit
+) {
+    var title by remember(doc.id) { mutableStateOf(doc.name) }
+    var description by remember(doc.id) { mutableStateOf("") }
+    var tagsText by remember(doc.id) { mutableStateOf("") }
+    var category by remember(doc.id) { mutableStateOf(PublishRules.CATEGORIES.first()) }
+
+    val busy = state is CommunityPublish.State.Validating ||
+        state is CommunityPublish.State.Uploading ||
+        state is CommunityPublish.State.Saving
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Publish theme") },
+        text = {
+            Column {
+                when (val s = state) {
+                    is CommunityPublish.State.Done -> {
+                        Text("Published. Other people can find it in the community now.", color = Color(0xFF6FD3D6))
+                        Text("id: ${s.themeId}", color = Color(0xFFB9C2C8), fontSize = 10.sp)
+                    }
+                    is CommunityPublish.State.Failed -> {
+                        Text(s.reason, color = Color(0xFFD67A7A))
+                    }
+                    is CommunityPublish.State.Uploading -> {
+                        Text("Uploading wallpaper…", color = Color(0xFFB9C2C8))
+                        Slider(value = s.fraction, onValueChange = {}, valueRange = 0f..1f)
+                    }
+                    is CommunityPublish.State.Saving -> Text("Saving…", color = Color(0xFFB9C2C8))
+                    is CommunityPublish.State.Validating -> Text("Checking…", color = Color(0xFFB9C2C8))
+                    is CommunityPublish.State.Idle -> {
+                        OutlinedTextField(title, { title = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(
+                            description, { description = it },
+                            label = { Text("Description") },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        )
+                        OutlinedTextField(
+                            tagsText, { tagsText = it },
+                            label = { Text("Tags, comma separated") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        )
+                        Text("Category", color = Color(0xFFB9C2C8), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            TextButton(onClick = {
+                                val i = PublishRules.CATEGORIES.indexOf(category)
+                                category = PublishRules.CATEGORIES[(i + 1) % PublishRules.CATEGORIES.size]
+                            }) { Text(category, color = Color(0xFF6FD3D6), fontSize = 12.sp) }
+                        }
+                        if (doc.wallpaper.isNullOrBlank()) {
+                            Text("This theme has no wallpaper, so it cannot be published yet.", color = Color(0xFFE0A94F), fontSize = 11.sp)
+                        }
+                    }
+                }
+                if (busy) {
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
+                        CircularProgressIndicator(color = Color(0xFF6FD3D6))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            when (state) {
+                is CommunityPublish.State.Done -> TextButton(onClick = onDismiss) { Text("Close") }
+                is CommunityPublish.State.Failed -> TextButton(onClick = onDismiss) { Text("Close") }
+                else -> TextButton(
+                    enabled = !busy,
+                    onClick = { onPublish(title, description, category, PublishRules.parseTags(tagsText)) }
+                ) { Text("Publish") }
+            }
+        },
+        dismissButton = { if (!busy) TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }

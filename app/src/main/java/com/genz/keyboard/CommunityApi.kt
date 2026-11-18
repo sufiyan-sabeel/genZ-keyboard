@@ -337,6 +337,43 @@ object CommunityApi {
         }
     }
 
+    /** Favourite a theme. The row is keyed by the caller, so a duplicate is a 409, not a forgery. */
+    fun addFavourite(token: String, themeId: String): CommunityResult<String> =
+        request("POST", CommunityUrls.table(CommunityConfig.baseUrl, "favourites"), token,
+            """{"theme_id":${q(themeId)}}""")
+
+    /** Remove a favourite. RLS restricts the delete to the caller's own row. */
+    fun removeFavourite(token: String, themeId: String): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "favourites",
+            linkedMapOf("theme_id" to "eq.$themeId"))
+        return request("DELETE", url, token, null)
+    }
+
+    fun isFavourite(token: String, themeId: String): CommunityResult<Boolean> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "favourites",
+            linkedMapOf("select" to "theme_id", "theme_id" to "eq.$themeId", "limit" to "1"))
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value)
+                CommunityResult.Ok(arr != null && arr.isNotEmpty())
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    /**
+     * Increment a theme's download counter.
+     *
+     * Calls a database function, so the value is decided server-side; a client cannot set an
+     * arbitrary count.
+     */
+    fun registerDownload(token: String?, themeId: String): CommunityResult<String> =
+        request("POST", "${CommunityConfig.baseUrl}/rest/v1/rpc/increment_downloads", token,
+            """{"p_theme_id":${q(themeId)}}""")
+
     /** File a report against a theme, review, post, comment or profile. */
     fun report(token: String, subjectType: String, subjectId: String, reason: String): CommunityResult<String> {
         val body = """{"subject_type":${q(subjectType)},"subject_id":${q(subjectId)},"reason":${q(reason)}}"""

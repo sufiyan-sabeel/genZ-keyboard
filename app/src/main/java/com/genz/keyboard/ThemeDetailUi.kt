@@ -217,6 +217,8 @@ fun ThemeDetailScreen(themeId: String, onBack: () -> Unit = {}) {
                         }) { Text("Download and apply") }
                     }
 
+                    ReviewsSection(themeId = t.id, onRatingChanged = { load() })
+
                     when (val s = manageState) {
                         is CommunityManage.State.Failed -> Text(s.reason, color = Color(0xFFD67A7A), fontSize = 12.sp)
                         is CommunityManage.State.Done -> Text("Done", color = Color(0xFF6FD3D6), fontSize = 12.sp)

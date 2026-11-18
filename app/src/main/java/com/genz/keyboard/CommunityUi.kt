@@ -45,6 +45,7 @@ import kotlinx.coroutines.withContext
 fun CommunityScreen(onBack: () -> Unit = {}) {
     val context = LocalContext.current
     var signedIn by remember { mutableStateOf(CommunitySession.isSignedIn(context)) }
+    var openThemeId by remember { mutableStateOf<String?>(null) }
     var handle by remember { mutableStateOf(CommunitySession.handle(context)) }
 
     Column(Modifier.fillMaxSize().background(Color(0xFF0E1013))) {
@@ -66,14 +67,24 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
         }
 
         if (signedIn) {
-            MarketplaceBody(
-                handle = handle,
-                onSignOut = {
-                    CommunitySession.clear(context)
-                    signedIn = false
-                    handle = null
+            Column(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(if (handle != null) "Signed in" else "Signed in", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+                    TextButton(onClick = {
+                        CommunitySession.clear(context)
+                        signedIn = false
+                        handle = null
+                    }) { Text("Sign out", color = Color(0xFFD67A7A), fontSize = 12.sp) }
                 }
-            )
+                MarketplaceScreen(onOpenTheme = { id -> openThemeId = id })
+            }
+            openThemeId?.let { id ->
+                ThemeDetailScreen(themeId = id, onBack = { openThemeId = null })
+            }
         } else {
             SignInForm(onSignedIn = { h ->
                 handle = h

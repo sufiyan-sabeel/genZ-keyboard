@@ -122,9 +122,15 @@ private fun SignInForm(onSignedIn: (String?) -> Unit) {
                         // sign-up may require email confirmation before a token is issued
                         notice = "Account created. Check your email to confirm, then sign in."
                     } else {
-                        val tokens = result.value
-                        CommunitySession.save(context, tokens, AuthResponse.subjectOf(tokens.accessToken))
-                        onSignedIn(AuthResponse.subjectOf(tokens.accessToken))
+                        // signUp returns CommunityResult<String>, so the merged type is Any
+                        val tokens = result.value as? AuthTokens
+                        if (tokens == null) {
+                            error = "Unexpected sign-in response"
+                        } else {
+                            val subject = AuthResponse.subjectOf(tokens.accessToken)
+                            CommunitySession.save(context, tokens, subject)
+                            onSignedIn(subject)
+                        }
                     }
                 }
                 is CommunityResult.NotConfigured -> error = "Community is not configured on this build"

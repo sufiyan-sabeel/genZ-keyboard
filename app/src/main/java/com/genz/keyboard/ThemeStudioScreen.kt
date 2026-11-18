@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -88,6 +94,22 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
         message = if (ThemeAssets.writeTheme(context, uri, ThemeCodec.encode(d))) "Exported \"${d.name}\"" else "Export failed"
     }
 
+    fun extractColours(d: ThemeDoc) {
+        val f = d.wallpaper?.let { ThemeAssets.wallpaperFile(context, it) } ?: run {
+            message = "Pick a wallpaper first"; return
+        }
+        val bmp = runCatching { android.graphics.BitmapFactory.decodeFile(f.absolutePath) }.getOrNull()
+        if (bmp == null) { message = "Could not read the wallpaper"; return }
+        val w = bmp.width; val h = bmp.height
+        val px = IntArray(w * h)
+        bmp.getPixels(px, 0, w, 0, 0, w, h)
+        val pal = PaletteExtractor.extract(px, w, h)
+        val ov = d.overrides.toMutableMap()
+        ov.putAll(PaletteExtractor.toOverrides(pal))
+        draft = d.copy(overrides = ov)
+        message = "Colours taken from the wallpaper"
+    }
+
     val pickWallpaper = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         val d = draft ?: return@rememberLauncherForActivityResult
         if (uri == null) return@rememberLauncherForActivityResult
@@ -118,7 +140,7 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
         }
 
         draft?.let { d ->
-            ThemeEditor(d, onChange = { draft = it }, onApply = {
+            ThemeEditor(d, onChange = { draft = it }, onExtract = { extractColours(d) }, onApply = {
                 message = if (ThemeApply.applyAndPersist(context, d, base)) "Applied \"${d.name}\"" else "Could not apply"
             }, onRemoveWallpaper = {
                 d.wallpaper?.let { ThemeAssets.deleteWallpaper(context, it) }
@@ -170,7 +192,13 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
 }
 
 @Composable
-private fun ThemeEditor(doc: ThemeDoc, onChange: (ThemeDoc) -> Unit, onApply: (ThemeDoc) -> Unit, onRemoveWallpaper: () -> Unit) {
+private fun ThemeEditor(
+    doc: ThemeDoc,
+    onChange: (ThemeDoc) -> Unit,
+    onExtract: () -> Unit,
+    onApply: (ThemeDoc) -> Unit,
+    onRemoveWallpaper: () -> Unit
+) {
     var name by remember(doc.id) { mutableStateOf(doc.name) }
     Column(Modifier.fillMaxWidth().background(Color(0xFF171A1E), RoundedCornerShape(12.dp)).padding(12.dp)) {
         OutlinedTextField(name, onValueChange = { name = it; onChange(doc.copy(name = it)) }, label = { Text("Theme name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -187,6 +215,47 @@ private fun ThemeEditor(doc: ThemeDoc, onChange: (ThemeDoc) -> Unit, onApply: (T
             onValueChange = { v -> val ov = doc.overrides.toMutableMap(); ov[ThemeApply.CORNER_RADIUS] = v.toString(); onChange(doc.copy(overrides = ov)) },
             valueRange = 6f..30f
         )
+        val tuning = WallpaperTuning.from(doc)
+        fun tune(t: WallpaperTuning) { onChange(WallpaperTuning.apply(doc, t)) }
+
+        Text("Wallpaper opacity", color = Color(0xFFB9C2C8), fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+        Slider(
+            value = tuning.opacity,
+            onValueChange = { tune(tuning.copy(opacity = it)) },
+            valueRange = WallpaperTuning.MIN_OPACITY..WallpaperTuning.MAX_OPACITY
+        )
+        Text("Wallpaper blur", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+        Slider(
+            value = tuning.blurDp,
+            onValueChange = { tune(tuning.copy(blurDp = it)) },
+            valueRange = WallpaperTuning.MIN_BLUR..WallpaperTuning.MAX_BLUR
+        )
+        Text("Wallpaper brightness", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+        Slider(
+            value = tuning.brightness,
+            onValueChange = { tune(tuning.copy(brightness = it)) },
+            valueRange = WallpaperTuning.MIN_BRIGHTNESS..WallpaperTuning.MAX_BRIGHTNESS
+        )
+        Text("Wallpaper zoom", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+        Slider(
+            value = tuning.scale,
+            onValueChange = { tune(tuning.copy(scale = it)) },
+            valueRange = WallpaperTuning.MIN_SCALE..WallpaperTuning.MAX_SCALE
+        )
+        Text("Horizontal position", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+        Slider(
+            value = tuning.offsetX,
+            onValueChange = { tune(tuning.copy(offsetX = it)) },
+            valueRange = -WallpaperTuning.MAX_PAN..WallpaperTuning.MAX_PAN
+        )
+        Text("Vertical position", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+        Slider(
+            value = tuning.offsetY,
+            onValueChange = { tune(tuning.copy(offsetY = it)) },
+            valueRange = -WallpaperTuning.MAX_PAN..WallpaperTuning.MAX_PAN
+        )
+        TextButton(onClick = onExtract) { Text("Colours from wallpaper", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
+
         doc.wallpaper?.let { w ->
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(w, color = Color(0xFFB9C2C8), fontSize = 11.sp)
@@ -254,7 +323,34 @@ private fun ThemePreview(doc: ThemeDoc?, base: KeyboardSettings, modifier: Modif
     val popup = remember { PopupController() }
     val layer = remember { CoordsHolder() }
     val glide = remember { GlideController() }
+    val context = LocalContext.current
+    val tuning = remember(doc) { doc?.let { WallpaperTuning.from(it) } ?: WallpaperTuning() }
+    val wallpaper = remember(doc?.wallpaper) {
+        doc?.wallpaper?.let { ThemeAssets.wallpaperFile(context, it) }
+    }
     Box(modifier) {
+        if (wallpaper != null && wallpaper.isFile) {
+            AsyncImage(
+                model = wallpaper,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = tuning.scale,
+                        scaleY = tuning.scale,
+                        translationX = tuning.offsetX * 600f,
+                        translationY = tuning.offsetY * 600f
+                    )
+                    .alpha(tuning.opacity)
+                    .blur(tuning.blurDp.dp)
+            )
+            if (tuning.brightness < 1f) {
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 1f - tuning.brightness)))
+            } else if (tuning.brightness > 1f) {
+                Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = (tuning.brightness - 1f) * 0.4f)))
+            }
+        }
         KeyArea(state, PreviewActions, settings, palette, FontFamily.Default, popup, layer, glide)
     }
 }

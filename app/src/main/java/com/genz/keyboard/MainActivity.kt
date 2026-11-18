@@ -186,6 +186,7 @@ enum class SettingsPage(val title: String, val subtitle: String, val icon: Image
     ANIMATIONS("Анимации", "Нажатие клавиш, свои анимации, скорость, подсказки и панели", Icons.Rounded.Animation, ExpressiveShapePreset.CLOVER_4),
     TOOLBAR("Панель, эмодзи и иконки", "Кнопки панели инструментов, стиль эмодзи, свои иконки", Icons.Rounded.DragIndicator, ExpressiveShapePreset.FLOWER_6),
     LANGUAGES("Языки", "Раскладки, китайский и японский ввод, словари подсказок", Icons.Rounded.Language, ExpressiveShapePreset.COOKIE_12),
+    COMMUNITY("Community", "Browse, publish and rate keyboard themes", Icons.Rounded.Language, ExpressiveShapePreset.FLOWER_6),
     MY_WORDS("Мой словарь", "Добавьте свои слова: с диакритикой, имена, термины", Icons.Rounded.MenuBook, ExpressiveShapePreset.SUNNY_8),
     TYPING("Подсказки и исправления", "Автоисправление, тире, заглавные буквы, ИИ-исправление, инкогнито", Icons.Rounded.Spellcheck, ExpressiveShapePreset.SUNNY_8),
     GESTURES("Жесты и скорость", "Свайп-набор, свайпы по пробелу и ⌫, удержание, парные скобки", Icons.Rounded.Gesture, ExpressiveShapePreset.CLOVER_4),
@@ -366,6 +367,7 @@ internal fun SettingsPageScaffold(
                     }
                     SettingsPage.ANIMATIONS -> AnimationsPage(settings)
                     SettingsPage.COLORS -> ColorsPage(settings)
+                    SettingsPage.COMMUNITY -> CommunityScreen(onBack = { onNavigate(SettingsPage.HOME) })
                     SettingsPage.KEYS -> KeysPage(settings, onNavigate)
                     SettingsPage.LAYOUT -> LayoutEditorPage(settings)
                     SettingsPage.TOOLBAR -> {

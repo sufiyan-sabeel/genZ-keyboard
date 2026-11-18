@@ -63,6 +63,10 @@ object CommunityModels {
         )
     }
 
+    fun post(row: Map<String, Any?>): DesignPost? = PostModels.post(row)
+
+    fun comment(row: Map<String, Any?>): PostComment? = PostModels.comment(row)
+
     fun themes(rows: List<Map<String, Any?>>, storageBase: String): List<ThemeSummary> =
         rows.mapNotNull { theme(it, storageBase) }
 }

@@ -421,6 +421,56 @@ object CommunityApi {
         }
     }
 
+    /**
+     * The authoritative rating for a theme.
+     *
+     * Read from the `theme_ratings` view, which aggregates every review server-side. Computing an
+     * average from the reviews currently loaded in the app would be wrong the moment a theme has
+     * more reviews than one page.
+     */
+    fun fetchRating(token: String?, themeId: String): CommunityResult<Pair<Double, Int>> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "theme_ratings", linkedMapOf(
+            "select" to "average_rating,review_count",
+            "theme_id" to "eq.$themeId",
+            "limit" to "1"
+        ))
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value)
+                val row = arr?.filterIsInstance<Map<String, Any?>>()?.firstOrNull()
+                if (row == null) CommunityResult.Ok(0.0 to 0)
+                else CommunityResult.Ok(
+                    ((row["average_rating"] as? Number)?.toDouble() ?: 0.0) to
+                        ((row["review_count"] as? Number)?.toInt() ?: 0)
+                )
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    /** The caller's own review for a theme, if one exists. */
+    fun myReview(token: String, themeId: String, userId: String): CommunityResult<ThemeReview?> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "reviews", linkedMapOf(
+            "select" to "id,rating,body,created_at,author_id,profiles(handle)",
+            "theme_id" to "eq.$themeId",
+            "author_id" to "eq.$userId",
+            "limit" to "1"
+        ))
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value)
+                CommunityResult.Ok(arr?.filterIsInstance<Map<String, Any?>>()?.firstOrNull()?.let { CommunityModels.review(it) })
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
     /** Submit a review. The unique (theme_id, author_id) index makes a retry a 409, not a duplicate. */
     fun submitReview(token: String, themeId: String, rating: Int, body: String): CommunityResult<String> {
         val json = """{"theme_id":${q(themeId)},"rating":$rating,"body":${q(body)}}"""

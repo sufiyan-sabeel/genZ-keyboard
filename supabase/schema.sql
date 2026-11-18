@@ -342,3 +342,16 @@ select t.id, t.author_id, t.name, t.description, t.tags, t.category,
  where t.is_public and not t.is_removed;
 
 grant select on themes_with_ratings to anon, authenticated;
+
+-- ---------------------------------------------------------------- favourites feed
+-- One request returns a user's saved themes with their ratings. The join to themes_with_ratings
+-- means a private, removed or unpublished theme simply drops out of the feed rather than leaking.
+create or replace view favourite_themes as
+select f.user_id, f.created_at as saved_at,
+       t.id, t.author_id, t.name, t.description, t.tags, t.category,
+       t.preview_path, t.downloads, t.version, t.average_rating, t.review_count
+  from favourites f
+  join themes_with_ratings t on t.id = f.theme_id;
+
+-- RLS applies to the view's underlying tables; this guard is belt-and-braces for direct use.
+grant select on favourite_themes to authenticated;

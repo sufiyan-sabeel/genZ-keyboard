@@ -48,43 +48,26 @@ object AuthResponse {
 }
 
 /**
- * Persists the signed-in session.
+ * The signed-in session.
  *
- * Stored in the app's private preferences: readable only by this app's process, and excluded from
- * backups because the manifest sets `allowBackup="false"`.
+ * Delegates storage to [SecureTokenStore], which keeps it AES-GCM encrypted under a key held by the
+ * Android Keystore. Nothing readable is written to disk, and the tokens are redacted from any log.
  */
 object CommunitySession {
 
-    private const val PREFS = "genz_community_session"
-    private const val KEY_ACCESS = "access_token"
-    private const val KEY_REFRESH = "refresh_token"
-    private const val KEY_EXPIRES = "expires_at"
-    private const val KEY_HANDLE = "handle"
-
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
     fun save(context: Context, tokens: AuthTokens, handle: String? = null) {
-        prefs(context).edit()
-            .putString(KEY_ACCESS, tokens.accessToken)
-            .putString(KEY_REFRESH, tokens.refreshToken)
-            .putLong(KEY_EXPIRES, tokens.expiresAtEpochSeconds)
-            .apply { if (handle != null) putString(KEY_HANDLE, handle) }
-            .apply()
+        SecureTokenStore.save(context, tokens, handle)
     }
 
-    fun load(context: Context): AuthTokens? {
-        val p = prefs(context)
-        val access = p.getString(KEY_ACCESS, null) ?: return null
-        val refresh = p.getString(KEY_REFRESH, null) ?: return null
-        return AuthTokens(access, refresh, p.getLong(KEY_EXPIRES, 0L))
-    }
+    /** @return the stored tokens and handle, or null when there is no readable session. */
+    fun load(context: Context): Pair<AuthTokens, String?>? = SecureTokenStore.load(context)
 
-    fun handle(context: Context): String? = prefs(context).getString(KEY_HANDLE, null)
+    fun tokens(context: Context): AuthTokens? = SecureTokenStore.load(context)?.first
 
-    fun isSignedIn(context: Context): Boolean = load(context) != null
+    fun handle(context: Context): String? = SecureTokenStore.load(context)?.second
+
+    fun isSignedIn(context: Context): Boolean = SecureTokenStore.load(context) != null
 
     /** Clear the session. Used by sign-out and by account deletion. */
-    fun clear(context: Context) {
-        prefs(context).edit().clear().apply()
-    }
+    fun clear(context: Context) = SecureTokenStore.clear(context)
 }

@@ -179,8 +179,8 @@ private fun MarketplaceBody(handle: String?, onSignOut: () -> Unit) {
     fun refreshList() {
         busy = true; error = null
         scope.launch {
-            val session: AuthTokens? = CommunitySession.load(context)
-            val token: String? = session?.accessToken
+            // refreshes shortly before expiry; null means the user must sign in again
+            val token: String? = CommunityAuth.currentToken(context)
             val result = withContext(Dispatchers.IO) { CommunityApi.listThemes(token, search.ifBlank { null }) }
             busy = false; loadedOnce = true
             when (result) {

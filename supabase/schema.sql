@@ -204,3 +204,15 @@ create trigger themes_touch before update on themes
 create unique index if not exists themes_author_hash_idx
   on themes(author_id, content_hash)
   where content_hash is not null and not is_removed;
+
+-- ---------------------------------------------------------------- download counter
+-- Incremented by a function so a client cannot set an arbitrary count, and so the row's own
+-- author cannot inflate it without also being counted.
+create or replace function increment_downloads(p_theme_id uuid) returns void
+language sql security definer as $$
+  update themes
+     set downloads = downloads + 1
+   where id = p_theme_id and is_public and not is_removed;
+$$;
+
+grant execute on function increment_downloads(uuid) to authenticated, anon;

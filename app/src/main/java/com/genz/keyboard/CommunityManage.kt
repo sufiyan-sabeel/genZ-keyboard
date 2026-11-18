@@ -76,4 +76,111 @@ object CommunityManage {
             is CommunityResult.ServerError -> State.Failed("Delete rejected (${r.code})")
         }
     }
+
+    /**
+     * Replace a published theme's wallpaper.
+     *
+     * Upload-and-swap, in that order and never the reverse: the old object is deleted only after
+     * both the new upload and the database update succeed. A failure at any step leaves the theme
+     * showing its previous wallpaper, which is the recoverable outcome. Deleting first would leave
+     * a published theme pointing at a file that no longer exists.
+     *
+     * @return [State.Done] on success, otherwise a failure whose message names the step.
+     */
+    fun replaceWallpaper(
+        context: Context,
+        themeId: String,
+        doc: ThemeDoc,
+        oldPath: String?
+    ): State {
+        val token = token(context) ?: return State.Failed("Sign in to replace the wallpaper")
+        val name = doc.wallpaper ?: return State.Failed("This theme has no wallpaper")
+        val ext = PublishRules.imageExtension(name)
+            ?: return State.Failed("Wallpaper must be a PNG, JPEG or WebP image")
+        val file = ThemeAssets.wallpaperFile(context, name)
+            ?: return State.Failed("Wallpaper file name is not valid")
+        if (!file.isFile) return State.Failed("Wallpaper file is missing")
+        if (file.length() > PublishRules.MAX_WALLPAPER_BYTES) {
+            return State.Failed("Wallpaper is larger than 8 MB")
+        }
+        val userId = AuthResponse.subjectOf(token)
+            ?: return State.Failed("Could not read your account id")
+
+        // a fresh path each time, so the old object is never overwritten and can be removed after
+        val newPath = PublishRules.storagePath(userId, themeId + "-" + ThemeContentHash.of(doc), ext)
+        val bytes = runCatching { file.readBytes() }.getOrNull()
+            ?: return State.Failed("Could not read the wallpaper")
+
+        when (val up = CommunityApi.uploadObject(
+            token, "theme-wallpapers", newPath, bytes, PublishRules.mimeType(ext)
+        )) {
+            is CommunityResult.Ok -> Unit
+            is CommunityResult.Unauthorized -> return State.Failed("Your session expired. Sign in again.")
+            is CommunityResult.NotConfigured -> return State.Failed("Community is not configured")
+            is CommunityResult.NetworkError -> return State.Failed("Upload failed: check your connection")
+            is CommunityResult.ServerError -> return State.Failed("Upload rejected (${up.code})")
+        }
+
+        // only now does the row start pointing at the new file
+        when (val upd = CommunityApi.setWallpaperPath(token, themeId, newPath)) {
+            is CommunityResult.Ok -> Unit
+            is CommunityResult.Unauthorized -> {
+                // the new object is unreferenced; try to clean it up
+                cleanupOrphan(context, newPath)
+                return State.Failed("You can only change your own themes")
+            }
+            is CommunityResult.NotConfigured -> return State.Failed("Community is not configured")
+            is CommunityResult.NetworkError -> {
+                cleanupOrphan(context, newPath)
+                return State.Failed("Could not update the theme: check your connection")
+            }
+            is CommunityResult.ServerError -> {
+                cleanupOrphan(context, newPath)
+                return State.Failed("Update rejected (${upd.code})")
+            }
+        }
+
+        // the swap is complete, so the previous object is now genuinely unreferenced
+        if (oldPath != null && oldPath != newPath && DownloadGuard.isSafeObjectPath(oldPath)) {
+            CommunityApi.deleteObject(token, "theme-wallpapers", oldPath)
+        }
+        return State.Done
+    }
+
+    /** Paths that failed to delete, retried on the next launch. */
+    private val pendingOrphans = LinkedHashSet<String>()
+
+    /**
+     * Record an unreferenced object so it can be removed later.
+     *
+     * Cleanup is best effort: a leftover file costs storage but breaks nothing, whereas a failed
+     * user action that also threw would break the flow.
+     */
+    fun cleanupOrphan(context: Context, path: String) {
+        if (!DownloadGuard.isSafeObjectPath(path)) return
+        val token = token(context)
+        if (token == null) { pendingOrphans.add(path); return }
+        when (CommunityApi.deleteObject(token, "theme-wallpapers", path)) {
+            is CommunityResult.Ok -> pendingOrphans.remove(path)
+            else -> pendingOrphans.add(path)
+        }
+    }
+
+    /** Retry cleanup for everything left behind. Safe to call on every app start. */
+    fun retryPendingCleanup(context: Context): Int {
+        val token = token(context) ?: return 0
+        var removed = 0
+        val it = pendingOrphans.iterator()
+        while (it.hasNext()) {
+            val path = it.next()
+            when (CommunityApi.deleteObject(token, "theme-wallpapers", path)) {
+                is CommunityResult.Ok -> { it.remove(); removed++ }
+                else -> Unit
+            }
+        }
+        return removed
+    }
+
+    /** Paths still awaiting cleanup; exposed for tests and diagnostics. */
+    fun pendingOrphanCount(): Int = pendingOrphans.size
 }

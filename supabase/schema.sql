@@ -321,3 +321,24 @@ $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function create_profile_for_new_user();
+
+-- ---------------------------------------------------------------- public projections
+-- profiles holds no email (that lives in auth.users), but a public view makes the exposed
+-- column set explicit and stops a future column being published by accident.
+create or replace view public_profiles as
+select id, handle, display_name, bio, avatar_url, created_at
+  from profiles;
+
+grant select on public_profiles to anon, authenticated;
+
+-- Themes joined to their ratings, so a creator page needs one request instead of N+1.
+create or replace view themes_with_ratings as
+select t.id, t.author_id, t.name, t.description, t.tags, t.category,
+       t.preview_path, t.downloads, t.version, t.is_featured, t.created_at,
+       coalesce(r.average_rating, 0) as average_rating,
+       coalesce(r.review_count, 0)   as review_count
+  from themes t
+  left join theme_ratings r on r.theme_id = t.id
+ where t.is_public and not t.is_removed;
+
+grant select on themes_with_ratings to anon, authenticated;

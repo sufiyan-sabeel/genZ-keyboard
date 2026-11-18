@@ -178,3 +178,22 @@ create policy "authors upload to their folder" on storage.objects for insert
   );
 create policy "authors delete their own uploads" on storage.objects for delete
   using (auth.uid()::text = (storage.foldername(name))[1]);
+
+-- ---------------------------------------------------------------- version bump
+-- The client cannot express "version = version + 1" in a PATCH body, so the server does it.
+create or replace function touch_theme() returns trigger as $$
+begin
+  new.updated_at := now();
+  if new.name <> old.name
+     or coalesce(new.description,'') <> coalesce(old.description,'')
+     or new.category <> old.category
+     or new.tags <> old.tags then
+    new.version := old.version + 1;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists themes_touch on themes;
+create trigger themes_touch before update on themes
+  for each row execute function touch_theme();

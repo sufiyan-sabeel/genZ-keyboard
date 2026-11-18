@@ -189,6 +189,64 @@ object CommunityApi {
         }
     }
 
+    /** Update an owned theme's metadata. RLS rejects anyone else's. */
+    fun updateTheme(
+        token: String, themeId: String, name: String, description: String,
+        tags: List<String>, category: String
+    ): CommunityResult<String> {
+        val tagsJson = tags.joinToString(",", "[", "]") { q(it) }
+        // version is bumped by a trigger server-side; PostgREST bodies cannot express arithmetic
+        val body = """{"name":${q(name)},"description":${q(description)},"tags":$tagsJson,""" +
+            """"category":${q(category)}}"""
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes", mapOf("id" to "eq.$themeId"))
+        return request("PATCH", url, token, body)
+    }
+
+    /** Show or hide an owned theme. */
+    fun setVisibility(token: String, themeId: String, isPublic: Boolean): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes", mapOf("id" to "eq.$themeId"))
+        return request("PATCH", url, token, """{"is_public":$isPublic}""")
+    }
+
+    /** Delete an owned theme. RLS rejects anyone else's. */
+    fun deleteTheme(token: String, themeId: String): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes", mapOf("id" to "eq.$themeId"))
+        return request("DELETE", url, token, null)
+    }
+
+    /** Remove a Storage object, used when a delete or a failed publish leaves a file behind. */
+    fun deleteObject(token: String, bucket: String, path: String): CommunityResult<String> {
+        if (!DownloadGuard.isSafeObjectPath(path)) {
+            return CommunityResult.ServerError(0, "unsafe object path")
+        }
+        val url = "${CommunityConfig.baseUrl}/storage/v1/object/$bucket/$path"
+        return request("DELETE", url, token, null)
+    }
+
+    /** Fetch one theme by id, including its document. */
+    fun fetchTheme(token: String?, themeId: String): CommunityResult<ThemeSummary> {
+        val params = linkedMapOf(
+            "select" to "id,name,description,tags,category,preview_path,downloads,version,profiles(handle)",
+            "id" to "eq.$themeId",
+            "limit" to "1"
+        )
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes", params)
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value) ?: return CommunityResult.ServerError(0, "bad json")
+                val first = arr.filterIsInstance<Map<String, Any?>>().firstOrNull()
+                    ?: return CommunityResult.ServerError(404, "theme not found")
+                CommunityModels.theme(first, CommunityConfig.baseUrl)
+                    ?.let { CommunityResult.Ok(it) }
+                    ?: CommunityResult.ServerError(0, "unreadable theme")
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
     /** File a report against a theme, review, post, comment or profile. */
     fun report(token: String, subjectType: String, subjectId: String, reason: String): CommunityResult<String> {
         val body = """{"subject_type":${q(subjectType)},"subject_id":${q(subjectId)},"reason":${q(reason)}}"""

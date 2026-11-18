@@ -13,6 +13,14 @@ insert into storage.buckets (id, name, public) values
   ('post-images',     'post-images',     true)
 on conflict (id) do nothing;
 
+-- Server-side limits. The Android client already caps at 8 MB and validates file signatures, but a
+-- client can bypass its own checks; only the bucket enforces them for everyone. Without these the
+-- buckets accepted any size and any content type.
+update storage.buckets
+   set file_size_limit   = 8388608,
+       allowed_mime_types = array['image/png','image/jpeg','image/webp']
+ where id in ('theme-previews','theme-wallpapers','post-images');
+
 -- Public read: these buckets hold theme previews and wallpapers, which are meant to be visible to
 -- anyone browsing the marketplace. Nothing private is stored here — post images and wallpapers are
 -- public by design, and the private data lives in the tables, guarded by their own RLS.

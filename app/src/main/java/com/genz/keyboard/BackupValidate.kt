@@ -145,7 +145,8 @@ object BackupValidate {
         val secrets = ArrayList<String>()
         for ((key, value) in raw) {
             if (key in BackupFormat.FORBIDDEN_KEYS) { secrets += key; continue }
-            val type = BackupFormat.PREF_TYPES[key] ?: run { dropped += key; continue }
+            val type = BackupFormat.PREF_TYPES[key]
+            if (type == null) { dropped += key; continue }
             val coerced = coerce(value, type)
             if (coerced == null) { dropped += key; continue }
             accepted[key] = coerced

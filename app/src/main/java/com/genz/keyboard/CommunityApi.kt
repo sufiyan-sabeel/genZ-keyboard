@@ -276,6 +276,67 @@ object CommunityApi {
         }
     }
 
+    /** Fetch a theme's document JSON for download. */
+    fun fetchThemeDoc(token: String?, themeId: String): CommunityResult<String> {
+        val params = linkedMapOf("select" to "doc,wallpaper_path", "id" to "eq.$themeId", "limit" to "1")
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes", params)
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value)
+                val first = arr?.filterIsInstance<Map<String, Any?>>()?.firstOrNull()
+                val doc = first?.get("doc")
+                val json = when (doc) {
+                    is String -> doc
+                    is Map<*, *> -> ThemeJson.encode(doc.entries.associate { it.key.toString() to it.value })
+                    else -> null
+                }
+                if (json == null) CommunityResult.ServerError(0, "theme has no document") else CommunityResult.Ok(json)
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    /** Download raw bytes from a Storage bucket. */
+    fun downloadObject(bucket: String, path: String): CommunityResult<ByteArray> {
+        if (!CommunityConfig.isConfigured) return CommunityResult.NotConfigured
+        if (!DownloadGuard.isSafeObjectPath(path)) return CommunityResult.ServerError(0, "unsafe object path")
+        val url = "${CommunityConfig.baseUrl}/storage/v1/object/public/$bucket/$path"
+        return try {
+            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = TIMEOUT_MS
+                readTimeout = TIMEOUT_MS
+                setRequestProperty("apikey", CommunityConfig.anonKey)
+            }
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                return if (code == 401 || code == 403) CommunityResult.Unauthorized("download denied")
+                else CommunityResult.ServerError(code, "download failed")
+            }
+            val bytes = conn.inputStream.use { input ->
+                val out = java.io.ByteArrayOutputStream()
+                val buf = ByteArray(64 * 1024)
+                var total = 0L
+                while (true) {
+                    val n = input.read(buf)
+                    if (n <= 0) break
+                    total += n
+                    if (total > DownloadGuard.MAX_WALLPAPER_BYTES) {
+                        return CommunityResult.ServerError(0, "file too large")
+                    }
+                    out.write(buf, 0, n)
+                }
+                out.toByteArray()
+            }
+            CommunityResult.Ok(bytes)
+        } catch (e: Exception) {
+            CommunityResult.NetworkError(e.message ?: "network error")
+        }
+    }
+
     /** File a report against a theme, review, post, comment or profile. */
     fun report(token: String, subjectType: String, subjectId: String, reason: String): CommunityResult<String> {
         val body = """{"subject_type":${q(subjectType)},"subject_id":${q(subjectId)},"reason":${q(reason)}}"""

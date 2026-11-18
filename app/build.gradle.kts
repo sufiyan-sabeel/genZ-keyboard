@@ -28,6 +28,10 @@ android {
             if (f.exists()) f.inputStream().use { load(it) }
         }
         buildConfigField("String", "KLIPY_API_KEY", "\"${local.getProperty("KLIPY_API_KEY", "").trim()}\"")
+        // Community backend. Only the PUBLISHABLE anon key is shipped; row-level security in
+        // supabase/schema.sql is what makes that safe. Absent values leave the feature disabled.
+        buildConfigField("String", "SUPABASE_URL", "\"${local.getProperty("SUPABASE_URL", "").trim()}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${local.getProperty("SUPABASE_ANON_KEY", "").trim()}\"")
         buildConfigField("String", "GIPHY_API_KEY", "\"${local.getProperty("GIPHY_API_KEY", "").trim()}\"")
         // instrumentation tests need a device; they are kept apart from the JVM unit tests
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

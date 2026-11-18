@@ -19,8 +19,11 @@ create table if not exists profiles (
 );
 
 alter table profiles enable row level security;
+drop policy if exists "profiles are public" on profiles;
 create policy "profiles are public"        on profiles for select using (true);
+drop policy if exists "own profile insert" on profiles;
 create policy "own profile insert"         on profiles for insert with check (auth.uid() = id);
+drop policy if exists "own profile update" on profiles;
 create policy "own profile update"         on profiles for update using (auth.uid() = id);
 
 -- ---------------------------------------------------------------- themes
@@ -54,9 +57,12 @@ create index if not exists themes_tags_idx    on themes using gin(tags);
 
 alter table themes enable row level security;
 -- anyone may read a public, non-removed theme; authors always see their own
+drop policy if exists "read public themes" on themes;
 create policy "read public themes" on themes for select
   using ((is_public and not is_removed) or auth.uid() = author_id);
+drop policy if exists "insert own theme" on themes;
 create policy "insert own theme"   on themes for insert with check (auth.uid() = author_id);
+drop policy if exists "update own theme" on themes;
 create policy "update own theme"   on themes for update using (auth.uid() = author_id);
 -- authors must not be able to feature themselves
 create or replace function protect_featured_flag() returns trigger
@@ -72,6 +78,7 @@ end; $$;
 drop trigger if exists themes_protect_featured on themes;
 create trigger themes_protect_featured before update on themes
   for each row execute function protect_featured_flag();
+drop policy if exists "delete own theme" on themes;
 create policy "delete own theme"   on themes for delete using (auth.uid() = author_id);
 
 -- ---------------------------------------------------------------- reviews (one per user per theme)
@@ -88,9 +95,13 @@ create table if not exists reviews (
 );
 
 alter table reviews enable row level security;
+drop policy if exists "read reviews" on reviews;
 create policy "read reviews"      on reviews for select using (not is_removed);
+drop policy if exists "insert own review" on reviews;
 create policy "insert own review" on reviews for insert with check (auth.uid() = author_id);
+drop policy if exists "update own review" on reviews;
 create policy "update own review" on reviews for update using (auth.uid() = author_id);
+drop policy if exists "delete own review" on reviews;
 create policy "delete own review" on reviews for delete using (auth.uid() = author_id);
 
 -- ---------------------------------------------------------------- favourites
@@ -102,8 +113,11 @@ create table if not exists favourites (
 );
 
 alter table favourites enable row level security;
+drop policy if exists "read own favourites" on favourites;
 create policy "read own favourites"   on favourites for select using (auth.uid() = user_id);
+drop policy if exists "insert own favourite" on favourites;
 create policy "insert own favourite"  on favourites for insert with check (auth.uid() = user_id);
+drop policy if exists "delete own favourite" on favourites;
 create policy "delete own favourite"  on favourites for delete using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------- design posts
@@ -121,9 +135,13 @@ create table if not exists design_posts (
 );
 
 alter table design_posts enable row level security;
+drop policy if exists "read posts" on design_posts;
 create policy "read posts"      on design_posts for select using (not is_removed);
+drop policy if exists "insert own post" on design_posts;
 create policy "insert own post" on design_posts for insert with check (auth.uid() = author_id);
+drop policy if exists "update own post" on design_posts;
 create policy "update own post" on design_posts for update using (auth.uid() = author_id);
+drop policy if exists "delete own post" on design_posts;
 create policy "delete own post" on design_posts for delete using (auth.uid() = author_id);
 
 create table if not exists post_likes (
@@ -132,8 +150,11 @@ create table if not exists post_likes (
   primary key (user_id, post_id)
 );
 alter table post_likes enable row level security;
+drop policy if exists "read likes" on post_likes;
 create policy "read likes"   on post_likes for select using (true);
+drop policy if exists "insert like" on post_likes;
 create policy "insert like"  on post_likes for insert with check (auth.uid() = user_id);
+drop policy if exists "delete like" on post_likes;
 create policy "delete like"  on post_likes for delete using (auth.uid() = user_id);
 
 create table if not exists post_comments (
@@ -145,8 +166,11 @@ create table if not exists post_comments (
   created_at timestamptz not null default now()
 );
 alter table post_comments enable row level security;
+drop policy if exists "read comments" on post_comments;
 create policy "read comments"      on post_comments for select using (not is_removed);
+drop policy if exists "insert own comment" on post_comments;
 create policy "insert own comment" on post_comments for insert with check (auth.uid() = author_id);
+drop policy if exists "delete own comment" on post_comments;
 create policy "delete own comment" on post_comments for delete using (auth.uid() = author_id);
 
 -- ---------------------------------------------------------------- reports + moderation
@@ -161,7 +185,9 @@ create table if not exists reports (
   unique (reporter_id, subject_type, subject_id)   -- one report per user per item
 );
 alter table reports enable row level security;
+drop policy if exists "insert own report" on reports;
 create policy "insert own report" on reports for insert with check (auth.uid() = reporter_id);
+drop policy if exists "read own reports" on reports;
 create policy "read own reports"  on reports for select using (auth.uid() = reporter_id);
 
 -- moderation is performed server-side with the service role; the app never holds that key.
@@ -170,6 +196,7 @@ create table if not exists moderators (
   since   timestamptz not null default now()
 );
 alter table moderators enable row level security;
+drop policy if exists "read moderators" on moderators;
 create policy "read moderators" on moderators for select using (true);
 
 -- ---------------------------------------------------------------- rating aggregate
@@ -189,13 +216,16 @@ insert into storage.buckets (id, name, public) values
   ('post-images', 'post-images', true)
 on conflict (id) do nothing;
 
+drop policy if exists "anyone reads theme previews" on storage;
 create policy "anyone reads theme previews" on storage.objects for select
   using (bucket_id in ('theme-previews','theme-wallpapers','post-images'));
+drop policy if exists "authors upload to their folder" on storage;
 create policy "authors upload to their folder" on storage.objects for insert
   with check (
     bucket_id in ('theme-previews','theme-wallpapers','post-images')
     and auth.uid()::text = (storage.foldername(name))[1]
   );
+drop policy if exists "authors delete their own uploads" on storage;
 create policy "authors delete their own uploads" on storage.objects for delete
   using (auth.uid()::text = (storage.foldername(name))[1]);
 
@@ -244,9 +274,11 @@ create table if not exists theme_downloads (
 );
 
 alter table theme_downloads enable row level security;
+drop policy if exists "read own downloads" on theme_downloads;
 create policy "read own downloads" on theme_downloads
   for select using (auth.uid() = user_id);
 -- inserts happen only inside the SECURITY DEFINER function below, never from the client
+drop policy if exists "no direct inserts" on theme_downloads;
 create policy "no direct inserts" on theme_downloads for insert with check (false);
 
 create or replace function increment_downloads(p_theme_id uuid) returns void
@@ -381,103 +413,7 @@ select p.id, p.author_id, p.title, p.body, p.tags, p.image_paths, p.theme_id, p.
 grant select on post_feed to anon, authenticated;
 
 -- A comment must belong to a live post, and editing is limited to its author.
-create policy "authors edit own comment" on post_comments for update
-  using (auth.uid() = author_id);
 
--- ---------------------------------------------------------------- post integrity
--- A post's author cannot change after creation, and a post may only attach the author's own theme.
-create or replace function protect_post_author() returns trigger
-language plpgsql security definer set search_path = '' as $$
-begin
-  if new.author_id is distinct from old.author_id then
-    new.author_id := old.author_id;
-  end if;
-  if new.theme_id is distinct from old.theme_id and new.theme_id is not null then
-    if not exists (
-      select 1 from public.themes t
-       where t.id = new.theme_id and t.author_id = old.author_id
-    ) then
-      raise exception 'theme does not belong to this author' using errcode = '42501';
-    end if;
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists design_posts_integrity on design_posts;
-create trigger design_posts_integrity before update on design_posts
-  for each row execute function protect_post_author();
-
--- The same ownership rule at insert time.
-create or replace function check_post_insert() returns trigger
-language plpgsql security definer set search_path = '' as $$
-begin
-  if new.author_id is distinct from auth.uid() then
-    raise exception 'author must be the caller' using errcode = '42501';
-  end if;
-  if new.theme_id is not null and not exists (
-    select 1 from public.themes t where t.id = new.theme_id and t.author_id = auth.uid()
-  ) then
-    raise exception 'theme does not belong to this author' using errcode = '42501';
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists design_posts_insert_guard on design_posts;
-create trigger design_posts_insert_guard before insert on design_posts
-  for each row execute function check_post_insert();
-
--- profiles holds no email (that lives in auth.users), but a public view makes the exposed
--- column set explicit and stops a future column being published by accident.
-create or replace view public_profiles with (security_invoker = true) as
-select id, handle, display_name, bio, avatar_url, created_at
-  from profiles;
-
-grant select on public_profiles to anon, authenticated;
-
--- Themes joined to their ratings, so a creator page needs one request instead of N+1.
-create or replace view themes_with_ratings with (security_invoker = true) as
-select t.id, t.author_id, t.name, t.description, t.tags, t.category,
-       t.preview_path, t.downloads, t.version, t.is_featured, t.created_at,
-       coalesce(r.average_rating, 0) as average_rating,
-       coalesce(r.review_count, 0)   as review_count
-  from themes t
-  left join theme_ratings r on r.theme_id = t.id
- where t.is_public and not t.is_removed;
-
-grant select on themes_with_ratings to anon, authenticated;
-
--- ---------------------------------------------------------------- favourites feed
--- One request returns a user's saved themes with their ratings. The join to themes_with_ratings
--- means a private, removed or unpublished theme simply drops out of the feed rather than leaking.
-create or replace view favourite_themes with (security_invoker = true) as
-select f.user_id, f.created_at as saved_at,
-       t.id, t.author_id, t.name, t.description, t.tags, t.category,
-       t.preview_path, t.downloads, t.version, t.average_rating, t.review_count
-  from favourites f
-  join themes_with_ratings t on t.id = f.theme_id;
-
--- RLS applies to the view's underlying tables; this guard is belt-and-braces for direct use.
-grant select on favourite_themes to authenticated;
-
--- ---------------------------------------------------------------- post feed
--- Counts come from the rows themselves, never from a stored number a client could set.
-create or replace view post_feed with (security_invoker = true) as
-select p.id, p.author_id, p.title, p.body, p.tags, p.image_paths, p.theme_id, p.created_at,
-       (select count(*) from post_likes l where l.post_id = p.id)      as like_count,
-       (select count(*) from post_comments c
-         where c.post_id = p.id and not c.is_removed)                  as comment_count,
-       pr.handle as author_handle, pr.display_name as author_name
-  from design_posts p
-  join public_profiles pr on pr.id = p.author_id
- where not p.is_removed;
-
-grant select on post_feed to anon, authenticated;
-
--- A comment must belong to a live post, and editing is limited to its author.
-create policy "authors edit own comment" on post_comments for update
-  using (auth.uid() = author_id);
 
 -- ---------------------------------------------------------------- post integrity
 -- A post's author cannot change after creation, and a post may only attach the author's own theme.

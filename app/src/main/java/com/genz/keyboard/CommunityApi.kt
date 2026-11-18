@@ -547,6 +547,38 @@ object CommunityApi {
         }
     }
 
+    /**
+     * The signed-in user's saved themes, newest save first.
+     *
+     * Reads `favourite_themes`, which joins the rating aggregate and drops anything private,
+     * removed or unpublished, so a saved theme that was taken down simply stops appearing.
+     */
+    fun listFavourites(
+        token: String,
+        userId: String,
+        offset: Int = 0,
+        limit: Int = MarketplaceQuery.PAGE_SIZE
+    ): CommunityResult<List<ThemeSummary>> {
+        if (!CreatorProfiles.isValidUserId(userId)) return CommunityResult.ServerError(400, "invalid user id")
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "favourite_themes", linkedMapOf(
+            "select" to "id,author_id,name,description,tags,category,preview_path,downloads,version,average_rating,review_count,saved_at",
+            "user_id" to "eq.${userId.trim()}",
+            "order" to "saved_at.desc,id.desc",
+            "limit" to limit.toString(),
+            "offset" to offset.toString()
+        ))
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value) ?: return CommunityResult.ServerError(0, "bad json")
+                CommunityResult.Ok(CommunityModels.themes(arr.filterIsInstance<Map<String, Any?>>(), CommunityConfig.baseUrl))
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
     /** File a report against a theme, review, post, comment or profile. */
     fun report(token: String, subjectType: String, subjectId: String, reason: String): CommunityResult<String> {
         val body = """{"subject_type":${q(subjectType)},"subject_id":${q(subjectId)},"reason":${q(reason)}}"""

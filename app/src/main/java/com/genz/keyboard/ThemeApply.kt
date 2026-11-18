@@ -96,6 +96,42 @@ object ThemeApply {
         )
     }
 
+    /**
+     * Which label/surface pairs in this theme are not readable.
+     *
+     * Only pairs where the theme actually sets both colours are checked: an unset colour inherits
+     * the keyboard's own palette, which is already known-good. Returned as human-readable reasons so
+     * the Studio can tell the user which control to fix instead of silently shipping a dark-on-dark
+     * keycap.
+     */
+    fun readabilityIssues(doc: ThemeDoc, base: KeyboardSettings): List<String> {
+        val s = applyTo(doc, base)
+        val pairs = listOf(
+            "Keys" to (s.colorKey to s.colorKeyText),
+            "Function keys" to (s.colorFunc to s.colorFuncText),
+            "Accent keys" to (s.colorAccent to s.colorAccentText)
+        )
+        val out = ArrayList<String>(3)
+        for ((label, pair) in pairs) {
+            val (bg, fg) = pair
+            if (bg == 0 || fg == 0) continue          // inherited, not the theme's choice
+            val ratio = PaletteExtractor.contrast(bg, fg)
+            if (ratio < MIN_CONTRAST) out += "%s: %.1f:1".format(label, ratio)
+        }
+        return out
+    }
+
+    /** WCAG AA for normal text. */
+    const val MIN_CONTRAST = 4.5
+
+    /** Reset a theme to its base preset: keeps the wallpaper, drops every colour override. */
+    fun resetToPreset(doc: ThemeDoc): ThemeDoc {
+        val kept = doc.overrides.filterKeys {
+            it !in COLOR_KEYS && it != KEY_OPACITY && it != CORNER_RADIUS
+        }
+        return doc.copy(overrides = kept)
+    }
+
     /** Preference key holding the id of the theme currently applied, or "" for none. */
     const val APPLIED_THEME_KEY = "applied_theme_id"
 

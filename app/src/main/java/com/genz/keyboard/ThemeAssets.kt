@@ -86,6 +86,28 @@ object ThemeAssets {
         name
     }.getOrNull()
 
+    /**
+     * Copy a wallpaper that ships in the APK into app storage.
+     *
+     * Bundled artwork lives in assets, which the theme renderer cannot read: it resolves wallpapers
+     * from `filesDir/themes/img`. Copying on use makes a bundled theme behave exactly like one the
+     * user picked, so preview, persistence, export and deletion all take the same code path.
+     *
+     * @param assetPath e.g. `anime/art_sunset.webp`
+     * @return the stored file name, or null when the asset is missing in this flavour.
+     */
+    fun importBundled(context: Context, assetPath: String): String? = runCatching {
+        val name = "bundled_" + assetPath.substringAfterLast('/')
+        if (!isValidWallpaperName(name)) return null
+        val dir = imageDir(context).apply { if (!isDirectory) mkdirs() }
+        val target = File(dir, name)
+        if (target.isFile && target.length() > 0) return name   // already copied
+        context.assets.open(assetPath).use { input ->
+            target.outputStream().use { out -> input.copyTo(out, 64 * 1024) }
+        }
+        if (target.length() <= 0) { target.delete(); null } else name
+    }.getOrNull()
+
     /** Read an imported theme file, capped at [MAX_THEME_BYTES]. Null when unreadable. */
     fun readTheme(context: Context, uri: Uri): String? = runCatching {
         context.contentResolver.openInputStream(uri)?.use { input ->

@@ -68,6 +68,21 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     var message by remember { mutableStateOf<String?>(null) }
     var importedText by remember { mutableStateOf<String?>(null) }
 
+    // Bundled themes, filtered to those whose artwork this build actually ships.
+    val gallery = remember {
+        runCatching {
+            val files = context.assets.list("plugins").orEmpty()
+                .filter { ThemePresetIndex.isGalleryFile(it) }
+                .mapNotNull { n ->
+                    runCatching {
+                        n to context.assets.open("plugins/$n").bufferedReader().use { it.readText() }
+                    }.getOrNull()
+                }
+            val walls = context.assets.list("anime").orEmpty().map { "anime/$it" }.toSet()
+            ThemePresetIndex.build(files, walls)
+        }.getOrDefault(emptyList())
+    }
+
     LaunchedEffect(Unit) { saved = store.list() }
     fun refresh() { saved = store.list() }
 
@@ -148,6 +163,30 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
             })
         }
 
+        Text("Bundled themes", color = Color(0xFFB9C2C8), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+        LazyColumn(Modifier.fillMaxWidth().height(150.dp)) {
+            items(gallery) { preset ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(preset.name, color = Color(0xFFE8ECEF), fontSize = 13.sp)
+                    TextButton(onClick = {
+                        val wall = preset.wallpaper?.let { ThemeAssets.importBundled(context, it) }
+                        draft = ThemeDoc(
+                            id = ThemeCodec.idFor(preset.name, preset.id, emptyMap()),
+                            name = preset.name,
+                            basePreset = preset.id,
+                            overrides = preset.colours.mapValues { ThemeApply.formatColor(it.value) },
+                            wallpaper = wall
+                        )
+                        message = if (preset.wallpaper != null && wall == null) {
+                            "Wallpaper unavailable in this build; using colours only"
+                        } else {
+                            "Editing \"${preset.name}\""
+                        }
+                    }) { Text("Use", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
+                }
+            }
+        }
+
         Text("Saved themes", color = Color(0xFFB9C2C8), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
         LazyColumn(Modifier.fillMaxWidth().height(170.dp)) {
             items(saved) { doc ->
@@ -199,6 +238,7 @@ private fun ThemeEditor(
     onApply: (ThemeDoc) -> Unit,
     onRemoveWallpaper: () -> Unit
 ) {
+    val contextForPrefs = LocalContext.current
     var name by remember(doc.id) { mutableStateOf(doc.name) }
     Column(Modifier.fillMaxWidth().background(Color(0xFF171A1E), RoundedCornerShape(12.dp)).padding(12.dp)) {
         OutlinedTextField(name, onValueChange = { name = it; onChange(doc.copy(name = it)) }, label = { Text("Theme name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -262,7 +302,21 @@ private fun ThemeEditor(
                 TextButton(onClick = onRemoveWallpaper) { Text("Remove", color = Color(0xFFD67A7A), fontSize = 11.sp) }
             }
         }
-        Button(onClick = { onApply(doc) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Apply to keyboard") }
+        val issues = remember(doc) { ThemeApply.readabilityIssues(doc, KeyboardPrefs.current(contextForPrefs)) }
+        if (issues.isNotEmpty()) {
+            Text(
+                "Low contrast: " + issues.joinToString(", "),
+                color = Color(0xFFE0A94F),
+                fontSize = 11.sp,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        } else {
+            Text("Contrast OK (4.5:1 or better)", color = Color(0xFF6FD3D6), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Button(onClick = { onApply(doc) }, modifier = Modifier.weight(1f)) { Text("Apply") }
+            TextButton(onClick = { onChange(ThemeApply.resetToPreset(doc)) }) { Text("Reset", color = Color(0xFFB9C2C8), fontSize = 12.sp) }
+        }
     }
 }
 

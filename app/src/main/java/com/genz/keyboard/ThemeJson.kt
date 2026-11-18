@@ -199,4 +199,15 @@ internal object ThemeJson {
             return text.toDoubleOrNull() ?: throw IllegalArgumentException("bad number")
         }
     }
+
+    /** Decode a top-level JSON array. Returns null when the text is not an array. */
+    fun decodeArray(text: String): List<Any?>? {
+        val t = text.trim()
+        if (!t.startsWith("[") || !t.endsWith("]")) return null
+        return try {
+            Parser(t).value() as? List<Any?>
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

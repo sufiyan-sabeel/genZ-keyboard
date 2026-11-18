@@ -37,6 +37,8 @@ create table if not exists themes (
   wallpaper_path text,
   preview_path   text,
   version       integer not null default 1,
+  -- stable hash of the design (base preset + overrides); stops the same theme being published twice
+  content_hash  text,
   is_public     boolean not null default true,
   is_removed    boolean not null default false,
   downloads     integer not null default 0,
@@ -197,3 +199,8 @@ $$ language plpgsql;
 drop trigger if exists themes_touch on themes;
 create trigger themes_touch before update on themes
   for each row execute function touch_theme();
+
+-- One live theme per author per design. Unpublishing or deleting frees the hash again.
+create unique index if not exists themes_author_hash_idx
+  on themes(author_id, content_hash)
+  where content_hash is not null and not is_removed;

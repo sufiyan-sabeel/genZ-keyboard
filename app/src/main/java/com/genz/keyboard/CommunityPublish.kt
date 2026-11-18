@@ -91,6 +91,16 @@ object CommunityPublish {
             is CommunityResult.ServerError -> return State.Failed("Upload rejected (${up.code})").also(onState)
         }
 
+        // stop the same design being published twice by the same account
+        val hash = ThemeContentHash.of(doc)
+        when (val dup = CommunityApi.findDuplicate(token, hash)) {
+            is CommunityResult.Ok -> if (dup.value) {
+                return State.Failed("You have already published this theme").also(onState)
+            }
+            // an unreadable duplicate check must not block publishing; the unique index still guards
+            else -> Unit
+        }
+
         onState(State.Saving)
         val result = CommunityApi.publishTheme(
             token = token,
@@ -98,7 +108,8 @@ object CommunityPublish {
             description = description.trim(),
             tags = normalised,
             category = category,
-            docJson = json
+            docJson = json,
+            contentHash = hash
         )
         return when (result) {
             is CommunityResult.Ok -> State.Done(result.value).also(onState)

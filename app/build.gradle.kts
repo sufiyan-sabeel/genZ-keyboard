@@ -66,7 +66,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            // No silent debug fallback. Without the production keystore this variant produces an
+            // UNSIGNED apk, which cannot be installed by anyone - the signed-release workflow
+            // refuses to continue in that state. Falling back to the debug key here would produce
+            // an APK that looks installable but breaks every future update.
+            signingConfig = signingConfigs.findByName("release")
         }
         debug {
             applicationIdSuffix = ".debug"

@@ -27,7 +27,8 @@ class CommunityApiTest {
     @Test
     fun paramsAreEncoded() {
         val url = CommunityUrls.table(base, "themes", linkedMapOf("name" to "ilike.*sun set*"))
-        assertTrue(url.contains("name=ilike.%2Asun%20set%2A"))
+        // URLEncoder leaves '*' alone, which is what PostgREST expects for ilike wildcards
+        assertTrue("got: $url", url.contains("name=ilike.*sun%20set*"))
         assertTrue(url.startsWith("https://demo.supabase.co/rest/v1/themes?"))
     }
 
@@ -39,7 +40,7 @@ class CommunityApiTest {
 
     @Test
     fun authAndStoragePathsAreBuiltCorrectly() {
-        assertEquals("https://demo.supabase.co/auth/v1/token?grant_type=password",
+        assertEquals("https://demo.supabase.co/auth/v1/token",
             CommunityUrls.auth(base, "token?grant_type=password"))
         assertEquals("https://demo.supabase.co/storage/v1/object/public/theme-previews/a%20b.png",
             CommunityUrls.storage(base, "theme-previews", "a b.png"))

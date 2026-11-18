@@ -133,11 +133,13 @@ object CommunityApi {
         description: String,
         tags: List<String>,
         category: String,
-        docJson: String
+        docJson: String,
+        contentHash: String? = null
     ): CommunityResult<String> {
         val tagsJson = tags.joinToString(",", "[", "]") { q(it) }
+        val hashField = if (contentHash != null) """"content_hash":${q(contentHash)},""" else ""
         val body = """{"name":${q(name)},"description":${q(description)},"tags":$tagsJson,""" +
-            """"category":${q(category)},"doc":$docJson}"""
+            """"category":${q(category)},$hashField"doc":$docJson}"""
         val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes")
         return when (val r = request("POST", url, token, body)) {
             is CommunityResult.Ok -> CommunityResult.Ok(r.value)
@@ -208,6 +210,12 @@ object CommunityApi {
         return request("PATCH", url, token, """{"is_public":$isPublic}""")
     }
 
+    /** Point an owned theme at a new wallpaper object. */
+    fun setWallpaperPath(token: String, themeId: String, path: String): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes", mapOf("id" to "eq.$themeId"))
+        return request("PATCH", url, token, """{"wallpaper_path":${q(path)}}""")
+    }
+
     /** Delete an owned theme. RLS rejects anyone else's. */
     fun deleteTheme(token: String, themeId: String): CommunityResult<String> {
         val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes", mapOf("id" to "eq.$themeId"))
@@ -239,6 +247,27 @@ object CommunityApi {
                 CommunityModels.theme(first, CommunityConfig.baseUrl)
                     ?.let { CommunityResult.Ok(it) }
                     ?: CommunityResult.ServerError(0, "unreadable theme")
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    /** Is there already a live theme by this author with the same design hash? */
+    fun findDuplicate(token: String, contentHash: String): CommunityResult<Boolean> {
+        val params = linkedMapOf(
+            "select" to "id",
+            "content_hash" to "eq.$contentHash",
+            "is_removed" to "eq.false",
+            "limit" to "1"
+        )
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes", params)
+        return when (val r = request("GET", url, token, null)) {
+            is CommunityResult.Ok -> {
+                val arr = ThemeJson.decodeArray(r.value)
+                CommunityResult.Ok(arr != null && arr.isNotEmpty())
             }
             is CommunityResult.NotConfigured -> r
             is CommunityResult.Unauthorized -> r

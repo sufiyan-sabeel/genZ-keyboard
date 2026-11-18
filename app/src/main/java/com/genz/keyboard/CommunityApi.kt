@@ -148,6 +148,47 @@ object CommunityApi {
         }
     }
 
+    /**
+     * Upload bytes to a Storage bucket.
+     *
+     * The path's first segment must be the caller's user id: the bucket policy
+     * (`storage.foldername(name))[1] = auth.uid()`) rejects anything else, so a forged path fails
+     * server-side rather than being trusted from the client.
+     */
+    fun uploadObject(
+        token: String,
+        bucket: String,
+        path: String,
+        bytes: ByteArray,
+        contentType: String
+    ): CommunityResult<String> {
+        if (!CommunityConfig.isConfigured) return CommunityResult.NotConfigured
+        val url = "${CommunityConfig.baseUrl}/storage/v1/object/$bucket/$path"
+        return try {
+            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = TIMEOUT_MS
+                readTimeout = TIMEOUT_MS
+                setRequestProperty("apikey", CommunityConfig.anonKey)
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Content-Type", contentType)
+                setRequestProperty("x-upsert", "false")
+                doOutput = true
+            }
+            conn.outputStream.use { it.write(bytes) }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            when {
+                code in 200..299 -> CommunityResult.Ok(text)
+                code == 401 || code == 403 -> CommunityResult.Unauthorized(text.take(300))
+                else -> CommunityResult.ServerError(code, text.take(300))
+            }
+        } catch (e: Exception) {
+            CommunityResult.NetworkError(e.message ?: "network error")
+        }
+    }
+
     /** File a report against a theme, review, post, comment or profile. */
     fun report(token: String, subjectType: String, subjectId: String, reason: String): CommunityResult<String> {
         val body = """{"subject_type":${q(subjectType)},"subject_id":${q(subjectId)},"reason":${q(reason)}}"""

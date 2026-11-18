@@ -170,10 +170,11 @@ private fun MarketplaceBody(handle: String?, onSignOut: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var loadedOnce by remember { mutableStateOf(false) }
 
-    fun load() {
+    fun refreshList() {
         busy = true; error = null
         scope.launch {
-            val token = CommunitySession.load(context)?.accessToken
+            val session: AuthTokens? = CommunitySession.load(context)
+            val token: String? = session?.accessToken
             val result = withContext(Dispatchers.IO) { CommunityApi.listThemes(token, search.ifBlank { null }) }
             busy = false; loadedOnce = true
             when (result) {
@@ -186,7 +187,7 @@ private fun MarketplaceBody(handle: String?, onSignOut: () -> Unit) {
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(Unit) { load() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { refreshList() }
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -195,12 +196,12 @@ private fun MarketplaceBody(handle: String?, onSignOut: () -> Unit) {
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(search, { search = it }, label = { Text("Search themes") }, singleLine = true, modifier = Modifier.weight(1f))
-            Button(onClick = { load() }) { Text("Go") }
+            Button(onClick = { refreshList() }) { Text("Go") }
         }
 
         error?.let {
             Text(it, color = Color(0xFFD67A7A), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
-            TextButton(onClick = { load() }) { Text("Retry", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
+            TextButton(onClick = { refreshList() }) { Text("Retry", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
         }
 
         if (busy) {

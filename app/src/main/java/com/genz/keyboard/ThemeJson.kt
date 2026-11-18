@@ -39,19 +39,34 @@ internal object ThemeJson {
             first = false
             writeString(sb, k)
             sb.append(':')
-            when (v) {
-                is String -> writeString(sb, v)
-                is Int, is Long -> sb.append(v.toString())
-                is Double -> sb.append(if (v == v.toLong().toDouble()) v.toLong().toString() else v.toString())
-                is Boolean -> sb.append(v.toString())
-                is Map<*, *> -> {
-                    @Suppress("UNCHECKED_CAST")
-                    writeObject(sb, v as Map<String, Any?>)
-                }
-                else -> writeString(sb, v.toString())
-            }
+            writeValue(sb, v)
         }
         sb.append('}')
+    }
+
+    private fun writeValue(sb: StringBuilder, v: Any?) {
+        when (v) {
+            null -> sb.append("null")
+            is String -> writeString(sb, v)
+            is Int, is Long -> sb.append(v.toString())
+            is Double -> sb.append(if (v == v.toLong().toDouble()) v.toLong().toString() else v.toString())
+            is Boolean -> sb.append(v.toString())
+            is Map<*, *> -> {
+                @Suppress("UNCHECKED_CAST")
+                writeObject(sb, v as Map<String, Any?>)
+            }
+            is List<*> -> {
+                sb.append('[')
+                var first = true
+                for (item in v) {
+                    if (!first) sb.append(',')
+                    first = false
+                    writeValue(sb, item)
+                }
+                sb.append(']')
+            }
+            else -> writeString(sb, v.toString())
+        }
     }
 
     private fun writeString(sb: StringBuilder, s: String) {

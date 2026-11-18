@@ -43,11 +43,11 @@ object MarketplaceQuery {
         p["offset"] = page.offset.toString()
 
         when (page.section) {
-            Section.NEWEST -> p["order"] = "created_at.desc"
-            Section.POPULAR -> p["order"] = "downloads.desc,created_at.desc"
-            Section.TOP_RATED -> p["order"] = "downloads.desc,created_at.desc"   // ranking applied after the join
-            Section.TRENDING -> p["order"] = "created_at.desc"
-            Section.FEATURED -> { p["is_featured"] = "eq.true"; p["order"] = "created_at.desc" }
+            Section.NEWEST -> p["order"] = "created_at.desc,id.desc"
+            Section.POPULAR -> p["order"] = "downloads.desc,created_at.desc,id.desc"
+            Section.TOP_RATED -> p["order"] = "downloads.desc,created_at.desc,id.desc"   // ranking applied after the join
+            Section.TRENDING -> p["order"] = "created_at.desc,id.desc"
+            Section.FEATURED -> { p["is_featured"] = "eq.true"; p["order"] = "created_at.desc,id.desc" }
         }
 
         // search and category are independent, so they compose
@@ -75,4 +75,40 @@ object MarketplaceQuery {
 
     /** Categories the filter offers, in display order. */
     val CATEGORIES = PublishRules.CATEGORIES
+
+/**
+ * Accumulates pages without repeating rows.
+ *
+ * Offset paging over a table that is being written to can return the same theme twice, because a
+ * new row shifts everything down by one. The id set makes that harmless: a duplicate is dropped
+ * rather than shown twice, and a stale response for a query the user has since changed is ignored.
+ */
+class PageAccumulator(private val section: Section) {
+
+    private val seen = LinkedHashSet<String>()
+    private val items = ArrayList<ThemeSummary>()
+
+    /** The query these pages belong to; a response for a different one is discarded. */
+    var queryKey: String = ""
+        private set
+
+    fun reset(queryKey: String) {
+        this.queryKey = queryKey
+        seen.clear()
+        items.clear()
+    }
+
+    /** @return how many new rows were added. */
+    fun addPage(rows: List<ThemeSummary>): Int {
+        var added = 0
+        for (r in rank(section, rows)) {
+            if (seen.add(r.id)) { items.add(r); added++ }
+        }
+        return added
+    }
+
+    fun items(): List<ThemeSummary> = items
+
+    fun size(): Int = items.size
+}
 }

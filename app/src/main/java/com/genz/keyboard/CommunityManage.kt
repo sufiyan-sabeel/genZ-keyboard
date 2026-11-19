@@ -183,4 +183,19 @@ object CommunityManage {
 
     /** Paths still awaiting cleanup; exposed for tests and diagnostics. */
     fun pendingOrphanCount(): Int = pendingOrphans.size
+
+    /** Public objects left behind by a failed publish, retried on a later attempt. */
+    private val pendingPublicOrphans = LinkedHashSet<String>()
+
+    fun cleanupOrphanPublic(context: Context, path: String) {
+        if (!DownloadGuard.isSafeObjectPath(path)) return
+        val token = token(context)
+        if (token == null) { pendingPublicOrphans.add(path); return }
+        when (CommunityApi.deleteObject(token, "theme-wallpapers", path)) {
+            is CommunityResult.Ok -> pendingPublicOrphans.remove(path)
+            else -> pendingPublicOrphans.add(path)
+        }
+    }
+
+    fun pendingPublicOrphanCount(): Int = pendingPublicOrphans.size
 }

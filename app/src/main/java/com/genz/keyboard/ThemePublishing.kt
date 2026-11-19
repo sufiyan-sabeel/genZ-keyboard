@@ -99,8 +99,13 @@ object ThemePublishing {
             // the draft object is now unreferenced; remove it so it does not linger
             is CommunityResult.NetworkError -> State.Failed("Saving failed: check your connection", true).also(onState)
             is CommunityResult.ServerError -> {
+                // the new draft object is unreferenced either way, so remove it
                 CommunityApi.deleteObject(token, DRAFTS, draftPath)
-                State.Failed("Draft rejected (${result.code})", false).also(onState)
+                if (PublishRecovery.isDuplicateDraft(result.code)) {
+                    State.Failed("This design is already saved as a draft", false).also(onState)
+                } else {
+                    State.Failed("Draft rejected (${result.code})", false).also(onState)
+                }
             }
         }
     }
@@ -127,35 +132,52 @@ object ThemePublishing {
         val publicPath = draftPath.replace("draft_", "")
 
         onState(State.Transferring)
-        when (val cp = CommunityApi.copyObject(token, DRAFTS, draftPath, PUBLIC, publicPath)) {
-            is CommunityResult.Ok -> Unit
+        // A 409 here is not a failure: the destination already exists, which is exactly what a retry
+        // of an interrupted publish looks like. Treating it as an error would make an already-copied
+        // theme permanently unpublishable.
+        val copyOutcome = when (val cp = CommunityApi.copyObject(token, DRAFTS, draftPath, PUBLIC, publicPath)) {
+            is CommunityResult.Ok -> PublishRecovery.CopyOutcome.TRANSFERRED
             is CommunityResult.Unauthorized -> return State.Failed("Your session expired. Sign in again.", false).also(onState)
             is CommunityResult.NotConfigured -> return State.Failed("Community is not configured", false).also(onState)
             is CommunityResult.NetworkError -> return State.Failed("Artwork transfer failed: check your connection", true).also(onState)
-            is CommunityResult.ServerError -> return State.Failed("Artwork transfer rejected (${cp.code})", false).also(onState)
+            is CommunityResult.ServerError -> PublishRecovery.copyOutcome(cp.code)
+        }
+        when (copyOutcome) {
+            PublishRecovery.CopyOutcome.TRANSFERRED, PublishRecovery.CopyOutcome.ALREADY_PRESENT -> Unit
+            PublishRecovery.CopyOutcome.RETRY_LATER -> return State.Failed("Artwork transfer failed: try again", true).also(onState)
+            PublishRecovery.CopyOutcome.REJECTED -> return State.Failed("Artwork transfer was refused", false).also(onState)
         }
 
         onState(State.Publishing)
         val result = CommunityApi.publishThemeRow(token, themeId, publicPath)
-        return when (result) {
-            is CommunityResult.Ok -> {
-                // only now is the private copy redundant
-                CommunityApi.deleteObject(token, DRAFTS, draftPath)
-                State.Done(themeId).also(onState)
-            }
-            is CommunityResult.Unauthorized -> {
-                CommunityApi.deleteObject(token, PUBLIC, publicPath)
-                State.Failed("You can only publish your own themes", false).also(onState)
-            }
-            is CommunityResult.NetworkError -> {
-                // the row may or may not have been updated; keep both objects so a retry works
+        val rowOutcome = when (result) {
+            is CommunityResult.Ok -> PublishRecovery.RowOutcome.PUBLISHED
+            is CommunityResult.Unauthorized -> PublishRecovery.RowOutcome.REJECTED
+            is CommunityResult.NotConfigured -> PublishRecovery.RowOutcome.REJECTED
+            is CommunityResult.NetworkError -> PublishRecovery.RowOutcome.RETRY_LATER
+            is CommunityResult.ServerError -> PublishRecovery.rowOutcome(result.code)
+        }
+
+        // The draft may only be removed once the row is actually published; deleting it earlier would
+        // leave a theme pointing at artwork that exists nowhere.
+        if (PublishRecovery.shouldDeleteDraftAfter(rowOutcome)) {
+            CommunityApi.deleteObject(token, DRAFTS, draftPath)
+            return State.Done(themeId).also(onState)
+        }
+
+        // Only remove the public object when *this* attempt created it. If the copy found it already
+        // present it may belong to an earlier successful publish, and deleting it would destroy live
+        // artwork.
+        if (PublishRecovery.shouldDeletePublicAfterFailure(copyOutcome)) {
+            CommunityApi.cleanupOrphanPublic(context, publicPath)
+        }
+
+        return when (rowOutcome) {
+            PublishRecovery.RowOutcome.PUBLISHED -> State.Done(themeId).also(onState)
+            PublishRecovery.RowOutcome.RETRY_LATER ->
                 State.Failed("Publishing failed: check your connection", true).also(onState)
-            }
-            is CommunityResult.NotConfigured -> State.Failed("Community is not configured", false).also(onState)
-            is CommunityResult.ServerError -> {
-                CommunityApi.deleteObject(token, PUBLIC, publicPath)
-                State.Failed("Publish rejected (${result.code})", false).also(onState)
-            }
+            PublishRecovery.RowOutcome.REJECTED ->
+                State.Failed("You can only publish your own themes", false).also(onState)
         }
     }
 }

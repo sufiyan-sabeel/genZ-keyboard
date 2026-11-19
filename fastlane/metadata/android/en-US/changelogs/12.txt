@@ -1,0 +1,4 @@
+- Six new wallpaper themes: Pastel Garden, Rainy Tokyo, Anime Sunset, Moonlit Cabin,
+  Snowfall Pines and Blue Hour Road. Each ships its own artwork, and each key, function-key
+  and accent colour was matched to that artwork rather than reused.
+- Theme Studio gains undo and redo in the theme editor.

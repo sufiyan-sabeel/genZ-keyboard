@@ -7,6 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -324,6 +326,20 @@ private fun ThemeEditor(
     Column(Modifier.fillMaxWidth().background(Color(0xFF171A1E), RoundedCornerShape(12.dp)).padding(12.dp)) {
         OutlinedTextField(name, onValueChange = { name = it; onChange(doc.copy(name = it)) }, label = { Text("Theme name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         ThemeApply.COLOR_KEYS.forEach { key -> ColorRow(key, doc, originalDoc, onChange, onResetProperty) }
+
+        // ---- shape, depth and typography. Only properties the parser actually reads are exposed:
+        // radius, borderWidth, shadow, shadowY, fontScale and pressScale are all KeyStyle fields,
+        // and corner/windowBlur are KeyboardSkin fields. Nothing here is invented.
+        Spacer(Modifier.height(10.dp))
+        Text("Shape, depth and type", color = Color(0xFF8A9299), fontSize = 11.sp)
+        NumberRow("radius", "Key corner radius", doc, originalDoc, 0f..40f, onChange, onResetProperty)
+        NumberRow("borderWidth", "Border width", doc, originalDoc, 0f..6f, onChange, onResetProperty)
+        NumberRow("shadow", "Shadow depth", doc, originalDoc, 0f..24f, onChange, onResetProperty)
+        NumberRow("shadowY", "Shadow offset", doc, originalDoc, -8f..16f, onChange, onResetProperty)
+        NumberRow("fontScale", "Label scale", doc, originalDoc, 0.6f..1.6f, onChange, onResetProperty)
+        NumberRow("pressScale", "Press scale", doc, originalDoc, 0.8f..1.1f, onChange, onResetProperty)
+        NumberRow("corner", "Keyboard corner", doc, originalDoc, 0f..36f, onChange, onResetProperty)
+        NumberRow("windowBlur", "Background blur", doc, originalDoc, 0f..30f, onChange, onResetProperty)
         Text("Key opacity", color = Color(0xFFB9C2C8), fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
         Slider(
             value = ThemeApply.float(doc, ThemeApply.KEY_OPACITY, 1f),
@@ -620,4 +636,54 @@ private fun PublishDialog(
         },
         dismissButton = { if (!busy) TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+
+/**
+ * A numeric theme property, with the same reset and undo behaviour as a colour.
+ *
+ * Generic on purpose: the renderer exposes many numeric knobs (radius, border width, shadow,
+ * scale) that all behave identically, so one control covers them and adding another property later
+ * costs one line rather than a new composable.
+ */
+@Composable
+private fun NumberRow(
+    key: String,
+    label: String,
+    doc: ThemeDoc,
+    original: ThemeDoc,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (ThemeDoc) -> Unit,
+    onReset: (String) -> Unit
+) {
+    val raw = doc.overrides[key]?.toFloatOrNull()
+    val current = raw ?: range.start
+    val modified = doc.overrides[key] != original.overrides[key]
+    val originalLabel = original.overrides[key] ?: "default"
+
+    fun set(v: Float) {
+        val ov = doc.overrides.toMutableMap()
+        ov[key] = String.format(java.util.Locale.US, "%.2f", v).trimEnd('0').trimEnd('.')
+        onChange(doc.copy(overrides = ov))
+    }
+
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Color(0xFFB9C2C8), fontSize = 11.sp, modifier = Modifier.weight(1f))
+            if (modified) {
+                TextButton(onClick = { onReset(key) }, contentPadding = PaddingValues(2.dp)) {
+                    Text("Reset ($originalLabel)", color = Color(0xFF6FD3D6), fontSize = 10.sp)
+                }
+            }
+            Text(
+                String.format(java.util.Locale.US, "%.2f", current),
+                color = Color(0xFFE8EDF0), fontSize = 11.sp
+            )
+        }
+        Slider(
+            value = current,
+            onValueChange = { set(it) },
+            valueRange = range,
+            modifier = Modifier.fillMaxWidth().height(28.dp)
+        )
+    }
 }

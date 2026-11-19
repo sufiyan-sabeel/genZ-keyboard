@@ -1,6 +1,5 @@
 package com.genz.keyboard
 
-import android.content.Context
 import java.io.File
 
 /**
@@ -19,17 +18,17 @@ object ThemeDraftSession {
     private const val TMP = "editing_session.tmp"
     private const val MAX_BYTES = 256L * 1024
 
-    private fun file(context: Context) = File(context.filesDir, FILE)
-    private fun tmp(context: Context) = File(context.filesDir, TMP)
+    private fun file(dir: File) = File(dir, FILE)
+    private fun tmp(dir: File) = File(dir, TMP)
 
     /** @return true when the session was written. */
-    fun save(context: Context, history: ThemeHistory): Boolean = runCatching {
+    fun save(dir: File, history: ThemeHistory): Boolean = runCatching {
         val json = history.snapshot()
         if (json.length > MAX_BYTES) return false
-        val tmpFile = tmp(context)
+        val tmpFile = tmp(dir)
         tmpFile.writeText(json)
         // rename is atomic on the same filesystem, so a crash cannot leave a half-written session
-        tmpFile.renameTo(file(context))
+        tmpFile.renameTo(file(dir))
     }.getOrDefault(false)
 
     /**
@@ -38,8 +37,8 @@ object ThemeDraftSession {
      * A corrupt or oversized file is deleted rather than retried forever: a session that cannot be
      * parsed will never parse, and leaving it means the editor opens broken every time.
      */
-    fun load(context: Context): ThemeHistory? = runCatching {
-        val f = file(context)
+    fun load(dir: File): ThemeHistory? = runCatching {
+        val f = file(dir)
         if (!f.isFile) return null
         if (f.length() > MAX_BYTES) { f.delete(); return null }
         val restored = ThemeHistory.restore(f.readText())
@@ -47,9 +46,9 @@ object ThemeDraftSession {
         restored
     }.getOrNull()
 
-    fun clear(context: Context) {
-        runCatching { file(context).delete(); tmp(context).delete() }
+    fun clear(dir: File) {
+        runCatching { file(dir).delete(); tmp(dir).delete() }
     }
 
-    fun exists(context: Context): Boolean = file(context).isFile
+    fun exists(dir: File): Boolean = file(dir).isFile
 }

@@ -30,6 +30,9 @@ class ThemeHistory(
     private var lastGroupKey: String? = null
     private var lastEditAt: Long = 0L
 
+    /** The theme as it was loaded — the state every property resets to. */
+    val original: ThemeDoc get() = undoStack.firstOrNull() ?: current
+
     val canUndo: Boolean get() = undoStack.isNotEmpty()
     val canRedo: Boolean get() = redoStack.isNotEmpty()
     val undoDepth: Int get() = undoStack.size

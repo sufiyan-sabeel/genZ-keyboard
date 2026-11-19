@@ -71,7 +71,7 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     var history by remember {
         mutableStateOf(
             savedSnapshot?.let { ThemeHistory.restore(it) }
-                ?: ThemeDraftSession.load(context)      // survives the process being killed
+                ?: ThemeDraftSession.load(context.filesDir)      // survives the process being killed
         )
     }
     var draft by remember { mutableStateOf(history?.current) }
@@ -83,7 +83,7 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     LaunchedEffect(history, draft) {
         history?.let {
             savedSnapshot = it.snapshot()
-            ThemeDraftSession.save(context, it)
+            ThemeDraftSession.save(context.filesDir, it)
         }
     }
 
@@ -208,7 +208,10 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
                 canRedo = history?.canRedo == true,
                 onUndo = { history?.undo()?.let { draft = it } },
                 onRedo = { history?.redo()?.let { draft = it } },
-                onResetAll = { history?.resetToOriginal()?.let { draft = it } }
+                onResetAll = { history?.resetToOriginal()?.let { draft = it } },
+                // "original" is the state the editor opened with
+                originalDoc = history?.original ?: d,
+                onResetProperty = { key -> history?.resetProperty(key)?.let { draft = it } }
             )
         }
 
@@ -312,13 +315,15 @@ private fun ThemeEditor(
     canRedo: Boolean,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
-    onResetAll: () -> Unit
+    onResetAll: () -> Unit,
+    originalDoc: ThemeDoc,
+    onResetProperty: (String) -> Unit
 ) {
     val contextForPrefs = LocalContext.current
     var name by remember(doc.id) { mutableStateOf(doc.name) }
     Column(Modifier.fillMaxWidth().background(Color(0xFF171A1E), RoundedCornerShape(12.dp)).padding(12.dp)) {
         OutlinedTextField(name, onValueChange = { name = it; onChange(doc.copy(name = it)) }, label = { Text("Theme name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        ThemeApply.COLOR_KEYS.forEach { key -> ColorRow(key, doc, onChange) }
+        ThemeApply.COLOR_KEYS.forEach { key -> ColorRow(key, doc, originalDoc, onChange, onResetProperty) }
         Text("Key opacity", color = Color(0xFFB9C2C8), fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
         Slider(
             value = ThemeApply.float(doc, ThemeApply.KEY_OPACITY, 1f),
@@ -415,8 +420,17 @@ private fun ThemeEditor(
 
 /** A hex field plus HSV sliders — a real picker, not a text box. */
 @Composable
-private fun ColorRow(key: String, doc: ThemeDoc, onChange: (ThemeDoc) -> Unit) {
+private fun ColorRow(
+    key: String,
+    doc: ThemeDoc,
+    original: ThemeDoc,
+    onChange: (ThemeDoc) -> Unit,
+    onReset: (String) -> Unit
+) {
     val current = ThemeApply.color(doc, key)
+    // reset is offered only when this property actually differs from the theme as loaded
+    val modified = doc.overrides[key] != original.overrides[key]
+    val originalLabel = original.overrides[key] ?: "preset"
     var text by remember(doc.id, key, current) { mutableStateOf(current?.let { ThemeApply.formatColor(it) } ?: "") }
     val rgb = current?.let { Color(it) } ?: Color.Transparent
     val hsv = remember(current) { FloatArray(3).also { android.graphics.Color.colorToHSV(current ?: 0xFF000000.toInt(), it) } }
@@ -428,6 +442,13 @@ private fun ColorRow(key: String, doc: ThemeDoc, onChange: (ThemeDoc) -> Unit) {
     }
 
     Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        if (modified) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = { onReset(key) }) {
+                    Text("Reset to $originalLabel", color = Color(0xFF6FD3D6), fontSize = 10.sp)
+                }
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.height(22.dp).fillMaxWidth(0.12f).background(rgb, RoundedCornerShape(6.dp)))
             OutlinedTextField(

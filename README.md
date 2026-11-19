@@ -33,7 +33,8 @@ still outstanding:
 
 **Two distributions.** The Gradle project defines two product flavours from one codebase:
 
-- `standard` — what GitHub Releases ship. Includes the ten anime artworks.
+- `standard` — what GitHub Releases ship. Includes the anime artwork: ten character themes and
+  six wallpaper themes.
 - `fdroid` — identical keyboard, but **without** those artworks, because their redistribution
   rights are unresolved. The ten themes still ship; with no bundled picture each one falls back
   to the palette that was sampled from that artwork, so it stays a distinct colour theme rather
@@ -118,8 +119,9 @@ Each theme is a **skin definition plus a bundled image**, not a screenshot: the 
 `app/src/main/assets/plugins/anime_*.json` sets key and function-key fills, text and pressed
 colours, spacebar and Enter styling, popup, suggestion chips, toolbar buttons, panel, corner
 radius and press animation, and names its picture in `backgroundImage`. The artwork in
-`app/src/main/assets/anime/` is drawn behind the real keyboard through the same path that
-handles a user-picked background, so cover-cropping, dimming, blur and transparency all apply.
+`app/src/standard/assets/anime/` — a `standard`-flavour source set, which is why the `fdroid`
+build cannot contain it — is drawn behind the real keyboard through the same path that handles a
+user-picked background, so cover-cropping, dimming, blur and transparency all apply.
 
 The palettes are not hand-picked: each theme's accent and key colours are sampled from its own
 artwork (dominant vivid hue, falling back to the picture's ink when it is monochrome), and every
@@ -137,34 +139,44 @@ on a background thread, downsampled to 2048 px and cached, never on the typing p
 
 ### Artwork rights
 
-The ten anime illustrations are supplied by the project owner and are **not** covered by the MIT
+The anime illustrations are supplied by the project owner and are **not** covered by the MIT
 licence in `LICENSE` — that licence covers the code. They depict characters and styles owned by
 third parties, and two carry other artists' signatures. Anyone redistributing this app publicly
 should confirm they hold the rights to those images, or replace them. The code works with any
-image: drop a replacement into `app/src/main/assets/anime/` under the same filename.
+image: drop a replacement into `app/src/standard/assets/anime/` under the same filename.
+
+[`docs/artwork-provenance.md`](docs/artwork-provenance.md) is the authoritative record: one row
+per image, with its source, its rights holder, the licence or permission and the attribution
+required. Every image is currently marked `UNVERIFIED — DO NOT DISTRIBUTE`, which is why the
+`fdroid` flavour ships none of them. Adding an image without recording its rights fails CI.
 
 **Privacy**
 
-
-
-- No typed text leaves the device. There is no keystroke logging, no remote logging and no
-  analytics of any kind
+- The keyboard itself never sends what you type. There is no keystroke logging, no remote logging,
+  no analytics and no crash reporting. Text leaves the device only through an action you take:
+  AI text fixing, the translate panel, or publishing a theme — each documented in
+  [PRIVACY.md](PRIVACY.md), none of them on by default
 - No ads and no tracking SDKs
 - Clipboard contents are never uploaded
-- All settings stay in local `SharedPreferences`
+- All settings stay in local `SharedPreferences`; API keys are encrypted under a key held by the
+  Android Keystore
 - Screenshot capture into the clipboard history is **off by default** and requires an explicit
   permission grant
 
-See [PRIVACY.md](PRIVACY.md) for the full policy and the exact list of permissions.
+One request is automatic: when the settings screen opens, the app asks GitHub for the latest
+release so it can offer an update. It sends no identifier, runs at most every twelve hours, and
+never blocks typing. Every other network path is listed in [PRIVACY.md](PRIVACY.md), with what is
+sent and when.
 
 ## Screenshots
 
-No screenshots are committed yet. Rather than publish mockups, the repository only ships
-images taken from a real device build. To add yours:
+No screenshots are committed yet. Rather than publish mockups, the repository only ships images
+taken from a real device build — a render or an image from an older build would misrepresent the
+app, which is why the previous two were removed.
 
-1. Install the debug APK (see below) and enable the keyboard.
-2. Take screenshots of the keyboard, the theme picker and the settings home.
-3. Put them in `docs/screenshots/` and reference them here.
+[`docs/screenshots/README.md`](docs/screenshots/README.md) is the capture checklist: the seven
+screens needed, the file names, the sizes, and the two places each file goes (the README and the
+F-Droid listing). It is the one outstanding item that needs a device rather than a commit.
 
 ## Install
 
@@ -178,10 +190,12 @@ images taken from a real device build. To add yours:
    keyboards → GenZ Keyboard**.
 5. Select it: tap any text field, then the keyboard switcher in the navigation bar.
 
-> **Signing caveat.** Until release signing secrets are configured (see *Build* below), the
-> release APK is signed with the CI runner's debug key. CI generates that key fresh on every
-> run, so a *later* release cannot update over an earlier install — you would have to uninstall
-> first. For a genuinely updatable app, set the four signing secrets once.
+> **Signing.** Release APKs are signed with a production keystore supplied to CI through
+> repository secrets, and CI verifies the certificate fingerprint against
+> `RELEASE_CERT_SHA256` before publishing. The key is stable, so a later release installs over an
+> earlier one without uninstalling. The workflow refuses to publish at all when the keystore or
+> the expected fingerprint is missing — there is no debug-key fallback, because a differently
+> signed APK under the same application id would break every future update.
 
 ### From F-Droid
 
@@ -251,10 +265,17 @@ cd genZ-keyboard
 ./gradlew testStandardDebugUnitTest    # JVM unit tests, no device needed
 ```
 
-The release build is signed with the debug key unless you provide your own keystore through
-`local.properties` (or the CI secrets described above) (`RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`,
-`RELEASE_KEY_PASSWORD`). `local.properties` is git-ignored, and no keystore is committed to
-this repository — a public repository must never contain a signing key.
+Version name and code come from [`version.properties`](version.properties) at the repository
+root — the single place either is defined — and can be overridden per build with
+`-PversionName=` and `-PversionCode=`. CI passes the tag it is building and
+`scripts/check-release-version.sh` fails the build when the tag, the properties file and the
+changelog for that version code disagree.
+
+A local release build is **unsigned** unless you provide a keystore through `local.properties`
+(`RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`).
+That is deliberate: an unsigned APK cannot be installed by mistake, and a debug-signed one would
+look installable while breaking every future update. `local.properties` is git-ignored, and no
+keystore is committed to this repository — a public repository must never contain a signing key.
 
 Optional: GIF search and the optional AI text-fix feature read their keys from
 `local.properties` as `KLIPY_API_KEY` / `GIPHY_API_KEY`. Both features are off unless a key is
@@ -304,12 +325,33 @@ Design notes:
 ./gradlew testDebugUnitTest
 ```
 
-JVM unit tests cover the correction pipeline and glide-swipe scoring; they need no device.
+JVM unit tests cover the correction pipeline, glide-swipe scoring, theme and plugin parsing, the
+community rules, the privacy policies and the update decision; they need no device.
 Instrumentation tests and on-device behaviour (haptics, IME connection edge cases) are not
 covered by automated tests in this repository — those need a device or emulator.
 
-CI runs the unit tests and builds the debug APK on every push to `main`
+Two checks guard the parts that drift:
+
+```bash
+bash scripts/check-release-version.sh          # tag, versionName and F-Droid changelog agree
+python3 scripts/check-artwork-provenance.py    # every image has a recorded rights position
+```
+
+CI runs both, the unit tests and the debug build on every push to `main`
 (`.github/workflows/android.yml`) and uploads the APK as an artifact.
+
+## Documentation
+
+| Document | What it covers |
+| --- | --- |
+| [PRIVACY.md](PRIVACY.md) | Every network path, every permission, incognito, the community backend |
+| [SECURITY.md](SECURITY.md) | How to report a vulnerability privately |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Ground rules, build steps, code style |
+| [PLUGINS.md](PLUGINS.md) | The plugin and theme file format, with the 45 bundled definitions |
+| [docs/README.md](docs/README.md) | Index of the design, audit and roadmap documents |
+| [docs/artwork-provenance.md](docs/artwork-provenance.md) | Rights position of every bundled image |
+| [NOTICE.md](NOTICE.md) | Third-party asset licences and the attribution they require |
+| [fdroid/SUBMISSION.md](fdroid/SUBMISSION.md) | State of the F-Droid submission |
 
 ## Contributing
 
@@ -325,14 +367,20 @@ The full policy is in [PRIVACY.md](PRIVACY.md). In short:
   in a reduced mode with no suggestions and no learning.
 - **Local storage.** Settings, the personal dictionary and clipboard history live in app-private
   storage. `android:allowBackup="false"`, so none of it reaches Google's backup service.
-- **Network.** `INTERNET` is used in four user-triggered cases only: downloading a language
-  dictionary, GIF search (your own Klipy/Giphy key), AI text fixing (the provider you configure),
-  and assets a plugin fetches. There is no telemetry, no update check and no heartbeat.
+- **Network.** There is no telemetry and no heartbeat, and nothing you type is sent anywhere by
+  the keyboard itself. Seven paths use `INTERNET`, and PRIVACY.md documents each one: the
+  automatic GitHub Releases update check (no identifier, at most every 12 hours, the only call
+  the app makes on its own); language dictionary downloads; GIF search with your own Klipy or
+  Giphy key; AI text fixing and voice cleanup with your own provider key; the translate panel,
+  which sends the text you asked to translate to a translation service; the optional community
+  backend, which is absent from every release APK; and plugins you install, whose requests are
+  HTTPS-only and rate-limited.
 - **Permissions.** `VIBRATE`; `INTERNET`; `RECORD_AUDIO` only when you tap the microphone;
   and the media permissions only if you switch on "screenshots in clipboard", which is off by
-  default and uses the system photo picker rather than broad library access.
-- **Optional services.** Every network feature is off unless you configure it. The app is fully
-  usable as a keyboard with no account, no key and no network.
+  default. When it is on, the app asks the media store for images marked as screenshots that are
+  newer than its last scan and less than a day old, and ignores everything else.
+- **Optional services.** Every other network feature is off unless you configure it. The app is
+  fully usable as a keyboard with no account, no key and no network.
 
 ## Open-source licences
 
@@ -354,7 +402,9 @@ The full policy is in [PRIVACY.md](PRIVACY.md). In short:
 | Anime theme artwork | **not** MIT — see below |
 
 The anime artwork is supplied by the project owner and is not covered by the code licence; it is
-excluded from the F-Droid flavour for that reason. Details in [NOTICE.md](NOTICE.md).
+excluded from the F-Droid flavour for that reason. Per-image details are in
+[`docs/artwork-provenance.md`](docs/artwork-provenance.md), and the third-party asset notices are
+in [NOTICE.md](NOTICE.md).
 
 ## F-Droid maintenance
 
@@ -367,13 +417,17 @@ Notes for whoever maintains the F-Droid listing:
 | Issue tracker | https://github.com/sufiyan-sabeel/genZ-keyboard/issues |
 | Licence | MIT |
 | Release tags | `vMAJOR.MINOR.PATCH`, e.g. `v1.0.3` |
-| Versioning | `versionName` follows the tag; `versionCode` increments on **every** build, including rebuilds of the same version |
-| Build flavour | `fdroid` (`gradle: - fdroid`), no proprietary dependencies, no bundled third-party artwork |
+| Versioning | both come from `version.properties`; the tag must equal `versionName`, and `versionCode` is bumped by hand for **every** published build, including a rebuild of the same version |
+| Build flavour | `fdroid` (`gradle: - fdroid`), no proprietary dependencies, no artwork of unresolved rights (emoji and font assets are separately licensed — see [NOTICE.md](NOTICE.md)) |
 | Update check | `Tags` |
 | Auto-update | `Version` |
 
 `versionCode` is never reused for a different binary: v1.0.3 shipped as versionCode 7 and was
-rebuilt as versionCode 8 when its palette bug was fixed. The next release starts at 9.
+rebuilt as versionCode 8 when its palette bug was fixed. F-Droid rejects a second binary for a
+code it has already built, which is why the increment is a deliberate step rather than something
+Gradle derives. `scripts/check-release-version.sh` fails the build when the tag, `versionName`
+and the changelog for the current `versionCode` disagree, and `scripts/check-artwork-provenance.py`
+fails it when an image has no recorded rights position.
 
 ## License
 

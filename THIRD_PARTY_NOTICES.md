@@ -1,7 +1,11 @@
 # Third-Party Artwork Notices
 
-This file records the provenance of every image bundled with, or considered for, the GenZ
-Keyboard theme collection. It is the authoritative record for artwork rights.
+This file records what is known about the **wallpaper** illustrations — the `art_*.webp` files —
+including the three that are withheld. It is not the complete record: the ten character
+illustrations are covered by [`docs/artwork-provenance.md`](docs/artwork-provenance.md), which is
+the authoritative inventory for every image in the repository, one row per file, with its source,
+rights holder, licence or permission and redistribution status. Where the two differ, the
+inventory is correct.
 
 **Nothing here is a licence grant.** Where a licence is not documented, none is implied. Where a
 work carries another artist's mark, it is treated as that artist's work until they say otherwise.

@@ -655,14 +655,15 @@ private fun NumberRow(
     onChange: (ThemeDoc) -> Unit,
     onReset: (String) -> Unit
 ) {
-    val raw = doc.overrides[key]?.toFloatOrNull()
-    val current = raw ?: range.start
-    val modified = doc.overrides[key] != original.overrides[key]
+    val spec = ThemeProperty.byKey(key)
+    val current = spec?.let { ThemeProperty.valueOf(doc, it) } ?: range.start
+    val modified = spec?.let { ThemeProperty.isModified(doc, original, it) } ?: (doc.overrides[key] != original.overrides[key])
     val originalLabel = original.overrides[key] ?: "default"
 
     fun set(v: Float) {
         val ov = doc.overrides.toMutableMap()
-        ov[key] = String.format(java.util.Locale.US, "%.2f", v).trimEnd('0').trimEnd('.')
+        ov[key] = spec?.let { ThemeProperty.encode(it, v) }
+            ?: String.format(java.util.Locale.US, "%.2f", v).trimEnd('0').trimEnd('.')
         onChange(doc.copy(overrides = ov))
     }
 

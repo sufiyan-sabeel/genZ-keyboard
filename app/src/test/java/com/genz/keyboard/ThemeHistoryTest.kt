@@ -99,7 +99,8 @@ class ThemeHistoryTest {
         h.push(doc("#222222"))
         h.push(doc("#333333"))
         assertEquals("#111111", h.resetToOriginal().overrides["colorKey"])
-        assertFalse(h.canUndo)
+        // reset is itself an edit, so it stays undoable — see resetAllCanBeUndone
+        assertTrue(h.canUndo)
         assertFalse(h.canRedo)
     }
 

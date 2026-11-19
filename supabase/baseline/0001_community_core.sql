@@ -1,3 +1,22 @@
+-- =====================================================================================
+-- BASELINE SNAPSHOT — NOT A MIGRATION
+--
+-- This file is the cumulative result of three migrations already applied to the live project:
+--   20261118161726  genz_keyboard_community_core        (24361 bytes)
+--   20261118161910  genz_keyboard_community_idempotent  (20806 bytes)
+--   20261118161946  genz_keyboard_hardening             (22608 bytes)
+--
+-- It is kept OUT of supabase/migrations/ deliberately. Putting a cumulative snapshot in the active
+-- migration directory would make the Supabase CLI treat it as a new, unapplied migration and push it
+-- onto a project that already has this state.
+--
+-- Use this file to build a FRESH project (or a CI database) from zero:
+--     psql "$DATABASE_URL" -f supabase/baseline/0001_community_core.sql
+--     psql "$DATABASE_URL" -f supabase/migrations/0002_storage.sql
+--
+-- Do NOT use it to "repair" the existing project.
+-- =====================================================================================
+
 -- GenZ Keyboard community backend (Supabase / PostgreSQL)
 --
 -- Apply with:  supabase db push   (or paste into the SQL editor)

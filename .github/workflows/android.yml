@@ -60,6 +60,12 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Version consistency
+        run: bash scripts/check-release-version.sh
+
+      - name: Artwork provenance
+        run: python3 scripts/check-artwork-provenance.py
+
       - name: Unit tests
         run: ./gradlew testStandardDebugUnitTest --stacktrace
 
@@ -163,6 +169,9 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Version consistency
+        run: bash scripts/check-release-version.sh "${{ inputs.version }}"
+
       # Secrets are written to files and environment only; nothing here is echoed.
       - name: Configure production signing
         env:
@@ -260,8 +269,9 @@ jobs:
 
       # A release APK must be signed with a key that stays the same across releases, or
       # installed copies can never be updated. The key is never committed: it is supplied
-      # through repository secrets. Without them the build falls back to the debug key,
-      # which is fine for testing but means a later release cannot update an earlier one.
+      # through repository secrets. There is deliberately no fallback — without the keystore
+      # the job stops here rather than publishing a differently-signed APK under the same
+      # application id.
       - name: Configure release signing
         env:
           KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
@@ -324,42 +334,49 @@ jobs:
           fi
           echo "Certificate identity verified: $FP"
 
+      # The notes are generated, never typed into this file: the version name and code come from
+      # version.properties (the same values Gradle built with) and the changelog comes from the
+      # fastlane file F-Droid reads. The in-app update check parses the `versionCode:` line, so a
+      # hand-written body is how the app ends up offering an update to itself.
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.version }}
           SIGNING: ${{ env.SIGNING }}
         run: |
-          NOTES=$(cat <<'EOF'
+          set -euo pipefail
+          VERSION_NAME=$(sed -n 's/^versionName=//p' version.properties | tail -1 | tr -d '[:space:]')
+          VERSION_CODE=$(sed -n 's/^versionCode=//p' version.properties | tail -1 | tr -d '[:space:]')
+          CHANGELOG="fastlane/metadata/android/en-US/changelogs/$VERSION_CODE.txt"
+          if [ ! -s "$CHANGELOG" ]; then
+            echo "::error::$CHANGELOG is missing or empty; refusing to publish notes without a changelog."
+            exit 1
+          fi
+          NOTES=$(cat <<EOF
           GenZ Keyboard - an Android keyboard built in Kotlin and Jetpack Compose, in the
           Material 3 Expressive design language.
 
           Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
 
-          versionCode: 12
+          versionCode: $VERSION_CODE
 
-          ### What changed in 1.0.7
+          ### What changed in $VERSION_NAME
 
-          - **Six new wallpaper themes.** Pastel Garden, Rainy Tokyo, Anime Sunset, Moonlit Cabin,
-            Snowfall Pines and Blue Hour Road. Each ships its own artwork, and each keycap colour,
-            function-key colour and accent was matched to that artwork rather than reused.
-          - **Readable over real pictures.** Keycaps are translucent so the wallpaper stays visible,
-            and every theme clears 4.5:1 contrast for key, function-key and accent labels.
-          - **Theme Studio** (from 1.0.6): create, edit, rename, duplicate and delete themes with a
-            live preview drawn by the same renderer the keyboard uses, plus theme import/export and
-            wallpaper selection through the system file picker.
+          $(cat "$CHANGELOG")
 
           ### Artwork note
 
-          Three further themes were prepared but are **not included**: the windmill, samurai and
-          sakura images carry other artists' signatures and are withheld pending permission.
-          The app is unaffected - those themes are simply absent.
+          Three further themes are prepared but not included: the windmill, samurai and sakura
+          images are recorded in the repository's artwork inventory as carrying other artists'
+          signatures, and are withheld pending permission. They are absent, not broken.
 
           ### Notes
 
-          - This APK is the `standard` flavour. The `fdroid` flavour ships the same keyboard with
-            no bundled artwork.
-          - No analytics, no telemetry, no accounts.
+          - This APK is the \`standard\` flavour. The \`fdroid\` flavour ships the same keyboard
+            without the bundled theme illustrations.
+          - No analytics, no advertising and no crash reporting. What you type stays on the device
+            except when you use a network feature you configured yourself - see PRIVACY.md for the
+            complete list.
           EOF
           )
           if gh release view "$TAG" > /dev/null 2>&1; then

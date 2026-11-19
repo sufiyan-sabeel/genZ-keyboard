@@ -317,6 +317,30 @@ class ApkLocations(unittest.TestCase):
             self.assertEqual(r.returncode, 1)
             self.assertIn("no inventory row", r.stderr)
 
+    def test_report_mode_describes_an_artifact_without_failing(self):
+        # the CI step that reports what the debug APK bundles must not turn a green build red
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, shipped={"ink.webp": None})
+            apk = make_apk(tmp, ["ink.webp"])
+            r = run("--root", root, "--apk", apk, "--report")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("::warning::", r.stdout)
+            self.assertIn("ink.webp", r.stdout)
+
+    def test_report_mode_still_fails_on_an_inconsistent_inventory(self):
+        # a defect in the record is not a property of the artifact being described
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, shipped={"ink.webp": None},
+                             rows={"other.webp": UNVERIFIED})
+            (root / "docs" / "artwork-provenance.md").write_text(
+                inventory_md({"other.webp": UNVERIFIED}), encoding="utf-8")
+            (root / "docs" / "pending-themes" / "artwork").mkdir(parents=True, exist_ok=True)
+            (root / "docs" / "pending-themes" / "artwork" / "other.webp").write_bytes(b"x")
+            apk = make_apk(tmp, ["ink.webp"])
+            r = run("--root", root, "--apk", apk, "--report")
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("no row in the inventory", r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,10 +12,15 @@ Three modes, because a development build and a published release must not be tre
                in the standard source set fails the gate. No override exists, by design — the way
                to pass is to record the rights, not to silence the check.
 
-  --apk PATH   Inspect a built APK. Lists assets/anime/* inside it and fails when any of those
-               images is unverified or absent from the inventory. This is what makes the gate
-               about the artifact that would actually be published, not only about the source
-               tree it was built from.
+  --apk PATH   Inspect a built APK. Reports every image inside it that is artwork - anything
+               under assets/anime/, and anything whose filename matches an inventory row anywhere
+               in the archive - and fails when one of them is unverified or absent from the
+               inventory. This is what makes the gate about the artifact that would actually be
+               published, not only about the source tree it was built from.
+
+  --report     Downgrade --apk findings to warnings. For steps that describe a build rather than
+               gate it, such as the CI job reporting what the debug APK bundles. Inventory
+               inconsistencies still fail: those are defects in the record, not in the artifact.
 
 The rules come from docs/artwork-provenance.md:
 
@@ -223,6 +228,8 @@ def main(argv=None):
                         help="release licensing gate: fail when unverified artwork would ship")
     parser.add_argument("--apk", metavar="PATH",
                         help="inspect a built APK instead of (or as well as) the source tree")
+    parser.add_argument("--report", action="store_true",
+                        help="with --apk, report findings as warnings instead of failing")
     parser.add_argument("--root", metavar="PATH", default=None,
                         help="repository root (default: the parent of this script)")
     args = parser.parse_args(argv)
@@ -247,8 +254,16 @@ def main(argv=None):
         print(f"  standard flavour: {n_shipped} image(s), {n_unverified} not cleared")
 
     if args.apk:
-        n_bundled, n_bad = check_apk(Path(args.apk), rows, errors)
+        apk_errors = []
+        n_bundled, n_bad = check_apk(Path(args.apk), rows, apk_errors)
         print(f"  apk {args.apk}: {n_bundled} bundled image(s), {n_bad} not cleared")
+        if args.report:
+            # Describing a build, not gating it: say what is in there and let the build continue.
+            for e in apk_errors:
+                print(f"::warning::{e}")
+        else:
+            for e in apk_errors:
+                add_error(errors, e)
 
     # A warning only in consistency mode: it is a fact about the project, not a build defect, and
     # blocking daily work on it would just teach people to skip the check.

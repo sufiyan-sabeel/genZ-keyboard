@@ -169,7 +169,7 @@ object ThemePublishing {
         // present it may belong to an earlier successful publish, and deleting it would destroy live
         // artwork.
         if (PublishRecovery.shouldDeletePublicAfterFailure(copyOutcome)) {
-            CommunityApi.cleanupOrphanPublic(context, publicPath)
+            CommunityManage.cleanupOrphanPublic(context, publicPath)
         }
 
         return when (rowOutcome) {

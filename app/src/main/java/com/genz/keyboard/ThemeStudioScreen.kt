@@ -68,7 +68,12 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     // A rotation destroys the composition. The history is snapshotted into saved state so unsaved
     // edits and the whole undo stack survive a screen turn.
     var savedSnapshot by rememberSaveable { mutableStateOf<String?>(null) }
-    var history by remember { mutableStateOf(savedSnapshot?.let { ThemeHistory.restore(it) }) }
+    var history by remember {
+        mutableStateOf(
+            savedSnapshot?.let { ThemeHistory.restore(it) }
+                ?: ThemeDraftSession.load(context)      // survives the process being killed
+        )
+    }
     var draft by remember { mutableStateOf(history?.current) }
     var pendingDelete by remember { mutableStateOf<ThemeDoc?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -76,7 +81,10 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     var publishOpen by remember { mutableStateOf(false) }
     // keep the saved snapshot in step with the live history
     LaunchedEffect(history, draft) {
-        history?.let { savedSnapshot = it.snapshot() }
+        history?.let {
+            savedSnapshot = it.snapshot()
+            ThemeDraftSession.save(context, it)
+        }
     }
 
     /** Every edit goes through the history, so undo always reflects what the user actually did. */
@@ -490,7 +498,13 @@ private fun ThemePreview(doc: ThemeDoc?, base: KeyboardSettings, modifier: Modif
                 Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = (tuning.brightness - 1f) * 0.4f)))
             }
         }
-        KeyArea(state, PreviewActions, settings, palette, FontFamily.Default, popup, layer, glide)
+        // Toolbar and suggestion strip come from the production renderer, not a mock: they take the
+        // same state and palette the keyboard uses, so what is previewed is what will be drawn.
+        Column(Modifier.fillMaxSize()) {
+            ToolbarPill(state, PreviewActions, settings, palette)
+            SuggestionStrip(state, PreviewActions, palette, FontFamily.Default)
+            KeyArea(state, PreviewActions, settings, palette, FontFamily.Default, popup, layer, glide)
+        }
     }
 }
 

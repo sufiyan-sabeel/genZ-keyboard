@@ -174,13 +174,21 @@ class ThemeHistory(
         /** Rebuild a history from [snapshot], or null when the snapshot is unusable. */
         fun restore(snapshot: String, limit: Int = 100): ThemeHistory? {
             val o = ThemeJson.decode(snapshot) ?: return null
-            val currentJson = o["current"] as? String ?: return null
-            val current = (ThemeCodec.decode(currentJson) as? ThemeValidation.Ok)?.doc ?: return null
+
+            // entries are embedded as JSON objects, so accept either a parsed map or a raw string
+            fun asDoc(item: Any?): ThemeDoc? {
+                val json = when (item) {
+                    is String -> item
+                    is Map<*, *> -> ThemeJson.encode(item.entries.associate { it.key.toString() to it.value })
+                    else -> null
+                } ?: return null
+                return (ThemeCodec.decode(json) as? ThemeValidation.Ok)?.doc
+            }
+
+            val current = asDoc(o["current"]) ?: return null
 
             fun decodeAll(raw: Any?): List<ThemeDoc> =
-                (raw as? List<*>).orEmpty().mapNotNull { item ->
-                    (item as? String)?.let { ThemeCodec.decode(it) as? ThemeValidation.Ok }?.doc
-                }
+                (raw as? List<*>).orEmpty().mapNotNull { asDoc(it) }
 
             val h = ThemeHistory(current, limit = limit)
             decodeAll(o["undo"]).forEach { h.undoStack.addLast(it) }

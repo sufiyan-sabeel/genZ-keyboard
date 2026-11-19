@@ -478,6 +478,54 @@ drop trigger if exists design_posts_insert_guard on design_posts;
 create trigger design_posts_insert_guard before insert on design_posts
   for each row execute function check_post_insert();
 
+
+-- ---------------------------------------------------------------- comments: author edit
+-- Restored: an earlier dedupe pass removed both copies of this policy, so a fresh install could not
+-- edit its own comments even though production could. Reproducibility check caught it.
+drop policy if exists "authors edit own comment" on post_comments;
+create policy "authors edit own comment" on post_comments for update
+  using (auth.uid() = author_id)
+  with check (auth.uid() = author_id);
+
+-- ---------------------------------------------------------------- moderation powers
+--
+-- A moderator is a row in `moderators`, and that table has no write policy at all, so the flag
+-- cannot be self-assigned. Every policy below re-checks membership at query time rather than
+-- trusting anything the client sends.
+create or replace function public.is_moderator() returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (select 1 from public.moderators m where m.user_id = auth.uid());
+$$;
+revoke execute on function public.is_moderator() from public, anon;
+grant execute on function public.is_moderator() to authenticated;
+
+-- Moderators may remove a review. Authors keep their own delete policy; this adds, it does not replace.
+drop policy if exists "moderators remove reviews" on reviews;
+create policy "moderators remove reviews" on reviews for delete
+  using (public.is_moderator());
+
+-- Moderators may soft-remove posts and comments rather than delete them, so an audit trail survives.
+drop policy if exists "moderators remove posts" on design_posts;
+create policy "moderators remove posts" on design_posts for update
+  using (public.is_moderator())
+  with check (public.is_moderator());
+
+drop policy if exists "moderators remove comments" on post_comments;
+create policy "moderators remove comments" on post_comments for update
+  using (public.is_moderator())
+  with check (public.is_moderator());
+
+-- The moderation queue: moderators read every report and move it through its statuses.
+drop policy if exists "moderators read reports" on reports;
+create policy "moderators read reports" on reports for select
+  using (public.is_moderator());
+
+drop policy if exists "moderators update reports" on reports;
+create policy "moderators update reports" on reports for update
+  using (public.is_moderator())
+  with check (public.is_moderator());
+
 -- ---------------------------------------------------------------- hardening
 --
 -- Trigger functions are not API endpoints. Without this, PostgREST exposes each SECURITY DEFINER

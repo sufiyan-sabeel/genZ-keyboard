@@ -85,10 +85,18 @@ class ThemeHistory(
         return current
     }
 
-    /** Reset to the theme as it was loaded, discarding all history. */
+    /**
+     * Reset every property back to the theme as it was loaded.
+     *
+     * This is an ordinary edit, not a wipe: the reset itself is pushed onto the undo stack so the
+     * user can change their mind. Clearing the history here would make an accidental reset
+     * unrecoverable, which is exactly when undo matters most.
+     */
     fun resetToOriginal(): ThemeDoc {
         val original = undoStack.firstOrNull() ?: current
-        undoStack.clear()
+        if (original == current) return current
+        undoStack.addLast(current)
+        if (undoStack.size > limit) undoStack.removeFirst()
         redoStack.clear()
         lastGroupKey = null
         current = original
@@ -108,5 +116,23 @@ class ThemeHistory(
         lastEditAt = 0L
         current = doc
         themeId = doc.id
+    }
+
+    /**
+     * Group key for an edit, derived from what actually changed.
+     *
+     * A single property changing repeatedly (a slider being dragged) shares a key and collapses into
+     * one undo step. Several properties changing at once — a preset load, a reset — returns null so
+     * it becomes its own discrete entry.
+     */
+    fun groupKeyFor(next: ThemeDoc): String? {
+        val keys = (next.overrides.keys + current.overrides.keys).toSet()
+        val changed = keys.filter { next.overrides[it] != current.overrides[it] }
+        return when {
+            changed.size == 1 -> changed.first()
+            changed.isEmpty() && next.name != current.name -> "name"
+            changed.isEmpty() && next.wallpaper != current.wallpaper -> "wallpaper"
+            else -> null
+        }
     }
 }

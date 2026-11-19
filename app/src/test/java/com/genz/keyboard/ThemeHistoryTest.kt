@@ -116,4 +116,72 @@ class ThemeHistoryTest {
         assertEquals(5, h.undoDepth)
         assertNotNull(h.undo())
     }
+
+    // ---------------------------------------------------------------- regressions
+
+    @Test
+    fun resetAllCanBeUndone() {
+        // an accidental reset is exactly when undo matters most
+        val h = ThemeHistory(doc())
+        h.push(doc("#222222"), groupKey = "colorKey", now = 1000)
+        h.resetToOriginal()
+        assertEquals("#111111", h.current.overrides["colorKey"])
+        assertTrue("reset must be undoable", h.canUndo)
+        assertEquals("#222222", h.undo()!!.overrides["colorKey"])
+    }
+
+    @Test
+    fun resettingWhenNothingChangedCreatesNoEntry() {
+        val h = ThemeHistory(doc())
+        h.resetToOriginal()
+        assertFalse(h.canUndo)
+    }
+
+    @Test
+    fun aSliderDragCollapsesViaTheDerivedKey() {
+        // the editor derives the group key from what changed, so a drag is one step
+        val h = ThemeHistory(doc())
+        var state = doc()
+        listOf("#222222", "#333333", "#444444").forEachIndexed { i, colour ->
+            val next = state.copy(overrides = state.overrides + ("colorKey" to colour))
+            h.push(next, h.groupKeyFor(next), now = 1000L + i * 50)
+            state = next
+        }
+        assertEquals(1, h.undoDepth)
+        assertEquals("#111111", h.undo()!!.overrides["colorKey"])
+    }
+
+    @Test
+    fun changingTwoPropertiesAtOnceIsItsOwnStep() {
+        val h = ThemeHistory(doc())
+        val next = doc().copy(overrides = mapOf("colorKey" to "#222222", "colorAccent" to "#999999"))
+        assertNull(h.groupKeyFor(next))
+        h.push(next, h.groupKeyFor(next), now = 1000)
+        h.push(next.copy(overrides = next.overrides + ("colorKey" to "#333333")), "colorKey", now = 1050)
+        assertEquals(2, h.undoDepth)
+    }
+
+    @Test
+    fun renamingIsGroupedSeparatelyFromColours() {
+        val h = ThemeHistory(doc())
+        val renamed = doc().copy(name = "New name")
+        assertEquals("name", h.groupKeyFor(renamed))
+    }
+
+    @Test
+    fun aWallpaperChangeIsGroupedSeparately() {
+        val h = ThemeHistory(doc())
+        assertEquals("wallpaper", h.groupKeyFor(doc().copy(wallpaper = "w.webp")))
+    }
+
+    @Test
+    fun undoRestoresTheExactPreviousDocument() {
+        // undo must restore the whole document, not just the property that changed
+        val h = ThemeHistory(doc())
+        val edited = doc().copy(name = "Renamed", overrides = mapOf("colorKey" to "#222222"))
+        h.push(edited, groupKey = "name", now = 1000)
+        val restored = h.undo()!!
+        assertEquals("T", restored.name)
+        assertEquals("#111111", restored.overrides["colorKey"])
+    }
 }

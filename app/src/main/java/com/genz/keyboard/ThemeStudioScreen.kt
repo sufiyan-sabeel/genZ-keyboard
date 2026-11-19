@@ -72,14 +72,16 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     var history by remember { mutableStateOf<ThemeHistory?>(null) }
 
     /** Every edit goes through the history, so undo always reflects what the user actually did. */
-    fun edit(next: ThemeDoc, groupKey: String? = null) {
+    fun edit(next: ThemeDoc) {
         val h = history
         if (h == null || h.themeId != next.id) {
             history = ThemeHistory(next)
             draft = next
             return
         }
-        h.push(next, groupKey)
+        // the key is derived from what changed, so dragging a slider collapses into one step
+        // without every call site having to name its own group
+        h.push(next, h.groupKeyFor(next))
         draft = h.current
     }
 

@@ -52,6 +52,17 @@ def repo_paths(root):
     }
 
 
+def add_error(errors, message):
+    """Append an error once.
+
+    The fdroid scan roots overlap (app/src/fdroid/assets is inside app/src/fdroid) and two
+    different checks can both notice the same file, which produced the same line up to four times.
+    One file, one error.
+    """
+    if message not in errors:
+        errors.append(message)
+
+
 def images_in(directory):
     if not directory.is_dir():
         return {}
@@ -96,12 +107,12 @@ def check_inventory(paths, errors):
     """Mode-independent consistency: rows and files must describe the same set."""
     inventory = paths["inventory"]
     if not inventory.is_file():
-        errors.append("docs/artwork-provenance.md is missing")
+        add_error(errors, "docs/artwork-provenance.md is missing")
         return {}, {}
 
     rows = parse_inventory(inventory.read_text(encoding="utf-8"))
     if not rows:
-        errors.append("the inventory contains no asset rows")
+        add_error(errors, "the inventory contains no asset rows")
         return {}, {}
 
     # The fdroid tree is included here so that artwork placed there produces the specific
@@ -113,16 +124,16 @@ def check_inventory(paths, errors):
         on_disk.update(images_in_tree(directory))
 
     for name in sorted(set(on_disk) - set(rows)):
-        errors.append(f"artwork file has no row in the inventory: {name}")
+        add_error(errors, f"artwork file has no row in the inventory: {name}")
     for name in sorted(set(rows) - set(on_disk)):
-        errors.append(f"inventory row names a file that does not exist: {name}")
+        add_error(errors, f"inventory row names a file that does not exist: {name}")
     for name, status in sorted(rows.items()):
         if status not in VALID_STATUSES:
-            errors.append(f"row for {name} has an unrecognised status: {status!r}")
+            add_error(errors, f"row for {name} has an unrecognised status: {status!r}")
 
     for directory in paths["fdroid"]:
         for name, path in images_in_tree(directory).items():
-            errors.append(f"artwork must not ship in the fdroid flavour: {path}")
+            add_error(errors, f"artwork must not ship in the fdroid flavour: {path}")
 
     return rows, on_disk
 
@@ -132,59 +143,77 @@ def check_release(paths, rows, errors):
     shipped = images_in(paths["shipped"])
     unverified = sorted(n for n in shipped if rows.get(n) != STATUS_VERIFIED)
     if unverified:
-        errors.append(
+        add_error(errors,
             "release blocked: %d image(s) in the standard flavour are not CLEARED: %s"
-            % (len(unverified), ", ".join(unverified))
-        )
+            % (len(unverified), ", ".join(unverified)))
 
     fdroid = {}
     for directory in paths["fdroid"]:
         fdroid.update(images_in_tree(directory))
     if fdroid:
-        errors.append(
+        add_error(errors,
             "release blocked: the fdroid flavour must ship no artwork, found: %s"
-            % ", ".join(sorted(fdroid))
-        )
+            % ", ".join(sorted(fdroid)))
 
     return len(shipped), len(unverified)
 
 
 def check_apk(apk_path, rows, errors):
-    """Inspect the artifact that would be published, not just the tree it came from."""
+    """Inspect the artifact that would be published, not just the tree it came from.
+
+    Two independent rules, because either one alone can be fooled:
+
+      - anything under assets/anime/ is artwork, whatever it is called;
+      - anything anywhere in the archive whose filename matches an inventory row is that artwork,
+        even if it was moved to another directory, renamed into a resource folder, or embedded in
+        a nested archive-free path.
+
+    A file caught by the second rule but not the first is exactly the case the audit asked about:
+    artwork that reached the APK by a route other than the assets/anime/ folder.
+    """
     if not apk_path.is_file():
-        errors.append(f"APK not found: {apk_path}")
+        add_error(errors, f"APK not found: {apk_path}")
         return 0, 0
 
     try:
         with zipfile.ZipFile(apk_path) as z:
             names = z.namelist()
-    except zipfile.BadZipFile:
-        errors.append(f"not a readable APK/zip: {apk_path}")
+    except (zipfile.BadZipFile, OSError):
+        add_error(errors, f"not a readable APK/zip: {apk_path}")
         return 0, 0
 
-    bundled = [n for n in names
-               if n.startswith(APK_ASSET_PREFIX) and Path(n).suffix.lower() in IMAGE_SUFFIXES]
+    images = [n for n in names if Path(n).suffix.lower() in IMAGE_SUFFIXES]
+    under_anime = [n for n in images if n.startswith(APK_ASSET_PREFIX)]
+    known_by_name = [n for n in images if Path(n).name in rows]
+    bundled = sorted(set(under_anime) | set(known_by_name))
+
     if not bundled:
         return 0, 0
 
-    unverified, unknown = [], []
+    unverified, unknown, misplaced = [], [], []
     for entry in bundled:
         name = Path(entry).name
         if name not in rows:
-            unknown.append(name)
-        elif rows[name] != STATUS_VERIFIED:
-            unverified.append(name)
+            unknown.append(entry)
+        else:
+            if rows[name] != STATUS_VERIFIED:
+                unverified.append(name)
+            if not entry.startswith(APK_ASSET_PREFIX):
+                misplaced.append(entry)
 
     if unknown:
-        errors.append(
+        add_error(errors,
             "release blocked: the APK contains artwork with no inventory row: %s"
-            % ", ".join(sorted(set(unknown)))
-        )
+            % ", ".join(sorted(set(unknown))))
     if unverified:
-        errors.append(
+        add_error(errors,
             "release blocked: the APK contains %d unverified image(s): %s"
-            % (len(unverified), ", ".join(sorted(set(unverified))))
-        )
+            % (len(unverified), ", ".join(sorted(set(unverified)))))
+    if misplaced:
+        add_error(errors,
+            "release blocked: the APK contains inventory artwork outside %s: %s"
+            % (APK_ASSET_PREFIX, ", ".join(sorted(set(misplaced)))))
+
     return len(bundled), len(unverified)
 
 

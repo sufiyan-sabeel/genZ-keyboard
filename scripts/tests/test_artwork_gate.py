@@ -226,5 +226,97 @@ class ApkInspection(unittest.TestCase):
             self.assertIn("APK not found", r.stderr)
 
 
+class InventoryValidation(unittest.TestCase):
+    """Cases the first audit found untested, though both paths already behaved correctly."""
+
+    def test_an_invalid_status_value_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, shipped={"ink.webp": None}, rows={"ink.webp": "PROBABLY FINE"})
+            r = run("--root", root)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("unrecognised status", r.stderr)
+
+    def test_an_invalid_status_blocks_the_release_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, shipped={"ink.webp": None}, rows={"ink.webp": "MOSTLY CLEARED"})
+            r = run("--root", root, "--release")
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("unrecognised status", r.stderr)
+
+    def test_a_status_with_a_typo_is_not_treated_as_cleared(self):
+        # "cleared" lowercase must not pass: only the exact value counts
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, shipped={"ink.webp": None}, rows={"ink.webp": "cleared"})
+            r = run("--root", root, "--release")
+            self.assertEqual(r.returncode, 1)
+
+
+class NestedDirectories(unittest.TestCase):
+    """Artwork three levels down is still artwork."""
+
+    def test_deeply_nested_fdroid_artwork_is_caught(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, rows={})
+            deep = root / "app" / "src" / "fdroid" / "assets" / "anime" / "deep" / "deeper"
+            deep.mkdir(parents=True)
+            (deep / "leak.webp").write_bytes(b"RIFF0000WEBP")
+            # record it so the only complaint is that it is in the fdroid flavour
+            (root / "docs" / "artwork-provenance.md").write_text(
+                inventory_md({"leak.webp": CLEARED}), encoding="utf-8")
+            r = run("--root", root)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("must not ship in the fdroid flavour", r.stderr)
+            self.assertIn("deep/deeper/leak.webp", r.stderr)
+
+    def test_a_nested_file_is_reported_once_not_four_times(self):
+        # the scan roots overlap, so without de-duplication the same file is named repeatedly
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, fdroid={"leak.webp": None}, rows={"leak.webp": CLEARED})
+            r = run("--root", root, "--release")
+            self.assertEqual(r.returncode, 1)
+            self.assertEqual(r.stderr.count("must not ship in the fdroid flavour"), 1,
+                             "the same artwork should produce one error line, got:\n" + r.stderr)
+
+
+class ApkLocations(unittest.TestCase):
+    """The APK scan covers more than assets/anime/."""
+
+    def test_artwork_outside_assets_anime_is_caught(self):
+        # an inventory image moved into a resource folder: not under assets/anime/, still artwork
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, shipped={"ink.webp": None})
+            apk = Path(tmp) / "moved.apk"
+            with zipfile.ZipFile(apk, "w") as z:
+                z.writestr("AndroidManifest.xml", b"\x03\x00")
+                z.writestr("res/drawable/ink.webp", b"RIFF0000WEBP")
+            r = run("--root", root, "--apk", apk)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("outside assets/anime/", r.stderr)
+
+    def test_unrelated_images_outside_assets_anime_are_ignored(self):
+        # emoji and launcher assets are not artwork of unresolved rights and must not trip the gate
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, shipped={"ink.webp": None})
+            apk = Path(tmp) / "emoji.apk"
+            with zipfile.ZipFile(apk, "w") as z:
+                z.writestr("AndroidManifest.xml", b"\x03\x00")
+                z.writestr("assets/emoji/twemoji/1f600.webp", b"RIFF0000WEBP")
+                z.writestr("res/drawable-hdpi/ic_launcher.png", b"\x89PNG")
+            r = run("--root", root, "--apk", apk)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("0 bundled image", r.stdout)
+
+    def test_an_unknown_image_under_assets_anime_is_caught(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_repo(tmp, shipped={"ink.webp": None})
+            apk = Path(tmp) / "extra.apk"
+            with zipfile.ZipFile(apk, "w") as z:
+                z.writestr("AndroidManifest.xml", b"\x03\x00")
+                z.writestr("assets/anime/bonus.webp", b"RIFF0000WEBP")
+            r = run("--root", root, "--apk", apk)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("no inventory row", r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

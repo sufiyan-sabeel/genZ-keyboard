@@ -114,6 +114,13 @@ jobs:
           "$ANDROID_HOME/build-tools/$BT/aapt2" dump badging "$APK" | head -5
           echo "APK_PATH=$APK" >> "$GITHUB_ENV"
 
+      # Reports what the debug build actually bundles, so the reason it is not uploaded is visible
+      # in the log rather than only in this file's comments.
+      - name: Report artwork bundled in the debug APK
+        run: |
+          set -euo pipefail
+          python3 scripts/check-artwork-provenance.py --apk "$APK_PATH"
+
       - name: Verify the two flavours differ as intended
         run: |
           STD=$(ls app/build/outputs/apk/standard/debug/*.apk | head -1)
@@ -134,13 +141,16 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: genz-keyboard-debug-apk
-          path: app/build/outputs/apk/standard/debug/*.apk
-          if-no-files-found: error
-          retention-days: 30
+      # The standard debug APK bundles the sixteen illustrations whose rights are unrecorded, and on
+      # a public repository an Actions artifact is downloadable by anyone with an account. It is no
+      # longer published. The build still runs and is still verified above; build locally with
+      # `./gradlew assembleStandardDebug` when a debug APK is needed, and use the F-Droid artifact
+      # above for a downloadable build that carries no artwork.
+      - name: Debug APK is not published
+        run: |
+          echo "The standard debug APK is built and checked, but not uploaded."
+          echo "Reason: it bundles the artwork that docs/artwork-provenance.md records as unverified."
+          echo "Build it locally with: ./gradlew assembleStandardDebug"
 
       - name: Upload test reports
         if: always()
@@ -217,20 +227,24 @@ jobs:
       - name: Build signed release APK
         run: ./gradlew assembleStandardRelease --stacktrace
 
+      # Same single selection as the publish job: one path, exported, used by every later step.
+      - name: Select release APK
+        run: |
+          set -euo pipefail
+          APK=$(bash scripts/select-release-apk.sh app/build/outputs/apk/standard/release)
+          echo "Selected: $APK"
+          echo "RELEASE_APK=$APK" >> "$GITHUB_ENV"
+
       - name: Verify signature and certificate identity
         env:
           EXPECTED_SHA256: ${{ vars.RELEASE_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          APK=$(ls app/build/outputs/apk/standard/release/*.apk 2>/dev/null | grep -v unsigned | head -1)
-          if [ -z "$APK" ]; then
-            echo "::error::No signed release APK was produced - the build fell back to unsigned."
-            exit 1
-          fi
+          : "${RELEASE_APK:?RELEASE_APK was not exported by the selection step}"
           BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
           ASIGN="$ANDROID_HOME/build-tools/$BT/apksigner"
-          "$ASIGN" verify --print-certs "$APK"
-          FP=$("$ASIGN" verify --print-certs "$APK" | grep -i 'sha-256 digest' | head -1 | grep -oE '[0-9a-fA-F]{64}' | head -1 | tr 'A-F' 'a-f')
+          "$ASIGN" verify --print-certs "$RELEASE_APK"
+          FP=$("$ASIGN" verify --print-certs "$RELEASE_APK" | grep -i 'sha-256 digest' | head -1 | grep -oE '[0-9a-fA-F]{64}' | head -1 | tr 'A-F' 'a-f')
           echo "Signer certificate SHA-256: $FP"
           if [ -z "${EXPECTED_SHA256:-}" ]; then
             echo "::error::Repository variable RELEASE_CERT_SHA256 is not set; certificate identity cannot be enforced."
@@ -242,9 +256,15 @@ jobs:
             exit 1
           fi
           echo "Certificate identity matches the expected production identity."
-          "$ANDROID_HOME/build-tools/$BT/aapt2" dump badging "$APK" | head -3
-          sha256sum "$APK"
-          cp "$APK" "GenZKeyboard-${{ github.run_number }}-signed.apk"
+          "$ANDROID_HOME/build-tools/$BT/aapt2" dump badging "$RELEASE_APK" | head -3
+          sha256sum "$RELEASE_APK"
+          cp "$RELEASE_APK" "GenZKeyboard-${{ github.run_number }}-signed.apk"
+
+      - name: Verify the signed APK carries no unverified artwork
+        run: |
+          set -euo pipefail
+          : "${RELEASE_APK:?RELEASE_APK was not exported by the selection step}"
+          python3 scripts/check-artwork-provenance.py --apk "$RELEASE_APK"
 
       - name: Upload signed release APK
         uses: actions/upload-artifact@v4
@@ -328,45 +348,58 @@ jobs:
       - name: Build release APK
         run: ./gradlew assembleStandardRelease --stacktrace
 
-      - name: Inspect release APK
+      # One APK is selected, once, and every later step works on that exact path. Before this,
+      # three steps each ran their own `ls`, with two different filters, so the file that was
+      # verified and the file that was uploaded could differ. scripts/select-release-apk.sh refuses
+      # to guess: zero APKs, more than one, or a lone unsigned APK are all hard failures.
+      - name: Select release APK
+        id: select
         run: |
-          APK=$(ls app/build/outputs/apk/standard/release/*.apk | head -1)
-          if [ -z "$APK" ]; then
-            echo "::error::Release APK was not produced"
-            exit 1
-          fi
-          ls -lh "$APK"
-          BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
-          "$ANDROID_HOME/build-tools/$BT/aapt2" dump badging "$APK" | head -3
-          "$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$APK" | head -5
-          cp "$APK" "GenZKeyboard-${{ inputs.version }}.apk"
+          set -euo pipefail
+          APK=$(bash scripts/select-release-apk.sh app/build/outputs/apk/standard/release)
+          echo "Selected:  $APK"
 
-      # Second, independent check: the artifact that would be uploaded, not the source tree it
-      # came from. This runs after the build and before the certificate check and the publish
-      # step, so an APK that somehow gained unverified artwork still cannot be released.
+          PUB="GenZKeyboard-${{ inputs.version }}.apk"
+          cp "$APK" "$PUB"
+          PUB_ABS="$PWD/$PUB"
+
+          # The checksum is taken from the file that will be uploaded, not from the build output.
+          SHA=$(sha256sum "$PUB_ABS" | cut -d' ' -f1)
+          printf '%s  %s\n' "$SHA" "$PUB" > "$PUB.sha256"
+          echo "Published: $PUB_ABS"
+          echo "sha256:    $SHA"
+
+          {
+            echo "RELEASE_APK=$PUB_ABS"
+            echo "RELEASE_APK_SHA256=$SHA"
+          } >> "$GITHUB_ENV"
+
+      # Everything below operates on $RELEASE_APK, the file that will be attached to the release.
+      - name: Inspect the release APK that will be published
+        run: |
+          set -euo pipefail
+          : "${RELEASE_APK:?RELEASE_APK was not exported by the selection step}"
+          ls -l "$RELEASE_APK"
+          BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          "$ANDROID_HOME/build-tools/$BT/aapt2" dump badging "$RELEASE_APK" | head -3
+          "$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$RELEASE_APK" | head -5
+
+      # The artwork check runs against the published bytes, not the build output.
       - name: Verify the release APK carries no unverified artwork
         run: |
           set -euo pipefail
-          APK=$(ls app/build/outputs/apk/standard/release/*.apk 2>/dev/null | grep -v unsigned | head -1)
-          if [ -z "$APK" ]; then
-            echo "::error::No signed release APK to inspect - refusing to continue."
-            exit 1
-          fi
-          python3 scripts/check-artwork-provenance.py --apk "$APK"
+          : "${RELEASE_APK:?RELEASE_APK was not exported by the selection step}"
+          python3 scripts/check-artwork-provenance.py --apk "$RELEASE_APK"
 
       - name: Verify certificate identity before publishing
         env:
           EXPECTED_SHA256: ${{ vars.RELEASE_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          APK=$(ls app/build/outputs/apk/standard/release/*.apk 2>/dev/null | grep -v unsigned | head -1)
-          if [ -z "$APK" ]; then
-            echo "::error::No signed release APK - refusing to publish."
-            exit 1
-          fi
+          : "${RELEASE_APK:?RELEASE_APK was not exported by the selection step}"
           BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
           ASIGN="$ANDROID_HOME/build-tools/$BT/apksigner"
-          FP=$("$ASIGN" verify --print-certs "$APK" | grep -i 'sha-256 digest' | head -1 | grep -oE '[0-9a-fA-F]{64}' | head -1 | tr 'A-F' 'a-f')
+          FP=$("$ASIGN" verify --print-certs "$RELEASE_APK" | grep -i 'sha-256 digest' | head -1 | grep -oE '[0-9a-fA-F]{64}' | head -1 | tr 'A-F' 'a-f')
           if [ -z "${EXPECTED_SHA256:-}" ]; then
             echo "::error::RELEASE_CERT_SHA256 is not set; refusing to publish an unverified identity."
             exit 1
@@ -396,6 +429,26 @@ jobs:
             echo "::error::$CHANGELOG is missing or empty; refusing to publish notes without a changelog."
             exit 1
           fi
+          # The identity of the published bytes, so the in-app updater can tell a user when an
+          # update cannot be installed over their build (a different signing key) before they
+          # download it. UpdateChecker reads this line.
+          : "${RELEASE_APK:?RELEASE_APK was not exported by the selection step}"
+          : "${RELEASE_APK_SHA256:?RELEASE_APK_SHA256 was not exported by the selection step}"
+          if [ ! -f "$RELEASE_APK" ]; then
+            echo "::error::the selected APK no longer exists: $RELEASE_APK"
+            exit 1
+          fi
+          if [ "$(sha256sum "$RELEASE_APK" | cut -d' ' -f1)" != "$RELEASE_APK_SHA256" ]; then
+            echo "::error::the APK changed after it was selected and checked; refusing to publish"
+            exit 1
+          fi
+          BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          SIGNER=$("$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$RELEASE_APK" \
+            | grep -i 'sha-256 digest' | head -1 | grep -oE '[0-9a-fA-F]{64}' | head -1 | tr 'A-F' 'a-f')
+          echo "Publishing $RELEASE_APK"
+          echo "sha256 $RELEASE_APK_SHA256"
+          echo "signer $SIGNER"
+
           NOTES=$(cat <<EOF
           GenZ Keyboard - an Android keyboard built in Kotlin and Jetpack Compose, in the
           Material 3 Expressive design language.
@@ -403,6 +456,8 @@ jobs:
           Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
 
           versionCode: $VERSION_CODE
+          signature: $SIGNER
+          sha256: $RELEASE_APK_SHA256
 
           ### What changed in $VERSION_NAME
 
@@ -423,10 +478,18 @@ jobs:
             complete list.
           EOF
           )
+          # Upload exactly the path that was selected, checksummed, artwork-checked and
+          # certificate-checked. No step after this one may choose an APK of its own.
+          SHA_FILE="$RELEASE_APK.sha256"
+          if [ ! -f "$SHA_FILE" ]; then
+            echo "::error::checksum file missing: $SHA_FILE"
+            exit 1
+          fi
           if gh release view "$TAG" > /dev/null 2>&1; then
             echo "Release $TAG exists - replacing the APK asset and refreshing the notes"
-            gh release upload "$TAG" "GenZKeyboard-$TAG.apk" --clobber
+            gh release upload "$TAG" "$RELEASE_APK" "$SHA_FILE" --clobber
             gh release edit "$TAG" --notes "$NOTES"
           else
-            gh release create "$TAG" "GenZKeyboard-$TAG.apk"               --title "GenZ Keyboard $TAG"               --notes "$NOTES"
+            gh release create "$TAG" "$RELEASE_APK" "$SHA_FILE" \
+              --title "GenZ Keyboard $TAG" --notes "$NOTES"
           fi

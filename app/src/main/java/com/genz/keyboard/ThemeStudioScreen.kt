@@ -69,7 +69,7 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     var message by remember { mutableStateOf<String?>(null) }
     var importedText by remember { mutableStateOf<String?>(null) }
     var publishOpen by remember { mutableStateOf(false) }
-    var publishState by remember { mutableStateOf<CommunityPublish.State>(CommunityPublish.State.Idle) }
+    var publishState by remember { mutableStateOf<ThemePublishing.State>(ThemePublishing.State.Idle) }
 
     // Bundled themes, filtered to those whose artwork this build actually ships.
     val gallery = remember {
@@ -159,7 +159,7 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
 
         draft?.let { d ->
             ThemeEditor(d, onChange = { draft = it }, onExtract = { extractColours(d) }, onPublish = {
-                publishState = CommunityPublish.State.Idle
+                publishState = ThemePublishing.State.Idle
                 publishOpen = true
             }, onApply = {
                 message = if (ThemeApply.applyAndPersist(context, d, base)) "Applied \"${d.name}\"" else "Could not apply"
@@ -230,7 +230,7 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
             onDismiss = { publishOpen = false },
             onPublish = { title, description, category, tags ->
                 draft?.let { d ->
-                    publishState = CommunityPublish.publish(
+                    publishState = ThemePublishing.saveDraft(
                         context = context,
                         doc = d,
                         title = title,
@@ -452,7 +452,7 @@ private fun ThemePreview(doc: ThemeDoc?, base: KeyboardSettings, modifier: Modif
 @Composable
 private fun PublishDialog(
     doc: ThemeDoc,
-    state: CommunityPublish.State,
+    state: ThemePublishing.State,
     onDismiss: () -> Unit,
     onPublish: (title: String, description: String, category: String, tags: List<String>) -> Unit
 ) {
@@ -461,9 +461,11 @@ private fun PublishDialog(
     var tagsText by remember(doc.id) { mutableStateOf("") }
     var category by remember(doc.id) { mutableStateOf(PublishRules.CATEGORIES.first()) }
 
-    val busy = state is CommunityPublish.State.Validating ||
-        state is CommunityPublish.State.Uploading ||
-        state is CommunityPublish.State.Saving
+    val busy = state is ThemePublishing.State.Validating ||
+        state is ThemePublishing.State.Uploading ||
+        state is ThemePublishing.State.Saving ||
+        state is ThemePublishing.State.Transferring ||
+        state is ThemePublishing.State.Publishing
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -471,20 +473,23 @@ private fun PublishDialog(
         text = {
             Column {
                 when (val s = state) {
-                    is CommunityPublish.State.Done -> {
+                    is ThemePublishing.State.Done -> {
                         Text("Published. Other people can find it in the community now.", color = Color(0xFF6FD3D6))
                         Text("id: ${s.themeId}", color = Color(0xFFB9C2C8), fontSize = 10.sp)
                     }
-                    is CommunityPublish.State.Failed -> {
+                    is ThemePublishing.State.Failed -> {
                         Text(s.reason, color = Color(0xFFD67A7A))
                     }
-                    is CommunityPublish.State.Uploading -> {
+                    is ThemePublishing.State.Uploading -> {
                         Text("Uploading wallpaper…", color = Color(0xFFB9C2C8))
                         Slider(value = s.fraction, onValueChange = {}, valueRange = 0f..1f)
                     }
-                    is CommunityPublish.State.Saving -> Text("Saving…", color = Color(0xFFB9C2C8))
-                    is CommunityPublish.State.Validating -> Text("Checking…", color = Color(0xFFB9C2C8))
-                    is CommunityPublish.State.Idle -> {
+                    is ThemePublishing.State.Saving -> Text("Saving draft…", color = Color(0xFFB9C2C8))
+                    is ThemePublishing.State.DraftSaved -> Text("Draft saved. Publish it from My creations.", color = Color(0xFF6FD3D6))
+                    is ThemePublishing.State.Transferring -> Text("Moving artwork to public storage…", color = Color(0xFFB9C2C8))
+                    is ThemePublishing.State.Publishing -> Text("Publishing…", color = Color(0xFFB9C2C8))
+                    is ThemePublishing.State.Validating -> Text("Checking…", color = Color(0xFFB9C2C8))
+                    is ThemePublishing.State.Idle -> {
                         OutlinedTextField(title, { title = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(
                             description, { description = it },
@@ -518,8 +523,8 @@ private fun PublishDialog(
         },
         confirmButton = {
             when (state) {
-                is CommunityPublish.State.Done -> TextButton(onClick = onDismiss) { Text("Close") }
-                is CommunityPublish.State.Failed -> TextButton(onClick = onDismiss) { Text("Close") }
+                is ThemePublishing.State.Done -> TextButton(onClick = onDismiss) { Text("Close") }
+                is ThemePublishing.State.Failed -> TextButton(onClick = onDismiss) { Text("Close") }
                 else -> TextButton(
                     enabled = !busy,
                     onClick = { onPublish(title, description, category, PublishRules.parseTags(tagsText)) }

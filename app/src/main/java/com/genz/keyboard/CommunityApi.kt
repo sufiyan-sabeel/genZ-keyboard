@@ -217,6 +217,31 @@ object CommunityApi {
         }
     }
 
+    /** Create an unpublished draft row pointing at private storage. */
+    fun createDraftTheme(
+        token: String, name: String, description: String, tags: List<String>,
+        category: String, docJson: String, draftPath: String, contentHash: String?
+    ): CommunityResult<String> {
+        val tagsJson = tags.joinToString(",", "[", "]") { q(it) }
+        val hashField = if (contentHash != null) """"content_hash":${q(contentHash)},""" else ""
+        val body = """{"name":${q(name)},"description":${q(description)},"tags":$tagsJson,""" +
+            """"category":${q(category)},$hashField"doc":$docJson,""" +
+            """"draft_path":${q(draftPath)},"is_public":false,"is_removed":false}"""
+        return request("POST", CommunityUrls.table(CommunityConfig.baseUrl, "themes"), token, body)
+    }
+
+    /**
+     * Point a theme at its public artwork and publish it.
+     *
+     * `wallpaper_path` is set in the same statement as `is_public`, so the database trigger that
+     * refuses a published theme without public artwork cannot fire on a half-finished publish.
+     */
+    fun publishThemeRow(token: String, themeId: String, publicPath: String): CommunityResult<String> {
+        val url = CommunityUrls.table(CommunityConfig.baseUrl, "themes", mapOf("id" to "eq.$themeId"))
+        return request("PATCH", url, token,
+            """{"wallpaper_path":${q(publicPath)},"is_public":true}""")
+    }
+
     /** Update an owned theme's metadata. RLS rejects anyone else's. */
     fun updateTheme(
         token: String, themeId: String, name: String, description: String,
@@ -361,6 +386,54 @@ object CommunityApi {
         } catch (e: Exception) {
             CommunityResult.NetworkError(e.message ?: "network error")
         }
+    }
+
+    /**
+     * Issue a short-lived signed URL for a private object.
+     *
+     * The Storage API checks that the caller may read the object before signing, so this is the only
+     * way a draft's artwork reaches a screen — the bucket itself is private.
+     */
+    fun createSignedUrl(token: String, bucket: String, path: String, expiresInSeconds: Int = 3600): CommunityResult<String> {
+        if (!CommunityConfig.isConfigured) return CommunityResult.NotConfigured
+        if (!DownloadGuard.isSafeObjectPath(path)) return CommunityResult.ServerError(0, "unsafe object path")
+        val url = "${CommunityConfig.baseUrl}/storage/v1/object/sign/$bucket/$path"
+        return when (val r = request("POST", url, token, """{"expiresIn":$expiresInSeconds}""")) {
+            is CommunityResult.Ok -> {
+                val signed = ThemeJson.decode(r.value)?.get("signedURL") as? String
+                    ?: ThemeJson.decode(r.value)?.get("signedUrl") as? String
+                if (signed == null) CommunityResult.ServerError(0, "no signed url in response")
+                else CommunityResult.Ok(
+                    if (signed.startsWith("http")) signed else "${CommunityConfig.baseUrl}/storage/v1$signed"
+                )
+            }
+            is CommunityResult.NotConfigured -> r
+            is CommunityResult.Unauthorized -> r
+            is CommunityResult.NetworkError -> r
+            is CommunityResult.ServerError -> r
+        }
+    }
+
+    /**
+     * Server-side copy between buckets.
+     *
+     * Used to move a draft's artwork into public storage. Copy-then-delete rather than move, so a
+     * failure after the copy still leaves the original draft intact and the publish can be retried.
+     */
+    fun copyObject(
+        token: String,
+        fromBucket: String,
+        fromPath: String,
+        toBucket: String,
+        toPath: String
+    ): CommunityResult<String> {
+        if (!CommunityConfig.isConfigured) return CommunityResult.NotConfigured
+        if (!DownloadGuard.isSafeObjectPath(fromPath) || !DownloadGuard.isSafeObjectPath(toPath)) {
+            return CommunityResult.ServerError(0, "unsafe object path")
+        }
+        val body = """{"bucketId":${q(fromBucket)},"sourceKey":${q(fromPath)},""" +
+            """"destinationBucket":${q(toBucket)},"destinationKey":${q(toPath)}}"""
+        return request("POST", "${CommunityConfig.baseUrl}/storage/v1/object/copy", token, body)
     }
 
     /** Favourite a theme. The row is keyed by the caller, so a duplicate is a 409, not a forgery. */

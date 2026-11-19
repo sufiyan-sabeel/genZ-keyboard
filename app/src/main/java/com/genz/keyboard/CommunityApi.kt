@@ -459,6 +459,16 @@ object CommunityApi {
         }
     }
 
+    /**
+     * Delete the caller's own account.
+     *
+     * Calls a database function that derives the target from `auth.uid()` and takes no argument, so
+     * there is no id to forge. Removing an auth user needs privileges the anon key must never have,
+     * which is why this is a SECURITY DEFINER function rather than a table delete.
+     */
+    fun deleteAccount(token: String): CommunityResult<String> =
+        request("POST", "${CommunityConfig.baseUrl}/rest/v1/rpc/delete_own_account", token, "{}")
+
     /** Favourite a theme. The row is keyed by the caller, so a duplicate is a 409, not a forgery. */
     fun addFavourite(token: String, themeId: String): CommunityResult<String> =
         request("POST", CommunityUrls.table(CommunityConfig.baseUrl, "favourites"), token,

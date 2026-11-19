@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,6 +49,8 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
     var openThemeId by remember { mutableStateOf<String?>(null) }
     var showFavourites by remember { mutableStateOf(false) }
     var showDesigns by remember { mutableStateOf(false) }
+    var deleteOpen by remember { mutableStateOf(false) }
+    var deleteState by remember { mutableStateOf<CommunityAccount.State>(CommunityAccount.State.Idle) }
     var handle by remember { mutableStateOf(CommunitySession.handle(context)) }
 
     Column(Modifier.fillMaxSize().background(Color(0xFF0E1013))) {
@@ -71,6 +74,22 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
         if (showDesigns) {
             DesignFeedScreen(onBack = { showDesigns = false })
             return@Column
+        }
+
+        if (deleteOpen) {
+            DeleteAccountDialog(
+                state = deleteState,
+                onDismiss = { deleteOpen = false; deleteState = CommunityAccount.State.Idle },
+                onConfirm = {
+                    deleteState = CommunityAccount.State.Working
+                    deleteState = CommunityAccount.deleteAccount(context)
+                    if (deleteState is CommunityAccount.State.Deleted) {
+                        signedIn = false
+                        handle = null
+                        deleteOpen = false
+                    }
+                }
+            )
         }
 
         if (signedIn && showFavourites) {
@@ -99,6 +118,9 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
                         }
                         TextButton(onClick = { showFavourites = true }) {
                             Text("Saved", color = Color(0xFF6FD3D6), fontSize = 12.sp)
+                        }
+                        TextButton(onClick = { deleteOpen = true }) {
+                            Text("Delete account", color = Color(0xFFB9C2C8), fontSize = 11.sp)
                         }
                         TextButton(onClick = {
                             CommunitySession.clear(context)
@@ -286,4 +308,55 @@ private fun MarketplaceBody(handle: String?, onSignOut: () -> Unit) {
             }
         }
     }
+}
+
+/**
+ * Account deletion confirmation.
+ *
+ * Requires the user to type DELETE. The action destroys every theme, review and post they own and
+ * cannot be undone, so a single tap is not enough.
+ */
+@Composable
+private fun DeleteAccountDialog(
+    state: CommunityAccount.State,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    var typed by remember { mutableStateOf("") }
+    val busy = state is CommunityAccount.State.Working
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Delete your account?") },
+        text = {
+            Column {
+                Text(
+                    "This permanently removes your account, your themes, reviews, posts and favourites. " +
+                        "It cannot be undone.",
+                    color = Color(0xFFB9C2C8), fontSize = 12.sp
+                )
+                Text(
+                    "Type ${CommunityAccount.CONFIRM_WORD} to confirm.",
+                    color = Color(0xFFB9C2C8), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp)
+                )
+                OutlinedTextField(
+                    typed, { typed = it },
+                    label = { Text("Confirmation") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                )
+                when (val s = state) {
+                    is CommunityAccount.State.Failed -> Text(s.reason, color = Color(0xFFD67A7A), fontSize = 12.sp)
+                    is CommunityAccount.State.Deleted -> Text("Account deleted.", color = Color(0xFF6FD3D6), fontSize = 12.sp)
+                    else -> Unit
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy && CommunityAccount.isConfirmed(typed),
+                onClick = onConfirm
+            ) { Text("Delete", color = Color(0xFFD67A7A)) }
+        },
+        dismissButton = { if (!busy) TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }

@@ -559,6 +559,34 @@ drop trigger if exists themes_enforce_draft_privacy on themes;
 create trigger themes_enforce_draft_privacy before update on themes
   for each row execute function public.enforce_draft_privacy();
 
+
+-- ---------------------------------------------------------------- account deletion
+--
+-- A user must be able to remove their own account and everything it owns. This cannot be done from
+-- the client: deleting from auth.users needs privileges the anon key must never have. The function
+-- runs as its owner, takes no argument, and derives the target from auth.uid() alone — so a caller
+-- can only ever delete themselves.
+create or replace function public.delete_own_account() returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user uuid := auth.uid();
+begin
+  if v_user is null then
+    raise exception 'not authenticated' using errcode = '42501';
+  end if;
+
+  -- Everything below cascades from the auth row: profiles, themes, reviews, favourites, posts,
+  -- comments, likes, reports and download records all reference it with ON DELETE CASCADE.
+  delete from auth.users where id = v_user;
+end;
+$$;
+
+revoke all on function public.delete_own_account() from public, anon;
+grant execute on function public.delete_own_account() to authenticated;
+
 -- ---------------------------------------------------------------- hardening
 --
 -- Trigger functions are not API endpoints. Without this, PostgREST exposes each SECURITY DEFINER

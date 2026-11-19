@@ -526,6 +526,39 @@ create policy "moderators update reports" on reports for update
   using (public.is_moderator())
   with check (public.is_moderator());
 
+
+-- ---------------------------------------------------------------- private drafts
+--
+-- A draft's wallpaper must not be world-readable: until a theme is published, its artwork is the
+-- author's private work in progress. Published artwork lives in the public bucket; drafts live in a
+-- private bucket and are reached only through a signed URL.
+alter table themes add column if not exists draft_path text;
+
+-- A published theme may not keep pointing at a private draft object, and publishing must have
+-- produced a public wallpaper. This is enforced in the database so a client cannot skip the move.
+create or replace function public.enforce_draft_privacy() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.is_public then
+    if new.draft_path is not null then
+      -- publishing must clear the private pointer
+      new.draft_path := null;
+    end if;
+    if new.wallpaper_path is null and old.wallpaper_path is null then
+      raise exception 'cannot publish a theme without a public wallpaper'
+        using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.enforce_draft_privacy() from public, anon, authenticated;
+
+drop trigger if exists themes_enforce_draft_privacy on themes;
+create trigger themes_enforce_draft_privacy before update on themes
+  for each row execute function public.enforce_draft_privacy();
+
 -- ---------------------------------------------------------------- hardening
 --
 -- Trigger functions are not API endpoints. Without this, PostgREST exposes each SECURITY DEFINER

@@ -40,3 +40,30 @@ create policy "authors upload to their folder" on storage.objects for insert
 drop policy if exists "authors delete their own uploads" on storage.objects;
 create policy "authors delete their own uploads" on storage.objects for delete
   using (auth.uid()::text = (storage.foldername(name))[1]);
+
+-- ---------------------------------------------------------------- private drafts bucket
+-- Unpublished artwork must not be world-readable. This bucket is private: objects are reachable only
+-- by their owner or through a signed URL the Storage API issues to an authorised caller.
+insert into storage.buckets (id, name, public) values
+  ('theme-drafts', 'theme-drafts', false)
+on conflict (id) do nothing;
+
+update storage.buckets
+   set file_size_limit   = 8388608,
+       allowed_mime_types = array['image/png','image/jpeg','image/webp']
+ where id = 'theme-drafts';
+
+drop policy if exists "owners read their drafts" on storage.objects;
+create policy "owners read their drafts" on storage.objects for select
+  using (bucket_id = 'theme-drafts' and auth.uid()::text = (storage.foldername(name))[1]);
+
+drop policy if exists "owners upload drafts" on storage.objects;
+create policy "owners upload drafts" on storage.objects for insert
+  with check (bucket_id = 'theme-drafts' and auth.uid()::text = (storage.foldername(name))[1]);
+
+drop policy if exists "owners delete their drafts" on storage.objects;
+create policy "owners delete their drafts" on storage.objects for delete
+  using (bucket_id = 'theme-drafts' and auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Deliberately no UPDATE policy: a draft cannot be silently overwritten, so a failed publish can
+-- never replace an existing file.

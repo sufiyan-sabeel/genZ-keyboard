@@ -35,6 +35,8 @@ fun UpdateHost(installedCode: Int, installedName: String) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var release by remember { mutableStateOf<ReleaseInfo?>(null) }
+    // Read once: the certificate cannot change while the process is running.
+    val installedSignature = remember { InstalledSignature.sha256(context) }
 
     LaunchedEffect(Unit) {
         scope.launch {
@@ -51,6 +53,7 @@ fun UpdateHost(installedCode: Int, installedName: String) {
         UpdateDialog(
             release = r,
             installedName = installedName,
+            installability = UpdateChecker.installability(r.signature, installedSignature),
             onDismiss = {
                 UpdateClient(context).markDismissed(r.versionName, System.currentTimeMillis())
                 release = null
@@ -80,16 +83,35 @@ internal fun openDownload(context: Context, url: String) {
 fun UpdateDialog(
     release: ReleaseInfo,
     installedName: String,
+    installability: Installability,
     onDismiss: () -> Unit,
     onUpdate: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Update Available", fontSize = 18.sp) },
+        title = {
+            Text(
+                if (installability.needsReinstall) "Update Requires Reinstall" else "Update Available",
+                fontSize = 18.sp
+            )
+        },
         text = {
             Column(Modifier.heightIn(max = 360.dp)) {
                 Text("New version ${release.versionName}", fontSize = 14.sp)
                 Text("You have $installedName", fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+                // Android will reject this install with INSTALL_FAILED_UPDATE_INCOMPATIBLE because
+                // the release is signed with a different key. Saying so before the download is the
+                // difference between an inconvenience and a broken promise.
+                if (installability.needsReinstall) {
+                    Text(
+                        "This version is signed with a different key from the one installed, so " +
+                            "Android cannot install it over your copy. You will need to uninstall " +
+                            "first, which deletes your settings, learned words and clipboard " +
+                            "history. Export a backup in Settings before you uninstall.",
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
                 if (release.notes.isNotBlank()) {
                     Text(
                         release.notes.trim(),

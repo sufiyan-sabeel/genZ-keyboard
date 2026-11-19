@@ -18,6 +18,7 @@ orphaned.
 
 | Document | What it is |
 | --- | --- |
+| [signing-and-updates.md](signing-and-updates.md) | Signing state of every published release, the migration for existing users, the maintainer checklist |
 | [artwork-provenance.md](artwork-provenance.md) | One row per bundled image: source, rights holder, licence, attribution, status. Authoritative. |
 | [../THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) | The wallpaper set specifically, and the three withheld images |
 | [../fdroid/SUBMISSION.md](../fdroid/SUBMISSION.md) | State of the F-Droid submission |

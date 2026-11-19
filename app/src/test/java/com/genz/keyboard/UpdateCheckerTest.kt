@@ -251,6 +251,72 @@ class UpdateCheckerTest {
         assertTrue(UpdateChecker.shouldNotify(r, 11, "1.0.6"))
     }
 
+    // ------------------------------------------------- signature and installability
+    //
+    // Android refuses an update signed with a different key. Seven of this project's published
+    // releases each used a freshly generated debug key, so the updater has to say so before the
+    // user downloads something that cannot install.
+
+    private val sigA = "02d069b2d38a291cb8e63d1ba3daef57a9f38654bbace2633fa758c7206e477d"
+    private val sigB = "6a29135be4c1f231f580579d78f70a209daf2b70f851fdfe4af993c4d3845151"
+
+    @Test
+    fun theSignatureLineIsReadFromTheBody() {
+        val body = "versionCode: 12\nsignature: $sigA\nsha256: abc"
+        assertEquals(sigA, UpdateChecker.signatureMarker(body))
+    }
+
+    @Test
+    fun aSignatureIsNormalisedToLowercase() {
+        assertEquals(sigA, UpdateChecker.signatureMarker("signature: " + sigA.uppercase()))
+    }
+
+    @Test
+    fun aBodyWithoutASignatureYieldsNull() {
+        assertNull(UpdateChecker.signatureMarker("versionCode: 12"))
+        assertNull(UpdateChecker.signatureMarker(""))
+    }
+
+    @Test
+    fun aMalformedSignatureIsRejectedRatherThanGuessed() {
+        assertNull(UpdateChecker.signatureMarker("signature: not-a-hash"))
+        assertNull(UpdateChecker.signatureMarker("signature: " + sigA.dropLast(1)))
+        assertNull(UpdateChecker.signatureMarker("signature: " + sigA + "ff"))
+    }
+
+    @Test
+    fun aReleaseCarriesItsSignatureThroughParsing() {
+        val r = UpdateChecker.parseRelease(release(tag = "v1.0.7", body = "signature: $sigA"))
+        assertEquals(sigA, r!!.signature)
+    }
+
+    @Test
+    fun matchingSignaturesAreCompatible() {
+        assertEquals(Installability.COMPATIBLE, UpdateChecker.installability(sigA, sigA))
+        assertEquals(Installability.COMPATIBLE, UpdateChecker.installability(sigA, sigA.uppercase()))
+    }
+
+    @Test
+    fun differentSignaturesRequireAReinstall() {
+        assertEquals(Installability.INCOMPATIBLE, UpdateChecker.installability(sigA, sigB))
+        assertTrue(UpdateChecker.installability(sigA, sigB).needsReinstall)
+    }
+
+    @Test
+    fun anUnknownSideIsUnknownRatherThanIncompatible() {
+        // never claim an update is uninstallable when the evidence is missing
+        assertEquals(Installability.UNKNOWN, UpdateChecker.installability(null, sigA))
+        assertEquals(Installability.UNKNOWN, UpdateChecker.installability(sigA, null))
+        assertEquals(Installability.UNKNOWN, UpdateChecker.installability("", ""))
+        assertFalse(Installability.UNKNOWN.needsReinstall)
+    }
+
+    @Test
+    fun aRealV105ToV106PairIsIncompatible() {
+        // the two certificates taken from the published APKs by the audit
+        assertEquals(Installability.INCOMPATIBLE, UpdateChecker.installability(sigA, sigB))
+    }
+
     // ------------------------------------------------- the tag parser the CI gate relies on
 
     @Test

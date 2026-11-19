@@ -190,12 +190,24 @@ F-Droid listing). It is the one outstanding item that needs a device rather than
    keyboards → GenZ Keyboard**.
 5. Select it: tap any text field, then the keyboard switcher in the navigation bar.
 
-> **Signing.** Release APKs are signed with a production keystore supplied to CI through
-> repository secrets, and CI verifies the certificate fingerprint against
-> `RELEASE_CERT_SHA256` before publishing. The key is stable, so a later release installs over an
-> earlier one without uninstalling. The workflow refuses to publish at all when the keystore or
-> the expected fingerprint is missing — there is no debug-key fallback, because a differently
-> signed APK under the same application id would break every future update.
+> **Signing — read this before installing.** The workflow is built so that a release is signed
+> with a keystore supplied through repository secrets and verified against `RELEASE_CERT_SHA256`
+> before publishing; it refuses to publish without both, and there is no debug-key fallback.
+>
+> **However, every release published so far — v1.0.0 through v1.0.6 — was signed with a freshly
+> generated debug key, one per release.** That check landed on 18 November 2026, after v1.0.6 was
+> tagged. So today:
+>
+> - no release can be installed over an earlier one — Android rejects it with
+>   `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, and the in-app update dialog says so before you download;
+> - installing a new version means uninstalling the old one, which deletes settings, learned
+>   words and clipboard history. Export a backup in **Settings → Backup** first, then restore it;
+> - the first release built through the current pipeline will be the first that can be updated
+>   in place, and from then on updates are ordinary.
+>
+> The app now reads a `signature:` line from the release notes and compares it with its own
+> signing certificate, so an update that cannot install is labelled *Update Requires Reinstall*
+> instead of being offered as if it were routine.
 
 ### From F-Droid
 
@@ -205,8 +217,16 @@ F-Droid build is actually published — not when a merge request merely exists.
 
 ### From a debug build
 
-Download `app-debug.apk` from the latest successful **Android CI** run (Artifacts →
-`genz-keyboard-debug-apk`), or build it yourself.
+Build it yourself:
+
+```bash
+./gradlew assembleStandardDebug      # app/build/outputs/apk/standard/debug/
+```
+
+CI no longer publishes the standard debug APK as an artifact. It bundles the sixteen
+illustrations whose rights are unrecorded, and on a public repository an Actions artifact is
+downloadable by anyone with an account — a distribution channel the release gate does not cover.
+The F-Droid release APK is still published as an artifact, and carries no artwork.
 
 ## Publishing a release
 
@@ -348,6 +368,7 @@ CI runs both, the unit tests and the debug build on every push to `main`
 | --- | --- |
 | [PRIVACY.md](PRIVACY.md) | Every network path, every permission, incognito, the community backend |
 | [SECURITY.md](SECURITY.md) | How to report a vulnerability privately |
+| [docs/signing-and-updates.md](docs/signing-and-updates.md) | Release signing, why existing installs cannot upgrade, and the migration |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Ground rules, build steps, code style |
 | [PLUGINS.md](PLUGINS.md) | The plugin and theme file format, with the 45 bundled definitions |
 | [docs/README.md](docs/README.md) | Index of the design, audit and roadmap documents |

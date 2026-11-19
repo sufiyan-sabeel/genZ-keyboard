@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.alpha
@@ -64,12 +65,19 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     val base = remember { KeyboardPrefs.current(context) }
 
     var saved by remember { mutableStateOf<List<ThemeDoc>>(emptyList()) }
-    var draft by remember { mutableStateOf<ThemeDoc?>(null) }
+    // A rotation destroys the composition. The history is snapshotted into saved state so unsaved
+    // edits and the whole undo stack survive a screen turn.
+    var savedSnapshot by rememberSaveable { mutableStateOf<String?>(null) }
+    var history by remember { mutableStateOf(savedSnapshot?.let { ThemeHistory.restore(it) }) }
+    var draft by remember { mutableStateOf(history?.current) }
     var pendingDelete by remember { mutableStateOf<ThemeDoc?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var importedText by remember { mutableStateOf<String?>(null) }
     var publishOpen by remember { mutableStateOf(false) }
-    var history by remember { mutableStateOf<ThemeHistory?>(null) }
+    // keep the saved snapshot in step with the live history
+    LaunchedEffect(history, draft) {
+        history?.let { savedSnapshot = it.snapshot() }
+    }
 
     /** Every edit goes through the history, so undo always reflects what the user actually did. */
     fun edit(next: ThemeDoc) {

@@ -185,4 +185,63 @@ class ThemeHistoryTest {
         assertEquals("T", restored.name)
         assertEquals("#111111", restored.overrides["colorKey"])
     }
+
+    // ---------------------------------------------------------------- Phase B
+
+    @Test
+    fun aPropertyCanBeResetOnItsOwn() {
+        val h = ThemeHistory(doc())
+        val edited = doc().copy(overrides = mapOf("colorKey" to "#222222", "colorAccent" to "#999999"))
+        h.push(edited, groupKey = "multi", now = 1000)
+        val after = h.resetProperty("colorKey")
+        // the reset property returns to its original value, the other one is untouched
+        assertEquals("#111111", after.overrides["colorKey"])
+        assertEquals("#999999", after.overrides["colorAccent"])
+    }
+
+    @Test
+    fun aPerPropertyResetIsUndoable() {
+        val h = ThemeHistory(doc())
+        h.push(doc("#222222"), groupKey = "colorKey", now = 1000)
+        h.resetProperty("colorKey")
+        assertEquals("#111111", h.current.overrides["colorKey"])
+        assertEquals("#222222", h.undo()!!.overrides["colorKey"])
+    }
+
+    @Test
+    fun resettingAPropertyThatWasNeverChangedCreatesNoEntry() {
+        val h = ThemeHistory(doc())
+        h.resetProperty("colorKey")
+        assertFalse(h.canUndo)
+    }
+
+    @Test
+    fun aHistorySurvivesSerialisation() {
+        // this is what keeps unsaved edits and the undo stack alive across a rotation
+        val h = ThemeHistory(doc())
+        h.push(doc("#222222"), groupKey = "colorKey", now = 1000)
+        h.push(doc("#333333"), groupKey = "colorKey", now = 5000)
+
+        val restored = ThemeHistory.restore(h.snapshot())!!
+        assertEquals(h.current, restored.current)
+        assertEquals(h.undoDepth, restored.undoDepth)
+        assertEquals("#222222", restored.undo()!!.overrides["colorKey"])
+    }
+
+    @Test
+    fun aCorruptSnapshotIsRejectedRatherThanCrashing() {
+        assertNull(ThemeHistory.restore("not json"))
+        assertNull(ThemeHistory.restore("{}"))
+        assertNull(ThemeHistory.restore(""))
+    }
+
+    @Test
+    fun restoringKeepsTheRedoBranch() {
+        val h = ThemeHistory(doc())
+        h.push(doc("#222222"))
+        h.undo()
+        val restored = ThemeHistory.restore(h.snapshot())!!
+        assertTrue(restored.canRedo)
+        assertEquals("#222222", restored.redo()!!.overrides["colorKey"])
+    }
 }

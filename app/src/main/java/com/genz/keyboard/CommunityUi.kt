@@ -119,8 +119,12 @@ fun CommunityScreen(onBack: () -> Unit = {}) {
                         TextButton(onClick = { showFavourites = true }) {
                             Text("Saved", color = Color(0xFF6FD3D6), fontSize = 12.sp)
                         }
-                        TextButton(onClick = { deleteOpen = true }) {
-                            Text("Delete account", color = Color(0xFFB9C2C8), fontSize = 11.sp)
+                        // Gated: deleting an account currently leaves its uploaded files orphaned,
+                        // because storage.objects has no foreign key to auth.users and the Storage
+                        // API is the only way to remove them. Offering this before the cleanup
+                        // workflow exists would destroy data we cannot delete.
+                        TextButton(onClick = { }, enabled = false) {
+                            Text("Delete account (unavailable)", color = Color(0xFF5A6268), fontSize = 11.sp)
                         }
                         TextButton(onClick = {
                             CommunitySession.clear(context)

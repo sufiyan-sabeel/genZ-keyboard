@@ -135,4 +135,57 @@ class ThemeHistory(
             else -> null
         }
     }
+
+    /**
+     * Reset a single property, leaving everything else alone.
+     *
+     * Undoable like any other edit. If the property was already at its original value nothing
+     * changes and no history entry is created, so the button never lies.
+     */
+    fun resetProperty(key: String): ThemeDoc {
+        val original = undoStack.firstOrNull() ?: current
+        val originalValue = original.overrides[key]
+        val nextOverrides = current.overrides.toMutableMap()
+        if (originalValue == null) nextOverrides.remove(key) else nextOverrides[key] = originalValue
+        val next = current.copy(overrides = nextOverrides)
+        if (next == current) return current
+        push(next, groupKey = "reset:$key")
+        return current
+    }
+
+    /**
+     * A serialisable snapshot of the editor, for surviving configuration changes.
+     *
+     * Stored as theme JSON rather than objects because a rotation destroys the composition; without
+     * this the user's unsaved edits and their whole undo history vanish on a screen turn.
+     */
+    fun snapshot(): String {
+        fun encodeAll(stack: ArrayDeque<ThemeDoc>): String =
+            stack.joinToString(",", "[", "]") { ThemeCodec.encode(it) }
+        return buildString {
+            append("{\"current\":").append(ThemeCodec.encode(current))
+            append(",\"undo\":").append(encodeAll(undoStack))
+            append(",\"redo\":").append(encodeAll(redoStack))
+            append("}")
+        }
+    }
+
+    companion object {
+        /** Rebuild a history from [snapshot], or null when the snapshot is unusable. */
+        fun restore(snapshot: String, limit: Int = 100): ThemeHistory? {
+            val o = ThemeJson.decode(snapshot) ?: return null
+            val currentJson = o["current"] as? String ?: return null
+            val current = (ThemeCodec.decode(currentJson) as? ThemeValidation.Ok)?.doc ?: return null
+
+            fun decodeAll(raw: Any?): List<ThemeDoc> =
+                (raw as? List<*>).orEmpty().mapNotNull { item ->
+                    (item as? String)?.let { ThemeCodec.decode(it) as? ThemeValidation.Ok }?.doc
+                }
+
+            val h = ThemeHistory(current, limit = limit)
+            decodeAll(o["undo"]).forEach { h.undoStack.addLast(it) }
+            decodeAll(o["redo"]).forEach { h.redoStack.addLast(it) }
+            return h
+        }
+    }
 }

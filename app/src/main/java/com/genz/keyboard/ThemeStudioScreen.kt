@@ -69,6 +69,25 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     var message by remember { mutableStateOf<String?>(null) }
     var importedText by remember { mutableStateOf<String?>(null) }
     var publishOpen by remember { mutableStateOf(false) }
+    var history by remember { mutableStateOf<ThemeHistory?>(null) }
+
+    /** Every edit goes through the history, so undo always reflects what the user actually did. */
+    fun edit(next: ThemeDoc, groupKey: String? = null) {
+        val h = history
+        if (h == null || h.themeId != next.id) {
+            history = ThemeHistory(next)
+            draft = next
+            return
+        }
+        h.push(next, groupKey)
+        draft = h.current
+    }
+
+    /** Load a different theme and discard the previous history. */
+    fun open(next: ThemeDoc) {
+        history = ThemeHistory(next)
+        draft = next
+    }
     var publishState by remember { mutableStateOf<ThemePublishing.State>(ThemePublishing.State.Idle) }
 
     // Bundled themes, filtered to those whose artwork this build actually ships.
@@ -158,15 +177,21 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
         }
 
         draft?.let { d ->
-            ThemeEditor(d, onChange = { draft = it }, onExtract = { extractColours(d) }, onPublish = {
+            ThemeEditor(d, onChange = { edit(it) }, onExtract = { extractColours(d) }, onPublish = {
                 publishState = ThemePublishing.State.Idle
                 publishOpen = true
             }, onApply = {
                 message = if (ThemeApply.applyAndPersist(context, d, base)) "Applied \"${d.name}\"" else "Could not apply"
             }, onRemoveWallpaper = {
                 d.wallpaper?.let { ThemeAssets.deleteWallpaper(context, it) }
-                draft = d.copy(wallpaper = null)
-            })
+                edit(d.copy(wallpaper = null))
+            },
+                canUndo = history?.canUndo == true,
+                canRedo = history?.canRedo == true,
+                onUndo = { history?.undo()?.let { draft = it } },
+                onRedo = { history?.redo()?.let { draft = it } },
+                onResetAll = { history?.resetToOriginal()?.let { draft = it } }
+            )
         }
 
         Text("Bundled themes", color = Color(0xFFB9C2C8), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
@@ -176,13 +201,13 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
                     Text(preset.name, color = Color(0xFFE8ECEF), fontSize = 13.sp)
                     TextButton(onClick = {
                         val wall = preset.wallpaper?.let { ThemeAssets.importBundled(context, it) }
-                        draft = ThemeDoc(
+                        open(ThemeDoc(
                             id = ThemeCodec.idFor(preset.name, preset.id, emptyMap()),
                             name = preset.name,
                             basePreset = preset.id,
                             overrides = preset.colours.mapValues { ThemeApply.formatColor(it.value) },
                             wallpaper = wall
-                        )
+                        ))
                         message = if (preset.wallpaper != null && wall == null) {
                             "Wallpaper unavailable in this build; using colours only"
                         } else {
@@ -199,8 +224,8 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(doc.name, color = Color(0xFFE8ECEF), fontSize = 14.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                        TextButton(onClick = { draft = doc }) { Text("Edit", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
-                        TextButton(onClick = { store.duplicate(doc.id, doc.name + " copy")?.let { draft = it }; refresh() }) { Text("Copy", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
+                        TextButton(onClick = { open(doc) }) { Text("Edit", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
+                        TextButton(onClick = { store.duplicate(doc.id, doc.name + " copy")?.let { open(it) }; refresh() }) { Text("Copy", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
                         TextButton(onClick = { pendingDelete = doc }) { Text("Delete", color = Color(0xFFD67A7A), fontSize = 12.sp) }
                     }
                 }
@@ -264,7 +289,12 @@ private fun ThemeEditor(
     onExtract: () -> Unit,
     onPublish: () -> Unit,
     onApply: (ThemeDoc) -> Unit,
-    onRemoveWallpaper: () -> Unit
+    onRemoveWallpaper: () -> Unit,
+    canUndo: Boolean,
+    canRedo: Boolean,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
+    onResetAll: () -> Unit
 ) {
     val contextForPrefs = LocalContext.current
     var name by remember(doc.id) { mutableStateOf(doc.name) }
@@ -330,6 +360,18 @@ private fun ThemeEditor(
                 TextButton(onClick = onRemoveWallpaper) { Text("Remove", color = Color(0xFFD67A7A), fontSize = 11.sp) }
             }
         }
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TextButton(onClick = onUndo, enabled = canUndo) {
+                Text("Undo", color = if (canUndo) Color(0xFF6FD3D6) else Color(0xFF5A6268), fontSize = 12.sp)
+            }
+            TextButton(onClick = onRedo, enabled = canRedo) {
+                Text("Redo", color = if (canRedo) Color(0xFF6FD3D6) else Color(0xFF5A6268), fontSize = 12.sp)
+            }
+            TextButton(onClick = onResetAll) {
+                Text("Reset all", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+            }
+        }
+
         val issues = remember(doc) { ThemeApply.readabilityIssues(doc, KeyboardPrefs.current(contextForPrefs)) }
         if (issues.isNotEmpty()) {
             Text(

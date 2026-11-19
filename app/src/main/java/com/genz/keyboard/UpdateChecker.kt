@@ -79,7 +79,8 @@ object UpdateChecker {
      * version string. When the marker is present it is preferred.
      */
     fun versionCodeMarker(body: String): Int? =
-        Regex("versionCode\\s*[:=]\\s*(\\d{1,9})").find(body)?.groupValues?.get(1)?.toIntOrNull()
+        Regex("versionCode\\s*[:=]\\s*(\\d{1,9})\\b", RegexOption.IGNORE_CASE)
+            .find(body)?.groupValues?.get(1)?.toIntOrNull()
 
     /** Compare two dotted version strings. @return true when [remote] is strictly newer. */
     fun isNewer(remote: String, installed: String): Boolean {

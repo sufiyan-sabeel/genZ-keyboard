@@ -173,4 +173,95 @@ class UpdateCheckerTest {
         val r = UpdateChecker.parseRelease(release(tag = "v1.0.7", body = "versionCode: 5"))
         assertTrue(UpdateChecker.shouldNotify(r, 11, "1.0.6"))
     }
+
+    // ------------------------------------------------- the generated release body
+    //
+    // The release workflow writes this body from version.properties and the F-Droid changelog, so
+    // the marker can no longer be typed by hand. These cases pin the contract it depends on: the
+    // marker is read out of the body, and a body without one falls back to the tag.
+
+    private val generatedBody = """
+        GenZ Keyboard - an Android keyboard built in Kotlin and Jetpack Compose.
+
+        Created by Umaiz Sufiyan (https://github.com/sufiyan-sabeel).
+
+        versionCode: 12
+
+        ### What changed in 1.0.7
+
+        - Six new wallpaper themes.
+
+        ### Notes
+
+        - This APK is the standard flavour.
+    """.trimIndent()
+
+    @Test
+    fun theGeneratedReleaseBodyCarriesTheVersionCode() {
+        val r = UpdateChecker.parseRelease(release(tag = "v1.0.7", body = generatedBody))
+        assertNotNull(r)
+        assertEquals("1.0.7", r!!.versionName)
+        assertEquals(12, r.versionCode)
+        assertTrue(r.notes.contains("Six new wallpaper themes"))
+    }
+
+    @Test
+    fun theGeneratedBodyUpgradesAnOlderInstall() {
+        // 1.0.6 shipped as versionCode 11; the 1.0.7 body says 12
+        val r = UpdateChecker.parseRelease(release(tag = "v1.0.7", body = generatedBody))
+        assertTrue(UpdateChecker.shouldNotify(r, 11, "1.0.6"))
+    }
+
+    @Test
+    fun aBodyForTheInstalledVersionDoesNotOfferAnUpdate() {
+        // the failure this replaced: notes claiming a code the build does not have
+        val r = UpdateChecker.parseRelease(release(tag = "v1.0.7", body = generatedBody))
+        assertFalse(UpdateChecker.shouldNotify(r, 12, "1.0.7"))
+    }
+
+    @Test
+    fun theMarkerSurvivesSpacingAndAnEqualsSign() {
+        assertEquals(7, UpdateChecker.versionCodeMarker("versionCode:7"))
+        assertEquals(7, UpdateChecker.versionCodeMarker("versionCode :  7"))
+        assertEquals(7, UpdateChecker.versionCodeMarker("versionCode=7"))
+        assertEquals(7, UpdateChecker.versionCodeMarker("VersionCode: 7"))
+    }
+
+    @Test
+    fun theFirstMarkerInTheBodyWins() {
+        // the generated body puts it near the top; anything later is prose
+        assertEquals(12, UpdateChecker.versionCodeMarker("versionCode: 12\n\n...\nversionCode: 4"))
+    }
+
+    @Test
+    fun anAbsurdlyLongNumberIsNotAMarker() {
+        assertNull(UpdateChecker.versionCodeMarker("versionCode: 1234567890"))
+    }
+
+    @Test
+    fun aMarkerWithNoDigitsIsNotAMarker() {
+        assertNull(UpdateChecker.versionCodeMarker("versionCode: none"))
+        assertNull(UpdateChecker.versionCodeMarker("versionCode"))
+    }
+
+    @Test
+    fun aBodyWithoutAMarkerStillComparesByTag() {
+        val r = UpdateChecker.parseRelease(release(tag = "v1.0.7", body = "Notes only"))
+        assertNull(r!!.versionCode)
+        assertTrue(UpdateChecker.shouldNotify(r, 11, "1.0.6"))
+    }
+
+    // ------------------------------------------------- the tag parser the CI gate relies on
+
+    @Test
+    fun theTagParserMatchesWhatTheReleaseGateAccepts() {
+        // scripts/check-release-version.sh rejects anything that is not MAJOR.MINOR.PATCH
+        assertEquals("1.0.7", UpdateChecker.versionFromTag("v1.0.7"))
+        assertEquals("1.0.7", UpdateChecker.versionFromTag("V1.0.7"))
+        assertEquals("1.0.7", UpdateChecker.versionFromTag("1.0.7"))
+        assertEquals("1.0.7", UpdateChecker.versionFromTag(" v1.0.7 "))
+        assertNull(UpdateChecker.versionFromTag("v1.0"))
+        assertNull(UpdateChecker.versionFromTag("release-1.0.7"))
+        assertNull(UpdateChecker.versionFromTag("v1.0.7-beta"))
+    }
 }

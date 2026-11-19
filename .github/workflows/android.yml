@@ -66,6 +66,12 @@ jobs:
       - name: Artwork provenance
         run: python3 scripts/check-artwork-provenance.py
 
+      # The gate that blocks a release is only worth having if it is itself tested. These cases
+      # build throwaway trees and assert that an unverified standard asset fails the release
+      # mode and that an APK bundling one is refused.
+      - name: Artwork gate tests
+        run: python3 -m unittest discover -s scripts/tests -v
+
       - name: Unit tests
         run: ./gradlew testStandardDebugUnitTest --stacktrace
 
@@ -87,6 +93,15 @@ jobs:
 
       - name: Build F-Droid flavour (no proprietary assets)
         run: ./gradlew assembleFdroidRelease --stacktrace
+
+      # Both release paths are checked against the same inventory. The fdroid flavour must
+      # bundle no artwork at all, so this inspects the artifact rather than trusting the
+      # source tree.
+      - name: F-Droid APK carries no artwork
+        run: |
+          set -euo pipefail
+          APK=$(ls app/build/outputs/apk/fdroid/release/*.apk | head -1)
+          python3 scripts/check-artwork-provenance.py --apk "$APK"
 
       - name: Build debug APK
         run: ./gradlew assembleStandardDebug --stacktrace
@@ -171,6 +186,12 @@ jobs:
 
       - name: Version consistency
         run: bash scripts/check-release-version.sh "${{ inputs.version }}"
+
+      # Release licensing gate. A standard release APK may not carry artwork whose rights are
+      # unrecorded. Runs unconditionally, before signing and before any build, and has no
+      # override: the way past it is to record the rights, not to skip the check.
+      - name: Artwork licensing gate (release)
+        run: python3 scripts/check-artwork-provenance.py --release
 
       # Secrets are written to files and environment only; nothing here is echoed.
       - name: Configure production signing
@@ -267,6 +288,16 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Version consistency
+        run: bash scripts/check-release-version.sh "${{ inputs.version }}"
+
+      # Release licensing gate, first thing in the only job that can create a GitHub Release.
+      # Deliberately unconditional: no `if:`, no input, no continue-on-error. A manual dispatch
+      # cannot reach the build, the asset upload or `gh release create` without passing it, so a
+      # failure here means no asset is ever attached to a release.
+      - name: Artwork licensing gate (release)
+        run: python3 scripts/check-artwork-provenance.py --release
+
       # A release APK must be signed with a key that stays the same across releases, or
       # installed copies can never be updated. The key is never committed: it is supplied
       # through repository secrets. There is deliberately no fallback — without the keystore
@@ -309,6 +340,19 @@ jobs:
           "$ANDROID_HOME/build-tools/$BT/aapt2" dump badging "$APK" | head -3
           "$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$APK" | head -5
           cp "$APK" "GenZKeyboard-${{ inputs.version }}.apk"
+
+      # Second, independent check: the artifact that would be uploaded, not the source tree it
+      # came from. This runs after the build and before the certificate check and the publish
+      # step, so an APK that somehow gained unverified artwork still cannot be released.
+      - name: Verify the release APK carries no unverified artwork
+        run: |
+          set -euo pipefail
+          APK=$(ls app/build/outputs/apk/standard/release/*.apk 2>/dev/null | grep -v unsigned | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No signed release APK to inspect - refusing to continue."
+            exit 1
+          fi
+          python3 scripts/check-artwork-provenance.py --apk "$APK"
 
       - name: Verify certificate identity before publishing
         env:

@@ -23,6 +23,29 @@ Two rules follow from this, and both are enforced in CI by
 2. No image may be added to the `fdroid` flavour. That flavour ships the keyboard without any of
    these files, which is what makes it distributable while the rights question is open.
 
+## The release gate
+
+A development build and a published release are not treated the same. The script has three modes,
+and only one of them can stop a release:
+
+| Mode | Where it runs | What it does |
+| --- | --- | --- |
+| default | every push and pull request | Checks that rows and files agree, and that the fdroid flavour carries no artwork. Unverified artwork in the standard flavour is a **warning**, so ordinary work is not blocked. |
+| `--release` | the `release` job, before signing, before the build, before `gh release create`; also in the signed-APK job | Everything above, plus: any image in the standard source set that is not `CLEARED` **fails the job**. There is no override flag and no workflow input that skips it. |
+| `--apk PATH` | after the release APK is built, before it is uploaded | Opens the APK, lists `assets/anime/*` inside it, and fails if any of those images is unverified or has no row. This checks the artifact that would be published, not just the tree it came from. |
+
+The `fdroid` release path is checked by the same inventory: the flavour must bundle no artwork at
+all, and the built fdroid APK is inspected the same way. Its expected result is zero images.
+
+**Consequence, stated plainly:** until at least the sixteen shipped images are `CLEARED`, the
+`release` job fails at its third step and no GitHub Release can be created. That is the intended
+state, not a broken build. The `build` job, `assembleStandardDebug` and every development path
+continue to work.
+
+**How to unblock it:** record the rights for an image and change its status to `CLEARED` with the
+licence or written permission in the row. Nothing else — no flag, no environment variable, no
+workflow input — will do it.
+
 ## The finding this file makes visible
 
 All nineteen images are currently `UNVERIFIED`. Sixteen of them are nonetheless distributed, in

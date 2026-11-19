@@ -334,7 +334,9 @@ Two checks guard the parts that drift:
 
 ```bash
 bash scripts/check-release-version.sh          # tag, versionName and F-Droid changelog agree
-python3 scripts/check-artwork-provenance.py    # every image has a recorded rights position
+python3 scripts/check-artwork-provenance.py            # consistency; unverified art only warns
+python3 scripts/check-artwork-provenance.py --release  # release gate: fails on unverified art
+python3 -m unittest discover -s scripts/tests          # tests for the gate itself
 ```
 
 CI runs both, the unit tests and the debug build on every push to `main`
@@ -428,6 +430,11 @@ code it has already built, which is why the increment is a deliberate step rathe
 Gradle derives. `scripts/check-release-version.sh` fails the build when the tag, `versionName`
 and the changelog for the current `versionCode` disagree, and `scripts/check-artwork-provenance.py`
 fails it when an image has no recorded rights position.
+
+A standard release is currently blocked by design: sixteen bundled illustrations are recorded as
+`UNVERIFIED — DO NOT DISTRIBUTE`, so the release job stops before it builds or publishes anything.
+`assembleStandardDebug` and the `fdroid` flavour are unaffected. See
+[`docs/artwork-provenance.md`](docs/artwork-provenance.md) for the gate and how to clear an asset.
 
 ## License
 

@@ -53,4 +53,23 @@ class PublishRecoveryTest {
         assertFalse(PublishRecovery.shouldDeleteDraftAfter(PublishRecovery.RowOutcome.RETRY_LATER))
         assertFalse(PublishRecovery.shouldDeleteDraftAfter(PublishRecovery.RowOutcome.REJECTED))
     }
+
+    @Test
+    fun aConflictIsNotProofTheObjectIsPresent() {
+        // ALREADY_PRESENT is a hint, not evidence: the caller must confirm the object before
+        // treating the publish as successful. This test pins that a 409 maps to the "verify" path
+        // rather than straight to success.
+        assertEquals(PublishRecovery.CopyOutcome.ALREADY_PRESENT, PublishRecovery.copyOutcome(409))
+        assertTrue(PublishRecovery.requiresVerification(PublishRecovery.CopyOutcome.ALREADY_PRESENT))
+        assertFalse(PublishRecovery.requiresVerification(PublishRecovery.CopyOutcome.TRANSFERRED))
+    }
+
+    @Test
+    fun anObjectOutsideTheCallersFolderIsNotTheirs() {
+        val owner = "11111111-1111-4111-8111-111111111111"
+        assertTrue(PublishRecovery.isOwnedPath("$owner/wall.webp", owner))
+        assertFalse(PublishRecovery.isOwnedPath("22222222-2222-4222-8222-222222222222/wall.webp", owner))
+        assertFalse(PublishRecovery.isOwnedPath("wall.webp", owner))
+        assertFalse(PublishRecovery.isOwnedPath("$owner/wall.webp", null))
+    }
 }

@@ -128,6 +128,12 @@ object ThemePublishing {
         if (!DownloadGuard.isSafeObjectPath(draftPath)) {
             return State.Failed("Draft path is not valid", false).also(onState)
         }
+        // The drafts bucket already refuses a cross-user read, but failing here gives a clear reason
+        // instead of a confusing 403 from Storage.
+        val owner = AuthResponse.subjectOf(token)
+        if (owner == null || !draftPath.startsWith("$owner/")) {
+            return State.Failed("This draft does not belong to you", false).also(onState)
+        }
         val ext = draftPath.substringAfterLast('.', "webp")
         val publicPath = draftPath.replace("draft_", "")
 
@@ -141,6 +147,14 @@ object ThemePublishing {
             is CommunityResult.NotConfigured -> return State.Failed("Community is not configured", false).also(onState)
             is CommunityResult.NetworkError -> return State.Failed("Artwork transfer failed: check your connection", true).also(onState)
             is CommunityResult.ServerError -> PublishRecovery.copyOutcome(cp.code)
+        }
+        // A 409 says "the destination exists", but it does not prove the destination is the object we
+        // expect. Before treating it as success, confirm the public object is actually there and
+        // readable; otherwise a 409 for any other reason would publish a theme with no artwork.
+        if (copyOutcome == PublishRecovery.CopyOutcome.ALREADY_PRESENT &&
+            !CommunityApi.publicObjectExists(PUBLIC, publicPath)
+        ) {
+            return State.Failed("Artwork is not available in public storage yet; try again", true).also(onState)
         }
         when (copyOutcome) {
             PublishRecovery.CopyOutcome.TRANSFERRED, PublishRecovery.CopyOutcome.ALREADY_PRESENT -> Unit

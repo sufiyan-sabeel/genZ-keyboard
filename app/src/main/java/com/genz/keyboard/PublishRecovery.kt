@@ -68,4 +68,11 @@ object PublishRecovery {
      * no longer exists anywhere.
      */
     fun shouldDeleteDraftAfter(row: RowOutcome): Boolean = row == RowOutcome.PUBLISHED
+
+    /** A 409 only tells us the destination exists; the caller must confirm it is the right object. */
+    fun requiresVerification(outcome: CopyOutcome): Boolean = outcome == CopyOutcome.ALREADY_PRESENT
+
+    /** An object path belongs to a user only when its first segment is that user's id. */
+    fun isOwnedPath(path: String, ownerId: String?): Boolean =
+        ownerId != null && path.startsWith("$ownerId/")
 }

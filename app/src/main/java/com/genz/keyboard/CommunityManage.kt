@@ -174,7 +174,7 @@ object CommunityManage {
         while (it.hasNext()) {
             val path = it.next()
             when (CommunityApi.deleteObject(token, "theme-wallpapers", path)) {
-                is CommunityResult.Ok -> { it.remove(); removed++ }
+                is CommunityResult.Ok -> { forgetOrphan(context, path); it.remove(); removed++ }
                 else -> Unit
             }
         }
@@ -184,16 +184,43 @@ object CommunityManage {
     /** Paths still awaiting cleanup; exposed for tests and diagnostics. */
     fun pendingOrphanCount(): Int = pendingOrphans.size
 
-    /** Public objects left behind by a failed publish, retried on a later attempt. */
+    /**
+     * Public objects left behind by a failed publish.
+     *
+     * Persisted, not held in memory: an orphan created just before the process is killed would
+     * otherwise be forgotten and leak storage forever.
+     */
+    private const val PREF_ORPHANS = "genz_community_orphans"
     private val pendingPublicOrphans = LinkedHashSet<String>()
+
+    private fun orphanPrefs(context: Context) =
+        context.getSharedPreferences(PREF_ORPHANS, Context.MODE_PRIVATE)
+
+    private fun rememberOrphan(context: Context, path: String) {
+        pendingPublicOrphans.add(path)
+        orphanPrefs(context).edit().putStringSet("paths", pendingPublicOrphans.toSet()).apply()
+    }
+
+    private fun forgetOrphan(context: Context, path: String) {
+        pendingPublicOrphans.remove(path)
+        orphanPrefs(context).edit().putStringSet("paths", pendingPublicOrphans.toSet()).apply()
+    }
+
+    /** Reload persisted orphans after a restart. */
+    fun restoreOrphans(context: Context) {
+        pendingPublicOrphans.addAll(orphanPrefs(context).getStringSet("paths", emptySet()).orEmpty())
+    }
 
     fun cleanupOrphanPublic(context: Context, path: String) {
         if (!DownloadGuard.isSafeObjectPath(path)) return
-        val token = token(context)
-        if (token == null) { pendingPublicOrphans.add(path); return }
+        val token = token(context) ?: run { rememberOrphan(context, path); return }
+        // Never delete an object outside the caller's own folder: a path that does not start with
+        // this user's id belongs to somebody else, and deleting it would destroy their artwork.
+        val owner = AuthResponse.subjectOf(token)
+        if (owner == null || !path.startsWith("$owner/")) return
         when (CommunityApi.deleteObject(token, "theme-wallpapers", path)) {
-            is CommunityResult.Ok -> pendingPublicOrphans.remove(path)
-            else -> pendingPublicOrphans.add(path)
+            is CommunityResult.Ok -> forgetOrphan(context, path)
+            else -> rememberOrphan(context, path)
         }
     }
 

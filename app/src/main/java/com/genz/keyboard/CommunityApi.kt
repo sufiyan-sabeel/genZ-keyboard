@@ -436,6 +436,29 @@ object CommunityApi {
         return request("POST", "${CommunityConfig.baseUrl}/storage/v1/object/copy", token, body)
     }
 
+    /**
+     * Whether a public object is actually readable.
+     *
+     * Used to confirm a Storage 409 really means "the object is already there" before a publish is
+     * treated as successful — a 409 for any other reason must not publish a theme with no artwork.
+     */
+    fun publicObjectExists(bucket: String, path: String): Boolean {
+        if (!CommunityConfig.isConfigured) return false
+        if (!DownloadGuard.isSafeObjectPath(path)) return false
+        val url = "${CommunityConfig.baseUrl}/storage/v1/object/public/$bucket/$path"
+        return try {
+            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "HEAD"
+                connectTimeout = TIMEOUT_MS
+                readTimeout = TIMEOUT_MS
+                setRequestProperty("apikey", CommunityConfig.anonKey)
+            }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     /** Favourite a theme. The row is keyed by the caller, so a duplicate is a 409, not a forgery. */
     fun addFavourite(token: String, themeId: String): CommunityResult<String> =
         request("POST", CommunityUrls.table(CommunityConfig.baseUrl, "favourites"), token,

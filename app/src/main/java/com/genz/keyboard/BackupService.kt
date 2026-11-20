@@ -40,10 +40,7 @@ object BackupService {
         themes: List<ThemeDoc>,
         imageBytes: (String) -> ByteArray?,
         progress: Progress? = null,
-        isCancelled: () -> Boolean = { false },
-        /** Current settings/vocabulary, captured so a late failure can put them back. */
-        beforeSettings: () -> String? = { null },
-        beforeWords: () -> Pair<Map<String, Int>, Map<String, Int>>? = { null }
+        isCancelled: () -> Boolean = { false }
     ): Result {
         if (isCancelled()) return Result.Cancelled
         progress?.onProgress(0, themes.size)
@@ -84,7 +81,10 @@ object BackupService {
         onSettings: (String) -> Unit,
         onWords: (Map<String, Int>, Map<String, Int>) -> Unit,
         progress: Progress? = null,
-        isCancelled: () -> Boolean = { false }
+        isCancelled: () -> Boolean = { false },
+        /** Current settings/vocabulary, captured so a late failure can put them back. */
+        beforeSettings: () -> String? = { null },
+        beforeWords: () -> Pair<Map<String, Int>, Map<String, Int>>? = { null }
     ): Result {
         val read = when (val r = BackupBundle.read(archive)) {
             is BackupBundle.ReadResult.Ok -> r.contents

@@ -16,8 +16,11 @@ class ThemeThumbnailTest {
     fun aFullSizeWallpaperIsHeavilySubsampled() {
         // the actual bundled dimensions
         val s = ThemeThumbnails.sampleSizeFor(736, 1308)
-        assertTrue("expected aggressive subsampling, got $s", s >= 8)
-        // and the decoded result must be far smaller than the source
+        // 736/4 = 184 is still above the 96px target, so 4 is the largest power of two that keeps
+        // the result at or above it — going to 8 would undershoot
+        assertEquals(4, s)
+        assertTrue(736 / s >= ThemeThumbnails.TARGET_PX)
+        // and the decoded result is far smaller than the source
         assertTrue(736 / s <= ThemeThumbnails.TARGET_PX * 2)
     }
 

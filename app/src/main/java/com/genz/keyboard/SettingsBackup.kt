@@ -72,6 +72,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.*
@@ -145,88 +148,16 @@ internal fun BackupPage() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    var pendingRestore by remember { mutableStateOf<File?>(null) }
-    // live progress for the running operation, and a one-shot cancel flag the service polls
-    var progressDone by remember { mutableStateOf(0) }
-    var progressTotal by remember { mutableStateOf(0) }
-    var operationLabel by remember { mutableStateOf("") }
-    var cancelRequested by remember { mutableStateOf(false) }
-    var isRestore by remember { mutableStateOf(false) }
+    // The operation lives in a ViewModel, so a rotation no longer cancels it mid-write. The screen
+    // reconnects to whatever is already running instead of starting a second operation.
+    val vm: BackupViewModel = viewModel()
+    val op = vm.state
 
-    fun startOperation(label: String, restore: Boolean = false) {
-        operationLabel = label
-        isRestore = restore
-        progressDone = 0
-        progressTotal = 0
-        cancelRequested = false
-        busy = true
-    }
-    fun endOperation() { busy = false; operationLabel = "" }
-
-    /** The complete archive is built in the cache first, then copied to the user's chosen file. */
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
-        if (uri != null) scope.launch {
-            if (busy) return@launch
-            startOperation(tr("Экспорт резервной копии"))
-            val msg = withContext(Dispatchers.IO) {
-                BackupOperation.run {
-                    val tmp = File(context.cacheDir, "backup-export.zip")
-                    val (w, b) = BackupData.words(context)
-                    val r = BackupService.export(
-                        tmp, BackupData.settingsJson(context), w, b, BackupData.themes(context),
-                        imageBytes = { name -> BackupData.imageBytes(context, name) },
-                        progress = { d, t -> progressDone = d; progressTotal = t },
-                        isCancelled = { cancelRequested }
-                    )
-                    val text = when (r) {
-                        is BackupService.Result.Ok ->
-                            if (copyTo(context, tmp, uri)) {
-                                tmp.delete()
-                                tr("Резервная копия сохранена: тем {0}, слов {1}", r.themes, r.words)
-                            } else tr("Не удалось записать файл")
-                        is BackupService.Result.Invalid -> tr("Ошибка: {0}", r.reason)
-                        is BackupService.Result.Failed -> tr("Ошибка: {0}", r.reason)
-                        BackupService.Result.Cancelled -> tr("Операция отменена")
-                    }
-                    tmp.delete()
-                    text
-                } ?: tr("Другая операция уже выполняется")
-            }
-            endOperation()
-            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-        }
+        if (uri != null) vm.startExport(uri)
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) scope.launch {
-            if (busy) { Toast.makeText(context, tr("Другая операция уже выполняется"), Toast.LENGTH_SHORT).show(); return@launch }
-            busy = true
-            // inspect the archive before touching any data, then ask for confirmation
-            val staged = withContext(Dispatchers.IO) {
-                runCatching {
-                    val tmp = File(context.cacheDir, "backup-import.zip")
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        tmp.outputStream().use { input.copyTo(it) }
-                    } ?: error("Файл не открылся")
-                    tmp
-                }.getOrNull()
-            }
-            busy = false
-            if (staged == null) {
-                Toast.makeText(context, tr("Файл не открылся"), Toast.LENGTH_LONG).show()
-            } else when (val info = withContext(Dispatchers.IO) { BackupService.inspect(staged) }) {
-                is BackupService.Result.Ok -> pendingRestore = staged
-                is BackupService.Result.Invalid -> {
-                    staged.delete()
-                    Toast.makeText(context, tr("Ошибка: {0}", info.reason), Toast.LENGTH_LONG).show()
-                }
-                is BackupService.Result.Failed -> {
-                    staged.delete()
-                    Toast.makeText(context, tr("Ошибка: {0}", info.reason), Toast.LENGTH_LONG).show()
-                }
-                BackupService.Result.Cancelled -> staged.delete()
-            }
-        }
+        if (uri != null) vm.startInspect(uri)
     }
     // legacy settings-only import path, kept for backups taken by earlier builds
     val legacyImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -241,37 +172,37 @@ internal fun BackupPage() {
                 .onFailure { Toast.makeText(context, tr("Ошибка: {0}", it.message), Toast.LENGTH_LONG).show() }
         }
     }
-    if (busy) {
+    if (op.busy) {
         // progress with a real Cancel button: a long backup must never be an unstoppable frozen screen
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                .semantics(mergeDescendants = true) { contentDescription = op.label }
+        ) {
+            Text(op.label, color = Color(0xFFE8EDF0), fontSize = 12.sp)
             Text(
-                operationLabel,
-                color = Color(0xFFE8EDF0), fontSize = 12.sp
-            )
-            Text(
-                when {
-                    progressTotal > 0 && isRestore -> tr("Восстановление: {0}%", progressDone * 100 / progressTotal)
-                    progressTotal > 0 -> tr("Сохранение: {0}%", progressDone * 100 / progressTotal)
-                    else -> tr("Подготовка…")
-                },
-                color = Color(0xFF8A9299), fontSize = 11.sp
+                op.percent?.let { if (op.isRestore) tr("Восстановление: {0}%", it) else tr("Сохранение: {0}%", it) }
+                    ?: tr("Подготовка…"),
+                color = Color(0xFF8A9299), fontSize = 11.sp,
+                modifier = Modifier.semantics { contentDescription = "${op.percent ?: 0}%" }
             )
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.End) {
-                TextButton(
-                    onClick = {
-                        // one request is enough; repeated taps must not queue more work
-                        if (!cancelRequested) cancelRequested = true
-                    },
-                    enabled = !cancelRequested
-                ) {
+                TextButton(onClick = { vm.cancel() }, enabled = !op.cancelling) {
                     Text(
-                        if (cancelRequested) tr("Отмена") else tr("Отменить"),
-                        color = if (cancelRequested) Color(0xFF5A6268) else Color(0xFFD67A7A),
-                        fontSize = 11.sp
+                        if (op.cancelling) tr("Отмена") else tr("Отменить"),
+                        color = if (op.cancelling) Color(0xFF5A6268) else Color(0xFFD67A7A),
+                        fontSize = 11.sp,
+                        modifier = Modifier.semantics { contentDescription = "Cancel the running operation" }
                     )
                 }
             }
         }
+    }
+    op.message?.let { m ->
+        Text(
+            m, color = Color(0xFFB9C2C8), fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                .semantics { contentDescription = m }
+        )
     }
 
     SettingsSection("Настройки") {
@@ -299,61 +230,32 @@ internal fun BackupPage() {
         })
         ActionItem(Icons.Rounded.DeleteForever, "Удалить все личные данные", "Выученные слова, история буфера, недавние эмодзи и ключи API", onClick = { confirm = "all" })
     }
-    pendingRestore?.let { file ->
-        var counts by remember(file) { mutableStateOf<BackupService.Result.Ok?>(null) }
-        LaunchedEffect(file) {
-            counts = withContext(Dispatchers.IO) { BackupService.inspect(file) } as? BackupService.Result.Ok
-        }
+    op.pendingRestore?.let { file ->
         AlertDialog(
-            onDismissRequest = { file.delete(); pendingRestore = null },
+            onDismissRequest = { vm.dismissPending() },
             title = { Text("Восстановить резервную копию?") },
             text = {
-                Column {
-                    val c = counts
+                Column(Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = "Backup contains ${op.pendingThemes} themes, ${op.pendingImages} wallpapers, ${op.pendingWords} words"
+                }) {
                     Text(
-                        if (c == null) "Проверка файла…"
-                        else "Тем: ${c.themes}, обоев: ${c.images}, слов: ${c.words}, пар: ${c.bigrams}",
+                        tr("Тем: {0}, обоев: {1}, слов: {2}, пар: {3}",
+                            op.pendingThemes, op.pendingImages, op.pendingWords, op.pendingBigrams),
                         color = Color(0xFFB9C2C8), fontSize = 12.sp
                     )
                     Text(
-                        "Существующие темы не перезаписываются: совпадающие добавятся как копии.",
+                        tr("Существующие темы не перезаписываются: совпадающие добавятся как копии."),
                         color = Color(0xFF8A9299), fontSize = 11.sp
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    val f = file
-                    pendingRestore = null
-                    scope.launch {
-                        startOperation(tr("Импорт резервной копии"), restore = true)
-                        val msg = withContext(Dispatchers.IO) {
-                            BackupOperation.run {
-                                when (val r = BackupService.restore(
-                                    f, ThemeAssets.themeDir(context), ThemeAssets.imageDir(context),
-                                    { json -> KeyboardPrefs.importJson(context, json) },
-                                    { w, b -> BackupData.applyWords(context, w, b) },
-                                    progress = { d, t -> progressDone = d; progressTotal = t },
-                                    isCancelled = { cancelRequested },
-                                    beforeSettings = { BackupData.settingsJson(context) },
-                                    beforeWords = { BackupData.words(context) }
-                                )) {
-                                    is BackupService.Result.Ok ->
-                                        tr("Восстановлено: тем {0}, слов {1}", r.themes, r.words)
-                                    is BackupService.Result.Invalid -> tr("Ошибка: {0}", r.reason)
-                                    is BackupService.Result.Failed -> tr("Ошибка: {0}", r.reason)
-                                    BackupService.Result.Cancelled -> tr("Операция отменена")
-                                }
-                            } ?: tr("Другая операция уже выполняется")
-                        }
-                        f.delete()
-                        endOperation()
-                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                    }
-                }) { Text("Восстановить", color = Color(0xFF6FD3D6)) }
+                TextButton(onClick = { vm.confirmRestore() }) {
+                    Text("Восстановить", color = Color(0xFF6FD3D6))
+                }
             },
             dismissButton = {
-                TextButton(onClick = { file.delete(); pendingRestore = null }) { Text("Отмена") }
+                TextButton(onClick = { vm.dismissPending() }) { Text("Отмена") }
             }
         )
     }

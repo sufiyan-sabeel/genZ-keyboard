@@ -147,19 +147,37 @@ internal fun BackupPage() {
     var confirm by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var pendingRestore by remember { mutableStateOf<File?>(null) }
+    // live progress for the running operation, and a one-shot cancel flag the service polls
+    var progressDone by remember { mutableStateOf(0) }
+    var progressTotal by remember { mutableStateOf(0) }
+    var operationLabel by remember { mutableStateOf("") }
+    var cancelRequested by remember { mutableStateOf(false) }
+    var isRestore by remember { mutableStateOf(false) }
+
+    fun startOperation(label: String, restore: Boolean = false) {
+        operationLabel = label
+        isRestore = restore
+        progressDone = 0
+        progressTotal = 0
+        cancelRequested = false
+        busy = true
+    }
+    fun endOperation() { busy = false; operationLabel = "" }
 
     /** The complete archive is built in the cache first, then copied to the user's chosen file. */
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
         if (uri != null) scope.launch {
             if (busy) return@launch
-            busy = true
+            startOperation(tr("Экспорт резервной копии"))
             val msg = withContext(Dispatchers.IO) {
                 BackupOperation.run {
                     val tmp = File(context.cacheDir, "backup-export.zip")
                     val (w, b) = BackupData.words(context)
                     val r = BackupService.export(
                         tmp, BackupData.settingsJson(context), w, b, BackupData.themes(context),
-                        imageBytes = { name -> BackupData.imageBytes(context, name) }
+                        imageBytes = { name -> BackupData.imageBytes(context, name) },
+                        progress = { d, t -> progressDone = d; progressTotal = t },
+                        isCancelled = { cancelRequested }
                     )
                     val text = when (r) {
                         is BackupService.Result.Ok ->
@@ -175,7 +193,7 @@ internal fun BackupPage() {
                     text
                 } ?: tr("Другая операция уже выполняется")
             }
-            busy = false
+            endOperation()
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         }
     }
@@ -223,6 +241,39 @@ internal fun BackupPage() {
                 .onFailure { Toast.makeText(context, tr("Ошибка: {0}", it.message), Toast.LENGTH_LONG).show() }
         }
     }
+    if (busy) {
+        // progress with a real Cancel button: a long backup must never be an unstoppable frozen screen
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text(
+                operationLabel,
+                color = Color(0xFFE8EDF0), fontSize = 12.sp
+            )
+            Text(
+                when {
+                    progressTotal > 0 && isRestore -> tr("Восстановление: {0}%", progressDone * 100 / progressTotal)
+                    progressTotal > 0 -> tr("Сохранение: {0}%", progressDone * 100 / progressTotal)
+                    else -> tr("Подготовка…")
+                },
+                color = Color(0xFF8A9299), fontSize = 11.sp
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.End) {
+                TextButton(
+                    onClick = {
+                        // one request is enough; repeated taps must not queue more work
+                        if (!cancelRequested) cancelRequested = true
+                    },
+                    enabled = !cancelRequested
+                ) {
+                    Text(
+                        if (cancelRequested) tr("Отмена") else tr("Отменить"),
+                        color = if (cancelRequested) Color(0xFF5A6268) else Color(0xFFD67A7A),
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+    }
+
     SettingsSection("Настройки") {
         ActionItem(Icons.Rounded.Upload, "Экспорт резервной копии", "Темы, обои, слова и настройки в .zip", onClick = {
             exportLauncher.launch("genz-backup-${java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())}.zip")
@@ -275,13 +326,15 @@ internal fun BackupPage() {
                     val f = file
                     pendingRestore = null
                     scope.launch {
-                        busy = true
+                        startOperation(tr("Импорт резервной копии"), restore = true)
                         val msg = withContext(Dispatchers.IO) {
                             BackupOperation.run {
                                 when (val r = BackupService.restore(
                                     f, ThemeAssets.themeDir(context), ThemeAssets.imageDir(context),
                                     { json -> KeyboardPrefs.importJson(context, json) },
-                                    { w, b -> BackupData.applyWords(context, w, b) }
+                                    { w, b -> BackupData.applyWords(context, w, b) },
+                                    progress = { d, t -> progressDone = d; progressTotal = t },
+                                    isCancelled = { cancelRequested }
                                 )) {
                                     is BackupService.Result.Ok ->
                                         tr("Восстановлено: тем {0}, слов {1}", r.themes, r.words)
@@ -292,7 +345,7 @@ internal fun BackupPage() {
                             } ?: tr("Другая операция уже выполняется")
                         }
                         f.delete()
-                        busy = false
+                        endOperation()
                         Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                     }
                 }) { Text("Восстановить", color = Color(0xFF6FD3D6)) }

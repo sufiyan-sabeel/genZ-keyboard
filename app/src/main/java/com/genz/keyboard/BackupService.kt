@@ -87,6 +87,7 @@ object BackupService {
             is BackupBundle.ReadResult.Ok -> r.contents
             is BackupBundle.ReadResult.LegacySettings -> {
                 // settings-only backup from an older build: nothing else to apply
+                if (isCancelled()) return Result.Cancelled
                 return runCatching { onSettings(r.json); Result.Ok(0, 0, 0, 0) }
                     .getOrElse { Result.Failed(it.message ?: "Could not apply settings") }
             }
@@ -122,7 +123,11 @@ object BackupService {
                 progress?.onProgress(++done, total)
             }
 
+            // settings and vocabulary are the last stages, and they are exactly as cancellable as the
+            // file copies — stopping here must roll back too, not leave themes without their settings
+            if (isCancelled()) { rollback(themeDir, imageDir, snapshot); return Result.Cancelled }
             read.settingsJson?.let(onSettings)
+            if (isCancelled()) { rollback(themeDir, imageDir, snapshot); return Result.Cancelled }
             onWords(read.words, read.bigrams)
 
             Result.Ok(read.themes.size, read.images.size, read.words.size, read.bigrams.size)

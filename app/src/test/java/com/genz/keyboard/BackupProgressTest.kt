@@ -96,4 +96,62 @@ class BackupProgressTest {
         assertTrue(r is BackupService.Result.Ok)
         assertFalse(BackupOperation.isBusy)
     }
+
+    @Test
+    fun cancellingBeforeSettingsAreAppliedRollsBackThemes() {
+        // stopping at the settings stage must not leave themes without their settings
+        ThemeStore(themeDir).save(doc("existing", "#ABCDEF"))
+        export(out, listOf(doc("incoming")))
+        var settingsApplied = false
+        val r = BackupService.restore(out, themeDir, imageDir,
+            { settingsApplied = true }, { _, _ -> }, isCancelled = { true })
+        assertEquals(BackupService.Result.Cancelled, r)
+        assertFalse("settings must not be applied after cancellation", settingsApplied)
+        assertEquals("#ABCDEF", ThemeStore(themeDir).load("existing")!!.overrides["colorKey"])
+        assertNull(ThemeStore(themeDir).load("incoming"))
+    }
+
+    @Test
+    fun cancellingBeforeVocabularyIsAppliedSkipsIt() {
+        ThemeStore(themeDir).save(doc("existing", "#ABCDEF"))
+        export(out, listOf(doc("incoming")))
+        var wordsApplied = false
+        var calls = 0
+        // allow the theme copy to run, then cancel before the vocabulary stage
+        val r = BackupService.restore(out, themeDir, imageDir, {}, { _, _ -> wordsApplied = true },
+            isCancelled = { calls++ > 1 })
+        assertEquals(BackupService.Result.Cancelled, r)
+        assertFalse("vocabulary must not be applied after cancellation", wordsApplied)
+        assertEquals("#ABCDEF", ThemeStore(themeDir).load("existing")!!.overrides["colorKey"])
+    }
+
+    @Test
+    fun repeatedCancellationRequestsAreHarmless() {
+        // the UI guard prevents duplicates, but the service must tolerate them too
+        export(out, listOf(doc("a")))
+        val r = BackupService.restore(out, themeDir, imageDir, {}, { _, _ -> },
+            isCancelled = { true })
+        assertEquals(BackupService.Result.Cancelled, r)
+        val again = BackupService.restore(out, themeDir, imageDir, {}, { _, _ -> },
+            isCancelled = { true })
+        assertEquals(BackupService.Result.Cancelled, again)
+    }
+
+    @Test
+    fun aCancelledExportLeavesNoStaleTempArchive() {
+        val tmp = File(root, "export-tmp.zip")
+        BackupService.export(tmp, "{}", emptyMap(), emptyMap(), listOf(doc("a")),
+            imageBytes = { png }, isCancelled = { true })
+        // a cancelled export must not leave a usable-looking archive behind
+        assertFalse("cancelled export wrote a file", tmp.isFile)
+    }
+
+    @Test
+    fun anUnwritableDestinationFailsClearly() {
+        // low storage or an inaccessible folder surfaces as a failure, not a false success
+        val blocked = File(root, "missing-dir/deeper/out.zip")
+        val r = BackupService.export(blocked, "{}", emptyMap(), emptyMap(), listOf(doc("a")),
+            imageBytes = { png })
+        assertTrue("expected Failed, got $r", r is BackupService.Result.Failed)
+    }
 }

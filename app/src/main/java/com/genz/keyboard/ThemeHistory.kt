@@ -30,6 +30,15 @@ class ThemeHistory(
     private var lastGroupKey: String? = null
     private var lastEditAt: Long = 0L
 
+    /**
+     * Whether the document differs from the state it was loaded in.
+     *
+     * This is what the editor uses to decide whether Cancel needs a confirmation. Comparing against
+     * the loaded snapshot — not against the last save — means undoing back to the start correctly
+     * reports "no changes".
+     */
+    val isDirty: Boolean get() = current != original
+
     /** The theme as it was loaded — the state every property resets to. */
     val original: ThemeDoc get() = undoStack.firstOrNull() ?: current
 

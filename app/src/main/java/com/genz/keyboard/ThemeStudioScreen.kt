@@ -81,6 +81,8 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     var message by remember { mutableStateOf<String?>(null) }
     var importedText by remember { mutableStateOf<String?>(null) }
     var publishOpen by remember { mutableStateOf(false) }
+    var discardOpen by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
     // keep the saved snapshot in step with the live history
     LaunchedEffect(history, draft) {
         history?.let {
@@ -213,7 +215,31 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
                 onResetAll = { history?.resetToOriginal()?.let { draft = it } },
                 // "original" is the state the editor opened with
                 originalDoc = history?.original ?: d,
-                onResetProperty = { key -> history?.resetProperty(key)?.let { draft = it } }
+                onResetProperty = { key -> history?.resetProperty(key)?.let { draft = it } },
+                dirty = history?.isDirty == true,
+                onSave = {
+                    saveError = null
+                    val d = draft
+                    if (d == null) {
+                        saveError = "Nothing to save"
+                    } else when (val r = ThemeSave.save(store, d)) {
+                        is ThemeSave.Result.Saved -> {
+                            // the saved document becomes the new baseline, so the editor is clean
+                            history?.load(d)
+                            draft = d
+                            ThemeDraftSession.clear(context.filesDir)
+                            refresh()
+                            message = "Saved"
+                        }
+                        is ThemeSave.Result.Invalid -> saveError = r.reason
+                        is ThemeSave.Result.Failed -> saveError = r.reason
+                    }
+                },
+                onCancel = {
+                    // never discard silently: only ask when there is something to lose
+                    if (history?.isDirty == true) discardOpen = true
+                    else { history = null; draft = null; ThemeDraftSession.clear(context.filesDir) }
+                }
             )
         }
 
@@ -319,7 +345,10 @@ private fun ThemeEditor(
     onRedo: () -> Unit,
     onResetAll: () -> Unit,
     originalDoc: ThemeDoc,
-    onResetProperty: (String) -> Unit
+    onResetProperty: (String) -> Unit,
+    dirty: Boolean,
+    onSave: () -> Unit,
+    onCancel: () -> Unit
 ) {
     val contextForPrefs = LocalContext.current
     var name by remember(doc.id) { mutableStateOf(doc.name) }
@@ -408,6 +437,12 @@ private fun ThemeEditor(
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TextButton(onClick = onSave) {
+                Text("Save", color = Color(0xFF6FD3D6), fontSize = 12.sp)
+            }
+            TextButton(onClick = onCancel) {
+                Text(if (dirty) "Cancel" else "Close", color = Color(0xFFB9C2C8), fontSize = 12.sp)
+            }
             TextButton(onClick = onUndo, enabled = canUndo) {
                 Text("Undo", color = if (canUndo) Color(0xFF6FD3D6) else Color(0xFF5A6268), fontSize = 12.sp)
             }

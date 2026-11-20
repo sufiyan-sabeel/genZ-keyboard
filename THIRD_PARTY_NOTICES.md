@@ -79,3 +79,24 @@ repository so the design is not lost, absent from every build.
 Attribution is not a licence. Crediting `SNIPER`, `Dream Render` or `AFERA XV` in this file does
 **not** make redistributing their work lawful, and no such claim is made here. Attribution is
 recorded so the correct artist can be approached and so that any future use is correctly credited.
+
+---
+
+## Emoji artwork
+
+Only families whose redistribution rights have been verified are offered. Apple, Samsung One UI,
+Segoe UI, WhatsApp, HarmonyOS, Flyme and JoyPixels are excluded: their artwork is proprietary and the
+repositories that repackage it (for example `lzcapp/Emoji-PNG`, which carries no licence statement)
+grant no redistribution rights.
+
+| Family | Upstream | Licence | Status |
+|---|---|---|---|
+| Twemoji | `jdecked/twemoji` (formerly Twitter) | CC-BY 4.0 | offered — attribution required |
+| Noto Emoji | `googlefonts/noto-emoji` | Apache-2.0 | offered |
+| Blobmoji | `C1710/blobmoji` | Apache-2.0 | offered |
+| Fluent Emoji | Microsoft `fluentui-emoji` | MIT | offered |
+| OpenMoji | `hfg-gmuend/openmoji` | CC BY-SA 4.0 | **deferred** — share-alike obligations under review |
+
+No Magisk module, root access, system font replacement or device modification is used. `Magisk-iOS-Emoji`
+was inspected only to establish that Apple's artwork cannot be redistributed; none of its scripts or
+assets are included.

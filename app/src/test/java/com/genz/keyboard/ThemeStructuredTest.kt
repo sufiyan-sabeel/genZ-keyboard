@@ -103,4 +103,34 @@ class ThemeStructuredTest {
         assertTrue(decoded is ThemeValidation.Ok)
         assertEquals("glass", (decoded as ThemeValidation.Ok).doc.overrides["material"])
     }
+
+    @Test
+    fun aGradientSurvivesTheCodec() {
+        // the format originally accepted only hex and numbers, so a gradient could not be saved at all
+        val g = ThemeStructured.encodeGradient(
+            listOf(0xFF111111.toInt(), 0xFF222222.toInt()), 90f, false
+        )!!
+        val d = ThemeDoc("t1", "T", "builtin.preset.windmill", mapOf("background" to g))
+        assertTrue(ThemeCodec.decode(ThemeCodec.encode(d)) is ThemeValidation.Ok)
+    }
+
+    @Test
+    fun aMalformedGradientIsRejectedByTheCodec() {
+        // parsed, not pattern-matched: one bad colour must invalidate the whole value
+        val bad = """{"colors":["#111111","not-a-colour"],"angle":90}"""
+        val d = ThemeDoc("t1", "T", "builtin.preset.windmill", mapOf("background" to bad))
+        assertTrue(ThemeCodec.decode(ThemeCodec.encode(d)) is ThemeValidation.Invalid)
+    }
+
+    @Test
+    fun anEnumTokenIsOnlyAcceptedForItsOwnProperty() {
+        val d = ThemeDoc("t1", "T", "builtin.preset.windmill", mapOf("shape" to "glass"))
+        assertTrue(ThemeCodec.decode(ThemeCodec.encode(d)) is ThemeValidation.Invalid)
+    }
+
+    @Test
+    fun anUnknownEnumTokenIsRejected() {
+        val d = ThemeDoc("t1", "T", "builtin.preset.windmill", mapOf("material" to "holographic"))
+        assertTrue(ThemeCodec.decode(ThemeCodec.encode(d)) is ThemeValidation.Invalid)
+    }
 }

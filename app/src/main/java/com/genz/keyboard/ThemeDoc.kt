@@ -122,7 +122,7 @@ object ThemeCodec {
                     if (value.isEmpty() || value.length > ThemeDoc.MAX_VALUE) {
                         return ThemeValidation.Invalid("invalid value for $key")
                     }
-                    if (!HEX.matches(value) && !NUM.matches(value)) {
+                    if (!isAcceptableValue(key, value)) {
                         return ThemeValidation.Invalid("invalid value for $key")
                     }
                     overrides[key] = value
@@ -155,5 +155,56 @@ object ThemeCodec {
             h *= 0x01000193
         }
         return "user." + Integer.toHexString(h)
+    }
+
+    /**
+     * Keys whose value is an enum token rather than a colour or a number.
+     *
+     * These mirror the renderer's enums exactly (SkinMaterial, SkinShape, PressEffect, BorderStyle,
+     * LabelEffect). They are an explicit allowlist: a token is only accepted for the property it
+     * belongs to, so a typo cannot smuggle arbitrary text into a theme.
+     */
+    private val ENUM_VALUES: Map<String, Set<String>> = mapOf(
+        "material" to setOf("solid", "glass", "outline", "neumorph", "bevel", "none"),
+        "shape" to setOf("rounded", "pill", "cut", "squircle", "wavy"),
+        "press" to setOf("scale", "jelly", "bounce", "sink", "none"),
+        "borderStyle" to setOf("solid", "dots", "dashed"),
+        "labelEffect" to setOf("none", "dots")
+    )
+
+    /** The leaf name of a dotted property path, e.g. `keys.enter.fill` -> `fill`. */
+    private fun leaf(key: String): String = key.substringAfterLast('.')
+
+    /**
+     * Whether a value may be stored for this property.
+     *
+     * Three shapes are allowed: a colour, a number, an enum token for its own property, and a
+     * compact gradient for a fill property. The gradient is parsed rather than pattern-matched, so a
+     * malformed one is rejected instead of stored and ignored by the renderer later.
+     */
+    private fun isAcceptableValue(key: String, value: String): Boolean {
+        if (HEX.matches(value) || NUM.matches(value)) return true
+
+        ENUM_VALUES[key]?.let { return value in it }
+
+        val leaf = leaf(key)
+        if (leaf == "fill" || leaf == "background" || leaf == "border") {
+            if (value.startsWith("{")) return isGradient(value)
+        }
+        return false
+    }
+
+    /** A gradient: `{"colors":[#a,#b],"angle":90[,"type":"radial"]}`, colours strictly hex. */
+    private fun isGradient(value: String): Boolean {
+        if (value.length > 400) return false
+        val o = ThemeJson.decode(value) ?: return false
+        val colours = o["colors"] as? List<*> ?: return false
+        if (colours.size !in 2..8) return false
+        if (colours.any { it !is String || !HEX.matches(it) }) return false
+        val angle = o["angle"]
+        if (angle != null && (angle !is Number || angle.toDouble() !in 0.0..360.0)) return false
+        val type = o["type"]
+        if (type != null && type != "radial") return false
+        return true
     }
 }

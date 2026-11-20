@@ -36,15 +36,13 @@ class BackupProgressTest {
     @After fun tearDown() { root.deleteRecursively(); BackupOperation.reset() }
 
     private fun export(file: File = out, themes: List<ThemeDoc> = listOf(doc("user.1"))) =
-        BackupService.export(file, "{}", mapOf("a" to 1), emptyMap(), themes) { png }
+        BackupService.export(file, "{}", mapOf("a" to 1), emptyMap(), themes, imageBytes = { png })
 
     @Test
     fun exportReportsProgress() {
         val seen = mutableListOf<Pair<Int, Int>>()
-        BackupService.export(out, "{}", emptyMap(), emptyMap(), listOf(doc("a"), doc("b"))) { png }
-            .let { }
         BackupService.export(out, "{}", emptyMap(), emptyMap(), listOf(doc("a"), doc("b")),
-            progress = { d, t -> seen += d to t }) { png }
+            imageBytes = { png }, progress = { d, t -> seen += d to t })
         assertTrue("progress was never reported", seen.isNotEmpty())
         assertEquals(2, seen.last().second)
     }
@@ -52,7 +50,7 @@ class BackupProgressTest {
     @Test
     fun cancellingAnExportReportsCancelled() {
         val r = BackupService.export(out, "{}", emptyMap(), emptyMap(), listOf(doc("a")),
-            isCancelled = { true }) { png }
+            imageBytes = { png }, isCancelled = { true })
         assertEquals(BackupService.Result.Cancelled, r)
     }
 

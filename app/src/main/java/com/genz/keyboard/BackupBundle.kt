@@ -126,7 +126,7 @@ object BackupBundle {
                 ) {
                     return ReadResult.Invalid("unexpected entry: ${e.name}")
                 }
-                if (BackupValidate.entryPath(e.name) == null) return ReadResult.Invalid("unsafe entry: ${e.name}")
+                if (BackupValidate.normalisePath(e.name) == null) return ReadResult.Invalid("unsafe entry: ${e.name}")
 
                 when {
                     e.name.startsWith(THEMES_DIR) -> {

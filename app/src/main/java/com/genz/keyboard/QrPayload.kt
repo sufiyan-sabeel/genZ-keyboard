@@ -141,7 +141,10 @@ sealed interface QrPayload {
     ) : QrPayload {
         override fun encode(): String {
             val label = percent("$issuer:$account")
-            return "otpauth://totp/$label?secret=${secret.trim().uppercase()}" +
+            // secrets are usually shown in spaced groups (abcd efgh); the space is not part of the
+            // key and a provisioning URI containing one is rejected by authenticator apps
+            val key = secret.filterNot { it.isWhitespace() }.uppercase()
+            return "otpauth://totp/$label?secret=$key" +
                 "&issuer=${percent(issuer)}&period=$period&digits=$digits"
         }
 

@@ -158,8 +158,9 @@ internal fun BackupPage() {
                     val tmp = File(context.cacheDir, "backup-export.zip")
                     val (w, b) = BackupData.words(context)
                     val r = BackupService.export(
-                        tmp, BackupData.settingsJson(context), w, b, BackupData.themes(context)
-                    ) { name -> BackupData.imageBytes(context, name) }
+                        tmp, BackupData.settingsJson(context), w, b, BackupData.themes(context),
+                        imageBytes = { name -> BackupData.imageBytes(context, name) }
+                    )
                     val text = when (r) {
                         is BackupService.Result.Ok ->
                             if (copyTo(context, tmp, uri)) {
@@ -168,6 +169,7 @@ internal fun BackupPage() {
                             } else tr("Не удалось записать файл")
                         is BackupService.Result.Invalid -> tr("Ошибка: {0}", r.reason)
                         is BackupService.Result.Failed -> tr("Ошибка: {0}", r.reason)
+                        BackupService.Result.Cancelled -> tr("Операция отменена")
                     }
                     tmp.delete()
                     text
@@ -204,6 +206,7 @@ internal fun BackupPage() {
                     staged.delete()
                     Toast.makeText(context, tr("Ошибка: {0}", info.reason), Toast.LENGTH_LONG).show()
                 }
+                BackupService.Result.Cancelled -> staged.delete()
             }
         }
     }
@@ -284,6 +287,7 @@ internal fun BackupPage() {
                                         tr("Восстановлено: тем {0}, слов {1}", r.themes, r.words)
                                     is BackupService.Result.Invalid -> tr("Ошибка: {0}", r.reason)
                                     is BackupService.Result.Failed -> tr("Ошибка: {0}", r.reason)
+                                    BackupService.Result.Cancelled -> tr("Операция отменена")
                                 }
                             } ?: tr("Другая операция уже выполняется")
                         }

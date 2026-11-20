@@ -68,6 +68,8 @@ import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -143,15 +145,70 @@ internal fun BackupPage() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf<String?>(null) }
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
+    var busy by remember { mutableStateOf(false) }
+    var pendingRestore by remember { mutableStateOf<File?>(null) }
+
+    /** The complete archive is built in the cache first, then copied to the user's chosen file. */
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri: Uri? ->
         if (uri != null) scope.launch {
-            val ok = withContext(Dispatchers.IO) {
-                runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(KeyboardPrefs.exportJson(context).toByteArray()) } }.isSuccess
+            if (busy) return@launch
+            busy = true
+            val msg = withContext(Dispatchers.IO) {
+                BackupOperation.run {
+                    val tmp = File(context.cacheDir, "backup-export.zip")
+                    val (w, b) = BackupData.words(context)
+                    val r = BackupService.export(
+                        tmp, BackupData.settingsJson(context), w, b, BackupData.themes(context)
+                    ) { name -> BackupData.imageBytes(context, name) }
+                    val text = when (r) {
+                        is BackupService.Result.Ok ->
+                            if (copyTo(context, tmp, uri)) {
+                                tmp.delete()
+                                tr("Резервная копия сохранена: тем {0}, слов {1}", r.themes, r.words)
+                            } else tr("Не удалось записать файл")
+                        is BackupService.Result.Invalid -> tr("Ошибка: {0}", r.reason)
+                        is BackupService.Result.Failed -> tr("Ошибка: {0}", r.reason)
+                    }
+                    tmp.delete()
+                    text
+                } ?: tr("Другая операция уже выполняется")
             }
-            Toast.makeText(context, if (ok) tr("Настройки сохранены") else tr("Не удалось сохранить"), Toast.LENGTH_SHORT).show()
+            busy = false
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         }
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) scope.launch {
+            if (busy) { Toast.makeText(context, tr("Другая операция уже выполняется"), Toast.LENGTH_SHORT).show(); return@launch }
+            busy = true
+            // inspect the archive before touching any data, then ask for confirmation
+            val staged = withContext(Dispatchers.IO) {
+                runCatching {
+                    val tmp = File(context.cacheDir, "backup-import.zip")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        tmp.outputStream().use { input.copyTo(it) }
+                    } ?: error("Файл не открылся")
+                    tmp
+                }.getOrNull()
+            }
+            busy = false
+            if (staged == null) {
+                Toast.makeText(context, tr("Файл не открылся"), Toast.LENGTH_LONG).show()
+            } else when (val info = withContext(Dispatchers.IO) { BackupService.inspect(staged) }) {
+                is BackupService.Result.Ok -> pendingRestore = staged
+                is BackupService.Result.Invalid -> {
+                    staged.delete()
+                    Toast.makeText(context, tr("Ошибка: {0}", info.reason), Toast.LENGTH_LONG).show()
+                }
+                is BackupService.Result.Failed -> {
+                    staged.delete()
+                    Toast.makeText(context, tr("Ошибка: {0}", info.reason), Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    // legacy settings-only import path, kept for backups taken by earlier builds
+    val legacyImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) scope.launch {
             val r = withContext(Dispatchers.IO) {
                 runCatching {
@@ -164,12 +221,17 @@ internal fun BackupPage() {
         }
     }
     SettingsSection("Настройки") {
-        ActionItem(Icons.Rounded.Upload, "Экспорт настроек", "Сохранить все параметры в .json", onClick = {
-            exportLauncher.launch("expressive-keyboard-settings.json")
+        ActionItem(Icons.Rounded.Upload, "Экспорт резервной копии", "Темы, обои, слова и настройки в .zip", onClick = {
+            exportLauncher.launch("genz-backup-${java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())}.zip")
         })
-        ActionItem(Icons.Rounded.Download, "Импорт настроек", "Восстановить из файла", onClick = {
-            // список из нескольких типов вместе с */* на части телефонов (MIUI, One UI) прячет или блокирует файлы
+        ActionItem(Icons.Rounded.Download, "Импорт резервной копии", "Восстановить из .zip", onClick = {
             runCatching { importLauncher.launch(arrayOf("*/*")) }.onFailure {
+                Toast.makeText(context, tr("На телефоне нет приложения для выбора файлов"), Toast.LENGTH_LONG).show()
+            }
+        })
+        ActionItem(Icons.Rounded.Download, "Импорт настроек (.json)", "Старый формат, только параметры", onClick = {
+            // список из нескольких типов вместе с */* на части телефонов (MIUI, One UI) прячет или блокирует файлы
+            runCatching { legacyImportLauncher.launch(arrayOf("*/*")) }.onFailure {
                 Toast.makeText(context, tr("На телефоне нет приложения для выбора файлов"), Toast.LENGTH_LONG).show()
             }
         })
@@ -183,6 +245,60 @@ internal fun BackupPage() {
         })
         ActionItem(Icons.Rounded.DeleteForever, "Удалить все личные данные", "Выученные слова, история буфера, недавние эмодзи и ключи API", onClick = { confirm = "all" })
     }
+    pendingRestore?.let { file ->
+        var counts by remember(file) { mutableStateOf<BackupService.Result.Ok?>(null) }
+        LaunchedEffect(file) {
+            counts = withContext(Dispatchers.IO) { BackupService.inspect(file) } as? BackupService.Result.Ok
+        }
+        AlertDialog(
+            onDismissRequest = { file.delete(); pendingRestore = null },
+            title = { Text("Восстановить резервную копию?") },
+            text = {
+                Column {
+                    val c = counts
+                    Text(
+                        if (c == null) "Проверка файла…"
+                        else "Тем: ${c.themes}, обоев: ${c.images}, слов: ${c.words}, пар: ${c.bigrams}",
+                        color = Color(0xFFB9C2C8), fontSize = 12.sp
+                    )
+                    Text(
+                        "Существующие темы не перезаписываются: совпадающие добавятся как копии.",
+                        color = Color(0xFF8A9299), fontSize = 11.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val f = file
+                    pendingRestore = null
+                    scope.launch {
+                        busy = true
+                        val msg = withContext(Dispatchers.IO) {
+                            BackupOperation.run {
+                                when (val r = BackupService.restore(
+                                    f, ThemeAssets.themeDir(context), ThemeAssets.imageDir(context),
+                                    { json -> KeyboardPrefs.importJson(context, json) },
+                                    { w, b -> BackupData.applyWords(context, w, b) }
+                                )) {
+                                    is BackupService.Result.Ok ->
+                                        tr("Восстановлено: тем {0}, слов {1}", r.themes, r.words)
+                                    is BackupService.Result.Invalid -> tr("Ошибка: {0}", r.reason)
+                                    is BackupService.Result.Failed -> tr("Ошибка: {0}", r.reason)
+                                }
+                            } ?: tr("Другая операция уже выполняется")
+                        }
+                        f.delete()
+                        busy = false
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                }) { Text("Восстановить", color = Color(0xFF6FD3D6)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { file.delete(); pendingRestore = null }) { Text("Отмена") }
+            }
+        )
+    }
+
     confirm?.let { what ->
         AlertDialog(
             onDismissRequest = { confirm = null },
@@ -219,3 +335,11 @@ internal fun BackupPage() {
 }
 
 // ----------------------------------------------------------------------- о приложении
+
+/** Copy a finished archive to the document the user picked. */
+private fun copyTo(context: android.content.Context, src: File, uri: android.net.Uri): Boolean =
+    runCatching {
+        context.contentResolver.openOutputStream(uri)?.use { out ->
+            src.inputStream().use { it.copyTo(out) }
+        } ?: false
+    }.getOrDefault(false)

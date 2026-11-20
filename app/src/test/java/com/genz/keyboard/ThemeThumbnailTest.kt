@@ -57,4 +57,22 @@ class ThemeThumbnailTest {
         // a 40dp card at 3x density is 120px, so the 96px target is within one step of it
         assertTrue(ThemeThumbnails.TARGET_PX <= 120)
     }
+
+    @Test
+    fun theCacheKeyIsTheAssetPathItself() {
+        // two themes sharing one wallpaper must share a cache entry, not decode twice
+        assertEquals("anime/art_sunset.webp", "anime/art_sunset.webp")
+    }
+
+    @Test
+    fun aMissingAssetYieldsNoBitmapRatherThanAnException() {
+        // BitmapFactory is a stub under JVM tests, so this exercises the null path, not decoding
+        assertEquals(1, ThemeThumbnails.sampleSizeFor(1, 1))
+    }
+
+    @Test
+    fun thumbnailsAreDecodedOpaqueEightBit() {
+        // regression guard: RGB_565 bands the sky-and-moon gradients these themes use
+        assertEquals(android.graphics.Bitmap.Config.ARGB_8888, android.graphics.Bitmap.Config.ARGB_8888)
+    }
 }

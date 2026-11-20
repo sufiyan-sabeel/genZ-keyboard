@@ -13,8 +13,13 @@ import java.io.File
  */
 object BackupService {
 
+    /** Reported as work proceeds, so a long backup is not a frozen screen. */
+    fun interface Progress { fun onProgress(done: Int, total: Int) }
+
     sealed interface Result {
         data class Ok(val themes: Int, val images: Int, val words: Int, val bigrams: Int) : Result
+        /** The user asked to stop. Nothing was changed. */
+        data object Cancelled : Result
         /** The archive itself is unacceptable. Nothing was changed. */
         data class Invalid(val reason: String) : Result
         /** The archive was fine but applying it failed. Previous data was restored. */
@@ -33,11 +38,16 @@ object BackupService {
         words: Map<String, Int>,
         bigrams: Map<String, Int>,
         themes: List<ThemeDoc>,
-        imageBytes: (String) -> ByteArray?
+        imageBytes: (String) -> ByteArray?,
+        progress: Progress? = null,
+        isCancelled: () -> Boolean = { false }
     ): Result {
+        if (isCancelled()) return Result.Cancelled
+        progress?.onProgress(0, themes.size)
         if (!BackupBundle.write(target, settingsJson, words, bigrams, themes, imageBytes)) {
             return Result.Failed("Could not write the backup file")
         }
+        progress?.onProgress(themes.size, themes.size)
         return when (val check = BackupBundle.read(target)) {
             is BackupBundle.ReadResult.Ok ->
                 Result.Ok(check.contents.themes.size, check.contents.images.size,
@@ -69,7 +79,9 @@ object BackupService {
         themeDir: File,
         imageDir: File,
         onSettings: (String) -> Unit,
-        onWords: (Map<String, Int>, Map<String, Int>) -> Unit
+        onWords: (Map<String, Int>, Map<String, Int>) -> Unit,
+        progress: Progress? = null,
+        isCancelled: () -> Boolean = { false }
     ): Result {
         val read = when (val r = BackupBundle.read(archive)) {
             is BackupBundle.ReadResult.Ok -> r.contents
@@ -88,17 +100,26 @@ object BackupService {
         return try {
             themeDir.mkdirs(); imageDir.mkdirs()
 
+            val total = read.images.size + read.themes.size
+            var done = 0
+            progress?.onProgress(0, total)
+
             for ((name, bytes) in read.images) {
+                // cancellation is checked between items so a large restore stops promptly and cleanly
+                if (isCancelled()) { rollback(themeDir, imageDir, snapshot); return Result.Cancelled }
                 if (!DownloadGuard.isSafeObjectPath(name)) continue
                 File(imageDir, name).writeBytes(bytes)
+                progress?.onProgress(++done, total)
             }
 
             val existing = ThemeStore(themeDir).list().associateBy { it.id }.toMutableMap()
             for (doc in read.themes) {
+                if (isCancelled()) { rollback(themeDir, imageDir, snapshot); return Result.Cancelled }
                 val id = BackupBundle.resolveThemeId(existing, doc) ?: continue
                 val stored = doc.copy(id = id)
                 if (!ThemeStore(themeDir).save(stored)) error("could not write theme $id")
                 existing[id] = stored
+                progress?.onProgress(++done, total)
             }
 
             read.settingsJson?.let(onSettings)

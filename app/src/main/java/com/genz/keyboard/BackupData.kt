@@ -39,11 +39,15 @@ object BackupData {
         val p = context.getSharedPreferences(DATA_PREFS, Context.MODE_PRIVATE)
         val mergedWords = BackupBundle.mergeWords(readCounts(p.getString(KEY_WORDS, null)), words)
         val mergedBigrams = BackupBundle.mergeWords(readCounts(p.getString(KEY_BIGRAMS, null)), bigrams)
-        p.edit()
+        // commit(), not apply(): the restore reports success only after the data is actually on disk,
+        // and a process death immediately afterwards must not lose the restored vocabulary
+        val written = p.edit()
             .putString(KEY_WORDS, encodeCounts(mergedWords))
             .putString(KEY_BIGRAMS, encodeCounts(mergedBigrams))
-            .apply()
-        runCatching { WordPredictorEngine.loadPersonalDictionary(context) }
+            .commit()
+        if (!written) error("could not persist restored vocabulary")
+        // reload so restored words are usable for predictions without waiting for a restart
+        WordPredictorEngine.loadPersonalDictionary(context)
     }
 
     private fun readCounts(raw: String?): Map<String, Int> {

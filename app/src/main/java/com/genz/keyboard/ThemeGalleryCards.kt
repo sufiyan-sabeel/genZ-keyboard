@@ -60,13 +60,23 @@ internal fun ThemeGalleryCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // the theme's own wallpaper, sampled from the same seven tokens the keyboard draws with
+            val thumb = rememberThemeThumbnail(preset.wallpaper)
             Box(
                 Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(Color(preset.colours["key"] ?: 0xFF1E1E1E.toInt()))
-                    .semantics { contentDescription = "${preset.name} artwork preview" }
+                    .semantics { contentDescription = tr("Изображение темы: {0}", preset.name) }
             ) {
+                if (thumb != null) {
+                    // the real bundled artwork, decoded subsampled
+                    androidx.compose.foundation.Image(
+                        bitmap = thumb,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.matchParentSize()
+                    )
+                }
                 Box(
                     Modifier
                         .align(Alignment.BottomEnd)
@@ -79,10 +89,7 @@ internal fun ThemeGalleryCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(preset.name, color = title, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     if (selected) {
-                        Text(
-                            "  •  Selected",
-                            color = Color(0xFF6FD3D6), fontSize = 10.sp
-                        )
+                        Text("  •  " + tr("Выбрано"), color = Color(0xFF6FD3D6), fontSize = 10.sp)
                     }
                 }
                 Text(
@@ -92,7 +99,7 @@ internal fun ThemeGalleryCard(
                 )
             }
             TextButton(onClick = onUse) {
-                Text(if (selected) "Editing" else "Use", color = Color(0xFF6FD3D6), fontSize = 12.sp)
+                Text(if (selected) tr("Редактируется") else tr("Применить"), color = Color(0xFF6FD3D6), fontSize = 12.sp)
             }
         }
 
@@ -140,7 +147,7 @@ internal fun ReservedSlotCard(
             .background(surface)
             .padding(10.dp)
             .semantics(mergeDescendants = true) {
-                contentDescription = "Reserved slot. Artwork coming soon. Not available."
+                contentDescription = tr("Зарезервированное место. Арт скоро появится. Недоступно.")
             },
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -151,8 +158,8 @@ internal fun ReservedSlotCard(
                 .background(if (dark) Color(0xFF1A1E21) else Color(0xFFE2DFDA))
         )
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
-            Text("Reserved", color = muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Text("Artwork coming soon", color = muted, fontSize = 10.sp)
+            Text(tr("Зарезервировано"), color = muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text(tr("Скоро появится арт"), color = muted, fontSize = 10.sp)
         }
     }
 }

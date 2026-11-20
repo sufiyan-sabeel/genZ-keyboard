@@ -40,6 +40,7 @@ import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -260,7 +261,12 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
 
         Text("Bundled themes", color = Color(0xFFB9C2C8), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
         val darkTheme = isSystemInDarkTheme()
-        LazyColumn(Modifier.fillMaxWidth().height(240.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Height follows the window rather than a fixed dp: on a short screen 240dp left almost no room
+        // for the preview above, and on a tall one it wasted space. Bounded so it never collapses or
+        // pushes the rest of the screen away, and font scaling is left to the platform.
+        val config = LocalConfiguration.current
+        val galleryHeight = (config.screenHeightDp * 0.34f).coerceIn(200f, 420f).dp
+        LazyColumn(Modifier.fillMaxWidth().height(galleryHeight), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(gallery) { preset ->
                 // "selected" means the editor is currently working on this theme
                 val selected = draft?.basePreset == preset.id

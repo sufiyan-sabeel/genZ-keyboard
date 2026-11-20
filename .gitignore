@@ -25,3 +25,7 @@ CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
 .claude/
+
+# Python bytecode from the gate tests
+__pycache__/
+*.pyc

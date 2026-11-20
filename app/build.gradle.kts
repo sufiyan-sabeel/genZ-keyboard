@@ -6,6 +6,32 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// ---------------------------------------------------------------------------- version
+// One source of truth: version.properties at the repository root, overridable with
+// -PversionName / -PversionCode so CI can pass the tag it is building. The release workflow
+// writes the same numbers into the GitHub release body, which is what the in-app update check
+// reads, so the three can no longer drift apart. scripts/check-release-version.sh enforces it.
+val versionProps = Properties().apply {
+    val f = rootProject.file("version.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+// -P wins over the file, so CI can build an exact tag; the file wins over nothing, so a plain
+// ./gradlew build always produces the same version a maintainer sees in the repository.
+val appVersionName: String =
+    (project.findProperty("versionName") as String?)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: versionProps.getProperty("versionName")?.trim()?.takeIf { it.isNotEmpty() }
+        ?: throw GradleException("no versionName in version.properties and no -PversionName given")
+
+val rawVersionCode: String =
+    (project.findProperty("versionCode") as String?)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: versionProps.getProperty("versionCode")?.trim()?.takeIf { it.isNotEmpty() }
+        ?: throw GradleException("no versionCode in version.properties and no -PversionCode given")
+
+val appVersionCode: Int = rawVersionCode.toIntOrNull()
+    ?: throw GradleException("versionCode must be an integer, got '$rawVersionCode'")
+if (appVersionCode <= 0) throw GradleException("versionCode must be greater than zero")
+
 android {
     namespace = "com.genz.keyboard"
     compileSdk = 35
@@ -14,8 +40,8 @@ android {
         applicationId = "com.genz.keyboard"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.0.7"
+        versionCode = appVersionCode
+        versionName = appVersionName
         vectorDrawables {
             useSupportLibrary = true
         }

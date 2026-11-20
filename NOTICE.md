@@ -13,12 +13,19 @@ requirement, not a credit line: it must stay for as long as this code is distrib
 
 ## Anime theme artwork
 
-The ten illustrations under `app/src/main/assets/anime/` were supplied by the project owner.
-They are **not** covered by the MIT License in `LICENSE`, which applies to the source code only.
-They depict characters and styles owned by third parties, and two of them carry the signature of
-another artist. Redistribution of the app therefore carries a rights question that the project
-owner is responsible for resolving. Replacing the files under the same names changes the themes
-with no code changes.
+The illustrations under `app/src/standard/assets/anime/` — sixteen files, ten character themes and
+six wallpapers — were supplied by the project owner. Three further images are withheld in
+`docs/pending-themes/artwork/`. None of them is covered by the MIT License in `LICENSE`, which
+applies to the source code only. They depict characters and styles owned by third parties, and
+two of them carry the signature of another artist. Redistribution of the app therefore carries a
+rights question that the project owner is responsible for resolving. Replacing the files under
+the same names changes the themes with no code changes.
+
+[`docs/artwork-provenance.md`](docs/artwork-provenance.md) is the authoritative per-image record:
+filename, path, source, rights holder, licence or permission, required attribution and
+redistribution status. Every image currently reads `UNVERIFIED — DO NOT DISTRIBUTE`. That is why
+the `fdroid` flavour contains none of them, and CI fails if an image is added without a row in
+that inventory.
 
 ## Third-party assets bundled in the app
 
@@ -39,6 +46,10 @@ below to be kept.
 
 ## Third-party libraries
 
-Jetpack Compose, AndroidX, Material 3, Coil, Rhino (Mozilla), the Anthropic Java SDK and ML Kit
-are used under their respective licences (Apache 2.0, MPL 2.0 and commercial terms as
-applicable). Their licence texts ship inside the APK metadata where the library provides them.
+Jetpack Compose, AndroidX, Material 3, Coil, OkHttp, Jackson, Rhino (Mozilla) and the Anthropic
+Java SDK are used under their respective licences (Apache 2.0 and MPL 2.0). Their licence texts
+ship inside the APK metadata where the library provides them.
+
+Google ML Kit (`com.google.mlkit:genai-proofreading`) is **not** a dependency of this project. It
+was removed so that the `fdroid` flavour builds entirely from free software; the remaining AI
+options are ordinary network clients that use a key the user supplies.

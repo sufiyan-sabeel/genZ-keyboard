@@ -1,0 +1,44 @@
+name: Artwork provenance
+
+# Read-only on purpose. The workflow this replaces downloaded ten images from a CDN into
+# `app/src/main/assets/anime` and pushed the result to `main`: a path that is not a source
+# directory, filenames no theme references, and a write into the source set that both flavours
+# compile from - which would have put unlicensed artwork into the F-Droid build as well.
+#
+# Fetching is not replaced here. An image may only enter the repository once
+# docs/artwork-provenance.md records its source, its rights holder and its licence or written
+# permission, and that is a human decision, not a download.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "app/src/standard/assets/anime/**"
+      - "docs/pending-themes/**"
+      - "docs/artwork-provenance.md"
+      - "scripts/check-artwork-provenance.py"
+  pull_request:
+    paths:
+      - "app/src/standard/assets/anime/**"
+      - "docs/pending-themes/**"
+      - "docs/artwork-provenance.md"
+      - "scripts/check-artwork-provenance.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Every image has a recorded rights position
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the inventory against the tree
+        run: python3 scripts/check-artwork-provenance.py

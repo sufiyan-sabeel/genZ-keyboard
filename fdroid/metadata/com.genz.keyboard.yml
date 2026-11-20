@@ -48,7 +48,22 @@ MaintainerNotes: |
   group reappears on the runtime classpath, and if the `standard` and `fdroid` flavours stop
   differing in the expected way (artwork present in one, absent in the other).
 
-  versionCode is never reused: 1.0.3 shipped as 7 and was rebuilt as 8, 1.0.4 is 9, 1.0.5 is 10.
+  versionCode is never reused: 1.0.3 shipped as 7 and was rebuilt as 8, 1.0.4 is 9, 1.0.5 is 10,
+  1.0.6 is 11. The next release, 1.0.7, is versionCode 12 and is not tagged yet, so it is not
+  listed below. Both numbers live in `version.properties` at the repository root;
+  `scripts/check-release-version.sh` fails the build when the tag, that file and the changelog
+  for the current version code disagree, so a stale entry here is now a CI failure rather than a
+  surprise during review.
+
+  Artwork: every bundled image is recorded in `docs/artwork-provenance.md` and is currently
+  marked `UNVERIFIED — DO NOT DISTRIBUTE`. The `fdroid` flavour contains none of them, which is
+  what makes this build distributable while that question is open. CI fails if an image appears
+  in the fdroid source set or is added without a row in the inventory.
+
+  Network: the app makes one automatic request — a GitHub Releases check when the settings screen
+  opens — plus user-triggered requests described in PRIVACY.md. The optional community backend is
+  compiled out of any build that is not given a Supabase endpoint and key, which includes every
+  release APK.
 
 RepoType: git
 Repo: https://github.com/sufiyan-sabeel/genZ-keyboard.git
@@ -59,8 +74,13 @@ Builds:
     commit: c111eac0b88de808b31533b8528aac760ef8a8e3
     gradle:
       - fdroid
+  - versionName: 1.0.6
+    versionCode: 11
+    commit: cf7e50bcfa3fafd8c76e6737efb61a45a145c00b
+    gradle:
+      - fdroid
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.5
-CurrentVersionCode: 10
+CurrentVersion: 1.0.6
+CurrentVersionCode: 11

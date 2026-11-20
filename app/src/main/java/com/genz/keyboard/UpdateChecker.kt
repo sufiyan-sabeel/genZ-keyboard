@@ -15,8 +15,31 @@ data class ReleaseInfo(
     val apkUrl: String,
     val publishedAt: String,
     val prerelease: Boolean,
-    val draft: Boolean
+    val draft: Boolean,
+    /** SHA-256 of the release's signing certificate, when the release notes declare one. */
+    val signature: String? = null
 )
+
+/**
+ * Whether the offered APK can be installed over the one already on the device.
+ *
+ * Android refuses an update signed with a different key (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`),
+ * so offering one without saying so sends the user to a download that cannot install. Seven of
+ * this project's published releases were each signed with a freshly generated debug key, which is
+ * exactly the case this exists for.
+ */
+enum class Installability {
+    /** The release does not declare a signature, so nothing can be said either way. */
+    UNKNOWN,
+
+    /** Same signing certificate: an ordinary update. */
+    COMPATIBLE,
+
+    /** Different signing certificate: installing means uninstalling first, which deletes app data. */
+    INCOMPATIBLE;
+
+    val needsReinstall: Boolean get() = this == INCOMPATIBLE
+}
 
 object UpdateChecker {
 
@@ -61,7 +84,8 @@ object UpdateChecker {
             apkUrl = apk,
             publishedAt = (o["published_at"] as? String).orEmpty(),
             prerelease = prerelease,
-            draft = draft
+            draft = draft,
+            signature = signatureMarker(body)
         )
     }
 
@@ -79,7 +103,36 @@ object UpdateChecker {
      * version string. When the marker is present it is preferred.
      */
     fun versionCodeMarker(body: String): Int? =
-        Regex("versionCode\\s*[:=]\\s*(\\d{1,9})").find(body)?.groupValues?.get(1)?.toIntOrNull()
+        Regex("versionCode\\s*[:=]\\s*(\\d{1,9})\\b", RegexOption.IGNORE_CASE)
+            .find(body)?.groupValues?.get(1)?.toIntOrNull()
+
+    /**
+     * The `signature:` line the release workflow writes, which is the SHA-256 of the signing
+     * certificate as `apksigner verify --print-certs` reports it.
+     *
+     * @return 64 lower-case hex characters, or null when absent or malformed.
+     */
+    fun signatureMarker(body: String): String? {
+        val m = Regex("(?im)^\\s*signature\\s*[:=]\\s*([0-9a-f]{64})\\s*$").find(body) ?: return null
+        return m.groupValues[1].lowercase()
+    }
+
+    /**
+     * Whether a release can be installed over the build that is running.
+     *
+     * @param remoteSignature from [signatureMarker]; null when the release does not declare one
+     * @param installedSignature SHA-256 of the running app's signing certificate, or null if unknown
+     */
+    fun installability(remoteSignature: String?, installedSignature: String?): Installability {
+        if (remoteSignature.isNullOrBlank() || installedSignature.isNullOrBlank()) {
+            return Installability.UNKNOWN
+        }
+        return if (remoteSignature.equals(installedSignature, ignoreCase = true)) {
+            Installability.COMPATIBLE
+        } else {
+            Installability.INCOMPATIBLE
+        }
+    }
 
     /** Compare two dotted version strings. @return true when [remote] is strictly newer. */
     fun isNewer(remote: String, installed: String): Boolean {

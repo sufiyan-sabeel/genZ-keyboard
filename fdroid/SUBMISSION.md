@@ -80,9 +80,9 @@ New app: GenZ Keyboard (com.genz.keyboard)
 Android IME (keyboard) in Kotlin + Jetpack Compose, MIT licensed.
 
   Repository : https://github.com/sufiyan-sabeel/genZ-keyboard
-  Release    : v1.0.5  (versionName 1.0.5, versionCode 10)
-  Source     : c111eac0b88de808b31533b8528aac760ef8a8e3
-  APK sha256 : 9118922a6f15111cfe9d3b0ddaf9d6f9ebabff1fe7b6cf72f1c7099b3a2a4403
+  Release    : v1.0.6  (versionName 1.0.6, versionCode 11)
+  Source     : cf7e50bcfa3fafd8c76e6737efb61a45a145c00b
+  APK sha256 : f6b676975c895a44e270e55f50fccacffc841ba330d1c8763edb099da2e39c16
 
 Build
 - Gradle flavour `fdroid`, task `assembleFdroidRelease`, no submodules, no NDK.
@@ -116,9 +116,9 @@ Useful if a reviewer asks "how do you know?":
 
 | Check | Result |
 | --- | --- |
-| Published APK metadata (read from the APK, not the build log) | `com.genz.keyboard`, versionName 1.0.5, versionCode 10, minSdk 26, targetSdk 35, v2 signed |
-| Release asset checksum | `9118922a…` matches the digest GitHub reports for the asset |
-| Tag → commit | `v1.0.5` → `c111eac0…` (the commit this metadata names) |
+| Published APK metadata (read from the APK, not the build log) | `com.genz.keyboard`, versionName 1.0.6, versionCode 11, minSdk 26, targetSdk 35, signed with APK Signature Scheme v2 and v3 |
+| Release asset checksum | `f6b67697…`, computed from the downloaded v1.0.6 release asset (26,821,491 bytes) |
+| Tag → commit | `v1.0.6` → `cf7e50bc…` (the commit this metadata names) |
 | v1.0.4 left untouched | its APK still hashes to `3785e86e…`, unchanged since publication |
 | Proprietary dependency gate | deliberately reintroducing `com.google.mlkit:genai-proofreading` fails CI at the dependency step, naming `mlkit:common` and `genai-common` as the transitive hits |
 | Flavour separation gate | deliberately adding one artwork file to the shared source set fails CI with `standard 11 / fdroid 1` |

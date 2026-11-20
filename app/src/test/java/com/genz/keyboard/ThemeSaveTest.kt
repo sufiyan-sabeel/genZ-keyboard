@@ -108,4 +108,48 @@ class ThemeSaveTest {
         h.undo()
         assertFalse(h.isDirty)
     }
+
+    @Test
+    fun aSavedThemeSurvivesClosingAndReopeningTheStore() {
+        // simulates save -> close the editor -> reopen the app: a fresh store must see the same theme
+        val d = doc().copy(
+            overrides = mapOf(
+                "colorKey" to "#222222",
+                "material" to "glass",
+                "radius" to "22"
+            )
+        )
+        assertEquals(ThemeSave.Result.Saved, ThemeSave.save(store, d))
+
+        val reopened = ThemeStore(dir)          // a different instance, same directory
+        assertEquals(d, reopened.load("user.1"))
+        assertFalse(ThemeSave.isDirty(reopened, d))
+    }
+
+    @Test
+    fun everySupportedPropertyKindRoundTrips() {
+        // colours, numbers, enum tokens and a gradient must all survive save and reload
+        val gradient = ThemeStructured.encodeGradient(
+            listOf(0xFF111111.toInt(), 0xFF222222.toInt()), 45f, true
+        )!!
+        val d = doc().copy(
+            overrides = mapOf(
+                "colorKey" to "#222222",
+                "radius" to "18",
+                "shape" to "pill",
+                "background" to gradient
+            )
+        )
+        assertEquals(ThemeSave.Result.Saved, ThemeSave.save(store, d))
+        assertEquals(d.overrides, store.load("user.1")!!.overrides)
+    }
+
+    @Test
+    fun aSecondSaveOfTheSameDocumentIsHarmless() {
+        // the UI blocks duplicate taps, but the store must also be idempotent
+        val d = doc("#222222")
+        assertEquals(ThemeSave.Result.Saved, ThemeSave.save(store, d))
+        assertEquals(ThemeSave.Result.Saved, ThemeSave.save(store, d))
+        assertEquals(d, store.load("user.1"))
+    }
 }

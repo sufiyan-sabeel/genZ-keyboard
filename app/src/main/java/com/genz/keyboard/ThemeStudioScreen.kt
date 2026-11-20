@@ -83,6 +83,8 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
     var publishOpen by remember { mutableStateOf(false) }
     var discardOpen by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
+    var saveOk by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
     // keep the saved snapshot in step with the live history
     LaunchedEffect(history, draft) {
         history?.let {
@@ -217,22 +219,32 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
                 originalDoc = history?.original ?: d,
                 onResetProperty = { key -> history?.resetProperty(key)?.let { draft = it } },
                 dirty = history?.isDirty == true,
+                savingBusy = saving,
                 onSave = {
+                    // a second tap while the first write is in flight would race the same file
+                    if (saving) return@ThemeEditor
                     saveError = null
+                    saveOk = false
                     val d = draft
                     if (d == null) {
                         saveError = "Nothing to save"
-                    } else when (val r = ThemeSave.save(store, d)) {
+                    } else {
+                        saving = true
+                        try {
+                    when (val r = ThemeSave.save(store, d)) {
                         is ThemeSave.Result.Saved -> {
                             // the saved document becomes the new baseline, so the editor is clean
                             history?.load(d)
                             draft = d
                             ThemeDraftSession.clear(context.filesDir)
                             refresh()
+                            saveOk = true
                             message = "Saved"
                         }
-                        is ThemeSave.Result.Invalid -> saveError = r.reason
-                        is ThemeSave.Result.Failed -> saveError = r.reason
+                        is ThemeSave.Result.Invalid -> saveError = "Cannot save: ${r.reason}"
+                        is ThemeSave.Result.Failed -> saveError = "Save failed: ${r.reason}"
+                    }
+                        } finally { saving = false }
                     }
                 },
                 onCancel = {
@@ -347,6 +359,7 @@ private fun ThemeEditor(
     originalDoc: ThemeDoc,
     onResetProperty: (String) -> Unit,
     dirty: Boolean,
+    savingBusy: Boolean,
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -437,8 +450,12 @@ private fun ThemeEditor(
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TextButton(onClick = onSave) {
-                Text("Save", color = Color(0xFF6FD3D6), fontSize = 12.sp)
+            TextButton(onClick = onSave, enabled = !savingBusy) {
+                Text(
+                    if (savingBusy) "Saving…" else "Save",
+                    color = if (savingBusy) Color(0xFF5A6268) else Color(0xFF6FD3D6),
+                    fontSize = 12.sp
+                )
             }
             TextButton(onClick = onCancel) {
                 Text(if (dirty) "Cancel" else "Close", color = Color(0xFFB9C2C8), fontSize = 12.sp)
@@ -452,6 +469,14 @@ private fun ThemeEditor(
             TextButton(onClick = onResetAll) {
                 Text("Reset all", color = Color(0xFFB9C2C8), fontSize = 12.sp)
             }
+        }
+
+        // the save outcome has to be visible: a silent failure looks identical to a success
+        saveError?.let {
+            Text(it, color = Color(0xFFD67A7A), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+        }
+        if (saveOk && saveError == null) {
+            Text("Saved to your themes", color = Color(0xFF6FD3D6), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
         }
 
         val issues = remember(doc) { ThemeApply.readabilityIssues(doc, KeyboardPrefs.current(contextForPrefs)) }

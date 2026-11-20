@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -258,11 +259,16 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
         }
 
         Text("Bundled themes", color = Color(0xFFB9C2C8), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
-        LazyColumn(Modifier.fillMaxWidth().height(150.dp)) {
+        val darkTheme = isSystemInDarkTheme()
+        LazyColumn(Modifier.fillMaxWidth().height(240.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(gallery) { preset ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(preset.name, color = Color(0xFFE8ECEF), fontSize = 13.sp)
-                    TextButton(onClick = {
+                // "selected" means the editor is currently working on this theme
+                val selected = draft?.basePreset == preset.id
+                ThemeGalleryCard(
+                    preset = preset,
+                    selected = selected,
+                    dark = darkTheme,
+                    onUse = {
                         val wall = preset.wallpaper?.let { ThemeAssets.importBundled(context, it) }
                         open(ThemeDoc(
                             id = ThemeCodec.idFor(preset.name, preset.id, emptyMap()),
@@ -276,8 +282,12 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
                         } else {
                             "Editing \"${preset.name}\""
                         }
-                    }) { Text("Use", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
-                }
+                    }
+                )
+            }
+            // reserved positions for artwork that is not licensed yet
+            items(ThemePresetIndex.RESERVED_SLOTS) { slot ->
+                ReservedSlotCard(slot = slot, dark = darkTheme)
             }
         }
 

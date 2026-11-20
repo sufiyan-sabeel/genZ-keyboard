@@ -220,6 +220,8 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
                 onResetProperty = { key -> history?.resetProperty(key)?.let { draft = it } },
                 dirty = history?.isDirty == true,
                 savingBusy = saving,
+                saveError = saveError,
+                saveOk = saveOk,
                 onSave = {
                     // a second tap while the first write is in flight would race the same file
                     if (saving) return@ThemeEditor
@@ -360,6 +362,8 @@ private fun ThemeEditor(
     onResetProperty: (String) -> Unit,
     dirty: Boolean,
     savingBusy: Boolean,
+    saveError: String?,
+    saveOk: Boolean,
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {

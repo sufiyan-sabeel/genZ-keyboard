@@ -341,5 +341,6 @@ private fun copyTo(context: android.content.Context, src: File, uri: android.net
     runCatching {
         context.contentResolver.openOutputStream(uri)?.use { out ->
             src.inputStream().use { it.copyTo(out) }
+            true          // copyTo returns the byte count, which is not the result we want
         } ?: false
     }.getOrDefault(false)

@@ -334,7 +334,9 @@ internal fun BackupPage() {
                                     { json -> KeyboardPrefs.importJson(context, json) },
                                     { w, b -> BackupData.applyWords(context, w, b) },
                                     progress = { d, t -> progressDone = d; progressTotal = t },
-                                    isCancelled = { cancelRequested }
+                                    isCancelled = { cancelRequested },
+                                    beforeSettings = { BackupData.settingsJson(context) },
+                                    beforeWords = { BackupData.words(context) }
                                 )) {
                                     is BackupService.Result.Ok ->
                                         tr("Восстановлено: тем {0}, слов {1}", r.themes, r.words)

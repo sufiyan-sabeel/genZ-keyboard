@@ -40,7 +40,10 @@ object BackupService {
         themes: List<ThemeDoc>,
         imageBytes: (String) -> ByteArray?,
         progress: Progress? = null,
-        isCancelled: () -> Boolean = { false }
+        isCancelled: () -> Boolean = { false },
+        /** Current settings/vocabulary, captured so a late failure can put them back. */
+        beforeSettings: () -> String? = { null },
+        beforeWords: () -> Pair<Map<String, Int>, Map<String, Int>>? = { null }
     ): Result {
         if (isCancelled()) return Result.Cancelled
         progress?.onProgress(0, themes.size)
@@ -94,7 +97,9 @@ object BackupService {
             is BackupBundle.ReadResult.Invalid -> return Result.Invalid(r.reason)
         }
 
-        // snapshot before touching anything
+        // snapshot before touching anything — including the prefs, which a late failure must undo
+        val savedSettings = runCatching { beforeSettings() }.getOrNull()
+        val savedWords = runCatching { beforeWords() }.getOrNull()
         val snapshot = runCatching { snapshotOf(themeDir, imageDir) }
             .getOrElse { return Result.Failed("Could not snapshot existing data") }
 
@@ -133,6 +138,10 @@ object BackupService {
             Result.Ok(read.themes.size, read.images.size, read.words.size, read.bigrams.size)
         } catch (t: Throwable) {
             rollback(themeDir, imageDir, snapshot)
+            // themes and images are back; now put the prefs back too, or the device would be left with
+            // new settings and old themes
+            runCatching { savedSettings?.let(onSettings) }
+            runCatching { savedWords?.let { (w, b) -> onWords(w, b) } }
             Result.Failed(t.message ?: "Restore failed; previous data was restored")
         }
     }

@@ -154,4 +154,41 @@ class BackupProgressTest {
             imageBytes = { png })
         assertTrue("expected Failed, got $r", r is BackupService.Result.Failed)
     }
+
+    @Test
+    fun aFailureAfterSettingsAreAppliedPutsThemBack() {
+        // without this the device would be left with the backup's settings and the old themes
+        ThemeStore(themeDir).save(doc("existing", "#ABCDEF"))
+        export(out, listOf(doc("incoming")))
+        var current = "ORIGINAL"
+        val r = BackupService.restore(out, themeDir, imageDir,
+            { json -> current = json }, { _, _ -> error("vocabulary write failed") },
+            beforeSettings = { "ORIGINAL" },
+            beforeWords = { emptyMap<String, Int>() to emptyMap() })
+        assertTrue("expected Failed, got $r", r is BackupService.Result.Failed)
+        assertEquals("settings must be restored on rollback", "ORIGINAL", current)
+        assertEquals("#ABCDEF", ThemeStore(themeDir).load("existing")!!.overrides["colorKey"])
+    }
+
+    @Test
+    fun aFailureAfterVocabularyIsAppliedPutsItBack() {
+        ThemeStore(themeDir).save(doc("existing", "#ABCDEF"))
+        export(out, listOf(doc("incoming")))
+        var words: Map<String, Int> = mapOf("before" to 1)
+        runCatching {
+            BackupService.restore(out, themeDir, imageDir, {},
+                { w, _ -> words = w; error("later stage failed") },
+                beforeWords = { mapOf("before" to 1) to emptyMap() })
+        }
+        assertEquals("vocabulary must be restored on rollback", mapOf("before" to 1), words)
+    }
+
+    @Test
+    fun rollbackLeavesNoSnapshotDirectoryBehind() {
+        ThemeStore(themeDir).save(doc("existing", "#ABCDEF"))
+        export(out, listOf(doc("incoming")))
+        BackupService.restore(out, themeDir, imageDir, { error("boom") }, { _, _ -> })
+        assertFalse("snapshot dir must be cleaned up",
+            File(themeDir.parentFile, "restore-snapshot").exists())
+    }
 }

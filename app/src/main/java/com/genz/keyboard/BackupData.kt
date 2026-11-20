@@ -23,6 +23,9 @@ object BackupData {
 
     fun settingsJson(context: Context): String = KeyboardPrefs.exportJson(context)
 
+    /** Re-applied during rollback: puts the prefs back exactly as they were. */
+    fun restoreSettings(context: Context, json: String) = KeyboardPrefs.importJson(context, json)
+
     /** Learned words and bigrams, read from the vocabulary prefs file. */
     fun words(context: Context): Pair<Map<String, Int>, Map<String, Int>> {
         val p = context.getSharedPreferences(DATA_PREFS, Context.MODE_PRIVATE)

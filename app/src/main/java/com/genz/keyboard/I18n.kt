@@ -1457,4 +1457,8 @@ internal val EN_STRINGS: Map<String, String> = hashMapOf(
     "Сохранение: {0}%" to "Saving: {0}%",
     "Восстановление: {0}%" to "Restoring: {0}%",
     "Операция отменена" to "Operation cancelled",
+    "Настройки плагинов и учётные данные не входят в резервную копию. После восстановления их, возможно, придётся настроить заново." to "Plugin configurations and credentials are not included in backups. You may need to configure your plugins again after restoring.",
+    "Резервная копия содержит" to "The backup contains",
+    "Экспорт резервной копии" to "Export backup",
+    "Импорт резервной копии" to "Import backup",
 )

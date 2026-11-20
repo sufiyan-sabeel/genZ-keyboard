@@ -205,6 +205,14 @@ internal fun BackupPage() {
         )
     }
 
+    // disclosed before either action: a user must know what a backup will not contain
+    Text(
+        tr("Настройки плагинов и учётные данные не входят в резервную копию. После восстановления их, возможно, придётся настроить заново."),
+        color = Color(0xFF8A9299), fontSize = 11.sp,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            .semantics { contentDescription = tr("Настройки плагинов и учётные данные не входят в резервную копию. После восстановления их, возможно, придётся настроить заново.") }
+    )
+
     SettingsSection("Настройки") {
         ActionItem(Icons.Rounded.Upload, "Экспорт резервной копии", "Темы, обои, слова и настройки в .zip", onClick = {
             exportLauncher.launch("genz-backup-${java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())}.zip")

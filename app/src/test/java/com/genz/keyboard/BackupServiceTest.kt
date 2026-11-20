@@ -34,8 +34,9 @@ class BackupServiceTest {
         BackupService.export(
             file, settings,
             mapOf("en:hello" to 3), mapOf("en:he llo" to 2),
-            themes
-        ) { png }
+            themes,
+            imageBytes = { png }
+        )
 
     @Before fun setUp() {
         root = Files.createTempDirectory("svc").toFile()
@@ -123,7 +124,8 @@ class BackupServiceTest {
     @Test
     fun aFailedExportLeavesNoUsableArchive() {
         val target = File(root, "nope/blocked.zip")
-        val r = BackupService.export(target, settings, emptyMap(), emptyMap(), listOf(doc())) { png }
+        val r = BackupService.export(target, settings, emptyMap(), emptyMap(), listOf(doc()),
+            imageBytes = { png })
         assertTrue(r is BackupService.Result.Failed)
     }
 }

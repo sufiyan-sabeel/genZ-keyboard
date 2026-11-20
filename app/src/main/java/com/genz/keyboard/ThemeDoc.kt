@@ -119,7 +119,10 @@ object ThemeCodec {
                         is Number -> if (raw.toDouble() == raw.toLong().toDouble()) raw.toLong().toString() else raw.toString()
                         else -> return ThemeValidation.Invalid("invalid value for $key")
                     }
-                    if (value.isEmpty() || value.length > ThemeDoc.MAX_VALUE) {
+                    // a gradient is a small JSON object, so it needs more room than a colour or a
+                    // number; everything else stays tightly bounded
+                    val limit = if (value.startsWith("{")) MAX_GRADIENT else ThemeDoc.MAX_VALUE
+                    if (value.isEmpty() || value.length > limit) {
                         return ThemeValidation.Invalid("invalid value for $key")
                     }
                     if (!isAcceptableValue(key, value)) {
@@ -164,6 +167,9 @@ object ThemeCodec {
      * LabelEffect). They are an explicit allowlist: a token is only accepted for the property it
      * belongs to, so a typo cannot smuggle arbitrary text into a theme.
      */
+    /** Room for a gradient object: eight colours plus angle and type. */
+    private const val MAX_GRADIENT = 400
+
     private val ENUM_VALUES: Map<String, Set<String>> = mapOf(
         "material" to setOf("solid", "glass", "outline", "neumorph", "bevel", "none"),
         "shape" to setOf("rounded", "pill", "cut", "squircle", "wavy"),
@@ -196,7 +202,7 @@ object ThemeCodec {
 
     /** A gradient: `{"colors":[#a,#b],"angle":90[,"type":"radial"]}`, colours strictly hex. */
     private fun isGradient(value: String): Boolean {
-        if (value.length > 400) return false
+        if (value.length > MAX_GRADIENT) return false
         val o = ThemeJson.decode(value) ?: return false
         val colours = o["colors"] as? List<*> ?: return false
         if (colours.size !in 2..8) return false

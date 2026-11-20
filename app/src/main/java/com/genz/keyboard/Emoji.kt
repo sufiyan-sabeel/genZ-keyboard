@@ -223,13 +223,30 @@ object EmojiStyles {
     private const val CELL = 64
     private const val GRID = 16
 
-    /** id → (название, лицензия). */
+    /**
+     * Emoji families offered to the user: id → (name, licence).
+     *
+     * Only families whose redistribution rights have been verified appear here. OpenMoji is deferred
+     * until its CC BY-SA share-alike obligations have been reviewed — shipping it now would impose
+     * those terms on derivative artwork without a decision to accept them.
+     *
+     * Apple, Samsung One UI, Segoe UI, WhatsApp, HarmonyOS, Flyme and JoyPixels are deliberately
+     * absent: their artwork is proprietary and was extracted from system fonts without a grant.
+     */
     val builtIn: List<Triple<String, String, String>> = listOf(
         Triple("twemoji", "Twemoji (Discord, X)", "CC-BY 4.0"),
         Triple("noto", "Noto (Google, Android)", "Apache 2.0"),
         Triple("blob", "Blob (Android 7)", "Apache 2.0"),
-        Triple("openmoji", "OpenMoji", "CC BY-SA 4.0")
+        Triple("fluent", "Fluent (Microsoft)", "MIT")
     )
+
+    /**
+     * Families whose assets may still be on disk but which must not be offered.
+     *
+     * Kept separate from [builtIn] so a deferred family cannot reappear simply by its assets being
+     * present — the decision is recorded in code, not inferred from the filesystem.
+     */
+    val deferred: Set<String> = setOf("openmoji")
 
     fun isImageStyle(style: String) = builtIn.any { it.first == style }
 

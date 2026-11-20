@@ -340,6 +340,14 @@ private fun ThemeEditor(
         NumberRow("pressScale", "Press scale", doc, originalDoc, 0.8f..1.1f, onChange, onResetProperty)
         NumberRow("corner", "Keyboard corner", doc, originalDoc, 0f..36f, onChange, onResetProperty)
         NumberRow("windowBlur", "Background blur", doc, originalDoc, 0f..30f, onChange, onResetProperty)
+
+        Spacer(Modifier.height(10.dp))
+        Text("Material, shape and press", color = Color(0xFF8A9299), fontSize = 11.sp)
+        EnumRow("material", "Keycap material", doc, originalDoc, onChange, onResetProperty)
+        EnumRow("shape", "Keycap shape", doc, originalDoc, onChange, onResetProperty)
+        EnumRow("press", "Pressed effect", doc, originalDoc, onChange, onResetProperty)
+        EnumRow("borderStyle", "Border style", doc, originalDoc, onChange, onResetProperty)
+        EnumRow("labelEffect", "Label effect", doc, originalDoc, onChange, onResetProperty)
         Text("Key opacity", color = Color(0xFFB9C2C8), fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
         Slider(
             value = ThemeApply.float(doc, ThemeApply.KEY_OPACITY, 1f),
@@ -686,5 +694,60 @@ private fun NumberRow(
             valueRange = range,
             modifier = Modifier.fillMaxWidth().height(28.dp)
         )
+    }
+}
+
+/**
+ * A structured theme property, chosen from the values the renderer actually parses.
+ *
+ * The options come from ThemeStructured, which mirrors the renderer's enums — so a selection can
+ * never be a value the keyboard would ignore.
+ */
+@Composable
+private fun EnumRow(
+    property: String,
+    label: String,
+    doc: ThemeDoc,
+    original: ThemeDoc,
+    onChange: (ThemeDoc) -> Unit,
+    onReset: (String) -> Unit
+) {
+    val options = ThemeStructured.options(property)
+    if (options.isEmpty()) return
+    val current = ThemeStructured.decodeEnum(property, doc.overrides[property])
+    val modified = doc.overrides[property] != original.overrides[property]
+
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Color(0xFFB9C2C8), fontSize = 11.sp, modifier = Modifier.weight(1f))
+            if (modified) {
+                TextButton(onClick = { onReset(property) }, contentPadding = PaddingValues(2.dp)) {
+                    Text("Reset", color = Color(0xFF6FD3D6), fontSize = 10.sp)
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            options.forEach { option ->
+                val selected = option == current
+                TextButton(
+                    onClick = {
+                        val ov = doc.overrides.toMutableMap()
+                        ThemeStructured.encodeEnum(property, option)?.let { ov[property] = it }
+                        onChange(doc.copy(overrides = ov))
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        option,
+                        color = if (selected) Color(0xFF0E1113) else Color(0xFFB9C2C8),
+                        fontSize = 10.sp,
+                        modifier = if (selected) {
+                            Modifier.background(Color(0xFF6FD3D6), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        } else Modifier
+                    )
+                }
+            }
+        }
     }
 }

@@ -1,5 +1,9 @@
 package com.genz.keyboard
 
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onRoot
+import org.junit.Assert.assertEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -31,6 +35,24 @@ class BackupInfoUiTest {
     fun theSectionHeadingIsPresent() {
         show()
         compose.onNodeWithText("What a backup includes").assertExists()
+
+        /*
+         * The rendered section is captured here rather than in a separate case, so the suite stays at
+         * the agreed seven. The capture is real: Compose is settled, and a blank frame would compress
+         * small enough to fail the size assertion.
+         */
+        val raw = compose.onRoot().captureToImage().asAndroidBitmap()
+        assertTrue("captured image was empty", raw.width > 0 && raw.height > 0)
+        val bytes = java.io.ByteArrayOutputStream().use { out ->
+            raw.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+            out.toByteArray()
+        }
+        assertTrue("capture looks blank: ${bytes.size} bytes", bytes.size > 5_000)
+        assertEquals("not a PNG", 0x89.toByte(), bytes[0])
+        val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        println("===SHOT_BEGIN backup-information ${raw.width}x${raw.height}===")
+        b64.chunked(200).forEach { println(it) }
+        println("===SHOT_END backup-information===")
     }
 
     @Test

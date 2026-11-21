@@ -176,6 +176,19 @@ jobs:
           name: instrumented-test-reports
           path: app/build/reports/androidTests/
           retention-days: 7
+      - name: Pull screenshots from the emulator
+        if: always()
+        run: |
+          mkdir -p screenshots
+          adb pull /sdcard/Android/data/com.genz.keyboard.debug/files/ screenshots/ || true
+          ls -l screenshots || true
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-screenshots
+          path: screenshots/
+          retention-days: 14
 
   release-apk:
     name: Signed release APK (no publish)

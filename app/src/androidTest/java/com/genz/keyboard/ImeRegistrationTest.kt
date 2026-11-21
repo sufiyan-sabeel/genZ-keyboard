@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,6 +28,11 @@ import org.junit.runner.RunWith
 class ImeRegistrationTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+    /** `PackageInfo.PROTECTION_SIGNATURE` is API 28+; the raw value keeps this readable on older stubs. */
+    private object PackageInfoProtection {
+        const val SIGNATURE = 2
+    }
 
     /**
      * `InputMethodService.SERVICE_INTERFACE`. Written out as a literal because referencing the
@@ -86,16 +92,29 @@ class ImeRegistrationTest {
             "android.permission.READ_EXTERNAL_STORAGE"
         )
         /*
-         * AndroidX generates a permission inside the app's own namespace when the app targets 33+:
-         * `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, declared by androidx.core so
-         * that runtime-registered receivers can be marked not-exported. It is a signature-level
-         * self-permission: it grants nothing outside this app and cannot be requested by another.
+         * One permission is expected but not in the list above, because AndroidX generates it rather
+         * than the app declaring it: androidx.core adds
+         * `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` at manifest-merge time when the
+         * app targets SDK 33+, so runtime-registered receivers can be marked not-exported.
          *
-         * Excluded by *prefix*, not by name, so the guard stays strict: anything outside this
-         * package's namespace still fails, and a dangerous permission can never be self-scoped.
+         * Matched by its EXACT name, not by package prefix. A prefix rule would silently absorb any
+         * future permission an attacker-ish dependency might inject under our namespace; the exact
+         * name can only ever excuse this one thing.
          */
-        val selfScoped = declared.filter { it.startsWith("${context.packageName}.") }
-        val unexpected = declared - allowed - selfScoped.toSet()
+        val generated = "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        val unexpected = declared - allowed - setOf(generated)
         assertTrue("unexpected permission(s) declared: $unexpected", unexpected.isEmpty())
+
+        // The excuse above is only sound if the permission really is what it claims to be, so verify
+        // its protection level and ownership at runtime instead of trusting the name.
+        val perm = context.packageManager.getPermissionInfo(generated, 0)
+        assertEquals(
+            "the generated permission must be signature-level, not dangerous",
+            PackageInfoProtection.SIGNATURE, perm.protection
+        )
+        assertEquals(
+            "the generated permission must belong to this package",
+            context.packageName, perm.packageName
+        )
     }
 }

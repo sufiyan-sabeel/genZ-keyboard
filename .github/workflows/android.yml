@@ -168,7 +168,11 @@ jobs:
           target: default
           arch: x86_64
           disable-animations: true
-          script: ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace
+          script: |
+            ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace
+            mkdir -p screenshots
+            adb pull /sdcard/Android/data/com.genz.keyboard.debug/files/ screenshots/ || true
+            ls -l screenshots || true
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -176,12 +180,6 @@ jobs:
           name: instrumented-test-reports
           path: app/build/reports/androidTests/
           retention-days: 7
-      - name: Pull screenshots from the emulator
-        if: always()
-        run: |
-          mkdir -p screenshots
-          adb pull /sdcard/Android/data/com.genz.keyboard.debug/files/ screenshots/ || true
-          ls -l screenshots || true
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

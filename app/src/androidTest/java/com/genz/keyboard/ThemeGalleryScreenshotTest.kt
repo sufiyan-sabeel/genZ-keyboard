@@ -52,12 +52,6 @@ class ThemeGalleryScreenshotTest {
     )
 
     /** Two real bundled assets plus one without, so both paths are exercised. */
-    private val themes = listOf(
-        preset("builtin.art.sunset", "Anime Sunset", "#D9611F", wallpaper = "anime/art_sunset.webp"),
-        preset("builtin.art.blueroad", "Blue Hour Road", "#E8A94A", wallpaper = "anime/art_blueroad.webp"),
-        preset("builtin.art.pastel", "Pastel Garden", "#C98A80", wallpaper = null)
-    )
-
     /** executeShellCommand returns a ParcelFileDescriptor, so it has to be wrapped to read it. */
     private fun sh(cmd: String): String = android.os.ParcelFileDescriptor.AutoCloseInputStream(
         InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(cmd)
@@ -91,16 +85,6 @@ class ThemeGalleryScreenshotTest {
         preset("builtin.art.blueroad", "Blue Hour Road", "#E8A94A", wallpaper = "anime/art_blueroad.webp"),
         preset("builtin.art.pastel", "Pastel Garden", "#C98A80", wallpaper = null)
     )
-
-    private val config: String by lazy {
-        val wm = InstrumentationRegistry.getInstrumentation().uiAutomation
-        val size = Regex("(\\d+)x(\\d+)").find(
-            wm.executeShellCommand("wm size").readBytes().toString(Charsets.UTF_8)
-        )
-        val scale = wm.executeShellCommand("settings get system font_scale")
-            .readBytes().toString(Charsets.UTF_8).trim()
-        "${size?.groupValues?.get(1) ?: "?"}x${size?.groupValues?.get(2) ?: "?"}-f$scale"
-    }
 
     /**
      * Writes a PNG into the app's INTERNAL files dir.

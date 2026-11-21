@@ -422,4 +422,20 @@ jobs:
             echo "::error::Release $TAG already exists. Refusing to overwrite a published asset."
             exit 1
           fi
-          gh release create "$TAG" "GenZKeyboard-$TAG.apk" --title "GenZ Keyboard $TAG" --notes "$NOTES"
+          # A checksum file next to the APK, in the standard `sha256sum -c` format so a user can
+          # verify the download without trusting the release page text.
+          APK="GenZKeyboard-$TAG.apk"
+          if [ ! -f "$APK" ]; then
+            echo "::error::Expected $APK but it is not present; refusing to publish."
+            exit 1
+          fi
+          sha256sum "$APK" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          # sanity: the file must contain the real digest of the file being uploaded
+          if ! sha256sum -c SHA256SUMS.txt > /dev/null 2>&1; then
+            echo "::error::SHA256SUMS.txt does not verify against $APK"
+            exit 1
+          fi
+          echo "SHA-256 recorded in SHA256SUMS.txt"
+
+          gh release create "$TAG" "$APK" SHA256SUMS.txt --title "GenZ Keyboard $TAG" --notes "$NOTES"

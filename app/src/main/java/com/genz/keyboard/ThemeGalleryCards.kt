@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -74,16 +75,10 @@ internal fun ThemeGalleryCard(
                         bitmap = thumb,
                         contentDescription = null,
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.matchParentSize()
+                        // tag carries the asset path so a test can assert real artwork rendered
+                        modifier = Modifier.matchParentSize().testTag("thumb:${preset.wallpaper}")
                     )
                 }
-                Box(
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .size(16.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(Color(preset.colours["accent"] ?: 0xFF6FD3D6.toInt()))
-                )
             }
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

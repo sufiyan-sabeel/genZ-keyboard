@@ -9,6 +9,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
@@ -35,11 +40,11 @@ class ThemeGalleryScreenshotTest {
 
     private fun hex(s: String) = 0xFF000000.toInt() or s.removePrefix("#").toInt(16)
 
-    private fun preset(id: String, name: String, accent: String) = PresetEntry(
+    private fun preset(id: String, name: String, accent: String, wallpaper: String? = null) = PresetEntry(
         id = id,
         name = name,
         sourceFile = "art_test.json",
-        wallpaper = null,
+        wallpaper = wallpaper,
         colours = mapOf(
             "background" to hex("#1E1714"), "key" to hex("#2A211C"), "keyText" to hex("#F4F1EA"),
             "func" to hex("#3A2A22"), "funcText" to hex("#F4F1EA"),
@@ -48,11 +53,22 @@ class ThemeGalleryScreenshotTest {
         description = "Artwork-derived palette for $name."
     )
 
+    /** Two real bundled assets plus one without, so both paths are exercised. */
     private val themes = listOf(
-        preset("builtin.art.sunset", "Anime Sunset", "#D9611F"),
-        preset("builtin.art.blueroad", "Blue Hour Road", "#E8A94A"),
-        preset("builtin.art.pastel", "Pastel Garden", "#C98A80")
+        preset("builtin.art.sunset", "Anime Sunset", "#D9611F", wallpaper = "anime/art_sunset.webp"),
+        preset("builtin.art.blueroad", "Blue Hour Road", "#E8A94A", wallpaper = "anime/art_blueroad.webp"),
+        preset("builtin.art.pastel", "Pastel Garden", "#C98A80", wallpaper = null)
     )
+
+    private val config: String by lazy {
+        val wm = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val size = Regex("(\\d+)x(\\d+)").find(
+            wm.executeShellCommand("wm size").readBytes().toString(Charsets.UTF_8)
+        )
+        val scale = wm.executeShellCommand("settings get system font_scale")
+            .readBytes().toString(Charsets.UTF_8).trim()
+        "${size?.groupValues?.get(1) ?: "?"}x${size?.groupValues?.get(2) ?: "?"}-f$scale"
+    }
 
     /**
      * Writes a PNG into the app's INTERNAL files dir.
@@ -92,6 +108,17 @@ class ThemeGalleryScreenshotTest {
         println("===SHOT_END $name===")
     }
 
+    /** The no-artwork path: a theme without a wallpaper must show its colour block, not an image. */
+    @Test
+    fun aThemeWithoutArtworkFallsBackToItsColourBlock() {
+        compose.setContent {
+            ThemeGalleryCard(themes[2], selected = false, dark = true, onUse = {})
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("thumb:null").assertDoesNotExist()
+        compose.onNodeWithText("Pastel Garden").assertExists()
+    }
+
     private fun resize(src: Bitmap, maxWidth: Int): Bitmap {
         if (src.width <= maxWidth) return src
         val ratio = maxWidth.toFloat() / src.width
@@ -104,6 +131,20 @@ class ThemeGalleryScreenshotTest {
 
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
+    /**
+     * Waits until the tagged artwork nodes exist.
+     *
+     * Thumbnails load asynchronously, so capturing immediately can photograph an empty box and still
+     * "pass". Waiting for the tagged Image proves a non-null bitmap was rendered.
+     */
+    private fun awaitArtwork() {
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodesWithTag("thumb:anime/art_sunset.webp").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("thumb:anime/art_sunset.webp").assertExists()
+        compose.onNodeWithTag("thumb:anime/art_blueroad.webp").assertExists()
+    }
+
     @Test
     fun captureGalleryDark() {
         compose.setContent {
@@ -114,8 +155,8 @@ class ThemeGalleryScreenshotTest {
                 ThemePresetIndex.RESERVED_SLOTS.forEach { ReservedSlotCard(it, dark = true) }
             }
         }
-        compose.waitForIdle()
-        capture("gallery-dark")
+        awaitArtwork()
+        capture("gallery-dark-$config")
     }
 
     @Test
@@ -128,7 +169,7 @@ class ThemeGalleryScreenshotTest {
                 ThemePresetIndex.RESERVED_SLOTS.forEach { ReservedSlotCard(it, dark = false) }
             }
         }
-        compose.waitForIdle()
-        capture("gallery-light")
+        awaitArtwork()
+        capture("gallery-light-$config")
     }
 }

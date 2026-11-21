@@ -184,8 +184,44 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
-            # focused run: the full suite, which includes the screenshot tests
+            set -e
+            PKG=com.genz.keyboard.debug
+            GALLERY=com.genz.keyboard.ThemeGalleryUiTest,com.genz.keyboard.ThemeGalleryScreenshotTest
+
+            # Save the emulator's original configuration so it can be restored even on failure.
+            ORIG_SIZE=$(adb shell wm size | tr -d '\r')
+            ORIG_SCALE=$(adb shell settings get system font_scale | tr -d '\r')
+            ORIG_ROT=$(adb shell settings get system user_rotation | tr -d '\r')
+            restore() {
+              adb shell wm size reset || true
+              adb shell settings put system font_scale "${ORIG_SCALE:-1.0}" || true
+              adb shell settings put system user_rotation "${ORIG_ROT:-0}" || true
+            }
+            trap restore EXIT
+
+            run_config() {
+              NAME="$1"; SIZE="$2"; SCALE="$3"; ROT="$4"
+              echo "::group::configuration $NAME ($SIZE font=$SCALE rot=$ROT)"
+              adb shell wm size "$SIZE"
+              adb shell settings put system font_scale "$SCALE"
+              adb shell settings put accelerometer_rotation 0
+              adb shell settings put system user_rotation "$ROT"
+              adb shell am force-stop $PKG || true
+              sleep 3
+              ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace \
+                -Pandroid.testInstrumentationRunnerArguments.class=$GALLERY
+              echo "::endgroup::"
+            }
+
+            # 1. full suite at the device's default configuration
             ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace
+
+            # 2-5. the four required configurations, gallery tests only
+            run_config "360x640"   "360x640"   "1.0" "0"
+            run_config "393x852"   "393x852"   "1.0" "0"
+            run_config "852x393-l" "852x393"   "1.0" "1"
+            run_config "393x852-f2" "393x852"  "2.0" "0"
+
             # The test process prints screenshots as Base64; logcat carries that to the runner.
             adb logcat -d > logcat.txt || true
             echo "logcat lines: $(wc -l < logcat.txt)"

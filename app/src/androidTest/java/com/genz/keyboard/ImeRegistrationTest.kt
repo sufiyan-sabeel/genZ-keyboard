@@ -85,7 +85,17 @@ class ImeRegistrationTest {
             "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
             "android.permission.READ_EXTERNAL_STORAGE"
         )
-        val unexpected = declared - allowed
+        /*
+         * AndroidX generates a permission inside the app's own namespace when the app targets 33+:
+         * `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, declared by androidx.core so
+         * that runtime-registered receivers can be marked not-exported. It is a signature-level
+         * self-permission: it grants nothing outside this app and cannot be requested by another.
+         *
+         * Excluded by *prefix*, not by name, so the guard stays strict: anything outside this
+         * package's namespace still fails, and a dangerous permission can never be self-scoped.
+         */
+        val selfScoped = declared.filter { it.startsWith("${context.packageName}.") }
+        val unexpected = declared - allowed - selfScoped.toSet()
         assertTrue("unexpected permission(s) declared: $unexpected", unexpected.isEmpty())
     }
 }

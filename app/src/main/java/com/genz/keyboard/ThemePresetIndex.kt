@@ -74,4 +74,23 @@ object ThemePresetIndex {
     /** Build the gallery from raw (file name, json) pairs, skipping anything unusable. */
     fun build(files: List<Pair<String, String>>, availableWallpapers: Set<String>): List<PresetEntry> =
         files.mapNotNull { (n, j) -> parse(n, j, availableWallpapers) }.sortedBy { it.name.lowercase() }
+
+    /**
+     * Three reserved gallery positions for artwork that is not yet licensed.
+     *
+     * Deliberately NOT [PresetEntry]s and not backed by any JSON: a slot must never become a
+     * selectable, applicable, exportable or installed theme. It exists so the gallery can say
+     * "artwork coming soon" honestly instead of hiding the gap or, worse, rendering a broken card.
+     *
+     * A slot becomes a real theme only when properly licensed artwork is supplied and a preset file
+     * is added — at which point the slot is removed from this list.
+     */
+    val RESERVED_SLOTS: List<ReservedSlot> = listOf(
+        ReservedSlot("slot.1", "Artwork coming soon"),
+        ReservedSlot("slot.2", "Artwork coming soon"),
+        ReservedSlot("slot.3", "Artwork coming soon")
+    )
+
+    /** A placeholder position in the gallery. Carries no theme data by design. */
+    data class ReservedSlot(val id: String, val label: String)
 }

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Test-only provider. It gives the SAF tests a real content:// URI to hand to the app, which is what
+  the system picker would return. The picker itself cannot be scripted, so this substitutes the URI
+  rather than pretending to tap through it.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.test.saf"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/saf_test_paths" />
+        </provider>
+    </application>
+</manifest>

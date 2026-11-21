@@ -1461,4 +1461,12 @@ internal val EN_STRINGS: Map<String, String> = hashMapOf(
     "Резервная копия содержит" to "The backup contains",
     "Экспорт резервной копии" to "Export backup",
     "Импорт резервной копии" to "Import backup",
+    "Зарезервировано" to "Reserved",
+    "Скоро появится арт" to "Artwork coming soon",
+    "Выбрано" to "Selected",
+    "Изображение темы: {0}" to "Artwork for {0}",
+    "Редактируется" to "Editing",
+    "Применить" to "Use",
+    "Зарезервированное место. Арт скоро появится. Недоступно." to "Reserved slot. Artwork coming soon. Not available.",
+    "Зарезервированное место, недоступно" to "Reserved slot, not available",
 )

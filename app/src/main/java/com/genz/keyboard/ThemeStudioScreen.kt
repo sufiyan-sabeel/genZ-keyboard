@@ -3,7 +3,10 @@ package com.genz.keyboard
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -179,7 +183,10 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
         else { draft = d.copy(wallpaper = name); message = "Wallpaper added" }
     }
 
-    Column(Modifier.fillMaxWidth().background(Color(0xFF0E1013)).padding(16.dp)) {
+    Column(
+        Modifier.fillMaxWidth().background(Color(0xFF0E1013)).padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Theme Studio", color = Color(0xFFE8ECEF), fontSize = 20.sp, fontFamily = FontFamily.SansSerif)
             TextButton(onClick = onClose) { Text("Close", color = Color(0xFF6FD3D6)) }
@@ -258,11 +265,17 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
         }
 
         Text("Bundled themes", color = Color(0xFFB9C2C8), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
-        LazyColumn(Modifier.fillMaxWidth().height(150.dp)) {
-            items(gallery) { preset ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(preset.name, color = Color(0xFFE8ECEF), fontSize = 13.sp)
-                    TextButton(onClick = {
+        val darkTheme = isSystemInDarkTheme()
+        // A plain Column, not a LazyColumn: with nine items the laziness bought nothing and the
+        // nested scroll region was a conflict inside the now-scrollable screen.
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            gallery.forEach { preset ->
+                val selected = draft?.basePreset == preset.id
+                ThemeGalleryCard(
+                    preset = preset,
+                    selected = selected,
+                    dark = darkTheme,
+                    onUse = {
                         val wall = preset.wallpaper?.let { ThemeAssets.importBundled(context, it) }
                         open(ThemeDoc(
                             id = ThemeCodec.idFor(preset.name, preset.id, emptyMap()),
@@ -276,14 +289,17 @@ fun ThemeStudioScreen(onClose: () -> Unit = {}) {
                         } else {
                             "Editing \"${preset.name}\""
                         }
-                    }) { Text("Use", color = Color(0xFF6FD3D6), fontSize = 12.sp) }
-                }
+                    }
+                )
+            }
+            ThemePresetIndex.RESERVED_SLOTS.forEach { slot ->
+                ReservedSlotCard(slot = slot, dark = darkTheme)
             }
         }
 
         Text("Saved themes", color = Color(0xFFB9C2C8), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
-        LazyColumn(Modifier.fillMaxWidth().height(170.dp)) {
-            items(saved) { doc ->
+        Column(Modifier.fillMaxWidth()) {
+            saved.forEach { doc ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(doc.name, color = Color(0xFFE8ECEF), fontSize = 14.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {

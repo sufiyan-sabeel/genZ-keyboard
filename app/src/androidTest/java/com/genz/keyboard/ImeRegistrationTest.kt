@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,6 +28,11 @@ import org.junit.runner.RunWith
 class ImeRegistrationTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+    /** `PackageInfo.PROTECTION_SIGNATURE` is API 28+; the raw value keeps this readable on older stubs. */
+    private object PackageInfoProtection {
+        const val SIGNATURE = 2
+    }
 
     /**
      * `InputMethodService.SERVICE_INTERFACE`. Written out as a literal because referencing the
@@ -85,7 +91,30 @@ class ImeRegistrationTest {
             "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
             "android.permission.READ_EXTERNAL_STORAGE"
         )
-        val unexpected = declared - allowed
+        /*
+         * One permission is expected but not in the list above, because AndroidX generates it rather
+         * than the app declaring it: androidx.core adds
+         * `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` at manifest-merge time when the
+         * app targets SDK 33+, so runtime-registered receivers can be marked not-exported.
+         *
+         * Matched by its EXACT name, not by package prefix. A prefix rule would silently absorb any
+         * future permission an attacker-ish dependency might inject under our namespace; the exact
+         * name can only ever excuse this one thing.
+         */
+        val generated = "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        val unexpected = declared - allowed - setOf(generated)
         assertTrue("unexpected permission(s) declared: $unexpected", unexpected.isEmpty())
+
+        // The excuse above is only sound if the permission really is what it claims to be, so verify
+        // its protection level and ownership at runtime instead of trusting the name.
+        val perm = context.packageManager.getPermissionInfo(generated, 0)
+        assertEquals(
+            "the generated permission must be signature-level, not dangerous",
+            PackageInfoProtection.SIGNATURE, perm.protection
+        )
+        assertEquals(
+            "the generated permission must belong to this package",
+            context.packageName, perm.packageName
+        )
     }
 }

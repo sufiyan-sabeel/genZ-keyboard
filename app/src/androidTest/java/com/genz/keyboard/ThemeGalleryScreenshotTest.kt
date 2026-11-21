@@ -58,6 +58,40 @@ class ThemeGalleryScreenshotTest {
         preset("builtin.art.pastel", "Pastel Garden", "#C98A80", wallpaper = null)
     )
 
+    /** executeShellCommand returns a ParcelFileDescriptor, so it has to be wrapped to read it. */
+    private fun sh(cmd: String): String = android.os.ParcelFileDescriptor.AutoCloseInputStream(
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(cmd)
+    ).use { it.readBytes().toString(Charsets.UTF_8) }
+
+    /** Configuration tag for the screenshot filename, so every image is attributable. */
+    private val config: String by lazy {
+        val size = Regex("(\\d+)x(\\d+)").find(sh("wm size"))
+        val scale = sh("settings get system font_scale").trim()
+        "${size?.groupValues?.get(1) ?: "?"}x${size?.groupValues?.get(2) ?: "?"}-f$scale"
+    }
+
+    private fun hex(s: String) = 0xFF000000.toInt() or s.removePrefix("#").toInt(16)
+
+    private fun preset(id: String, name: String, accent: String, wallpaper: String? = null) = PresetEntry(
+        id = id,
+        name = name,
+        sourceFile = "art_test.json",
+        wallpaper = wallpaper,
+        colours = mapOf(
+            "background" to hex("#1E1714"), "key" to hex("#2A211C"), "keyText" to hex("#F4F1EA"),
+            "func" to hex("#3A2A22"), "funcText" to hex("#F4F1EA"),
+            "accent" to hex(accent), "accentText" to hex("#12130F")
+        ),
+        description = "Artwork-derived palette for $name."
+    )
+
+    /** Two real bundled assets plus one without, so both paths are exercised. */
+    private val themes = listOf(
+        preset("builtin.art.sunset", "Anime Sunset", "#D9611F", wallpaper = "anime/art_sunset.webp"),
+        preset("builtin.art.blueroad", "Blue Hour Road", "#E8A94A", wallpaper = "anime/art_blueroad.webp"),
+        preset("builtin.art.pastel", "Pastel Garden", "#C98A80", wallpaper = null)
+    )
+
     private val config: String by lazy {
         val wm = InstrumentationRegistry.getInstrumentation().uiAutomation
         val size = Regex("(\\d+)x(\\d+)").find(

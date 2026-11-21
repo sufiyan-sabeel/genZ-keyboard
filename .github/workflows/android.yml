@@ -130,6 +130,137 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  # Instrumented UI tests. Until this job existed on main, Compose and SAF tests could only compile,
+  # never run, so no behavioural claim about the backup screen could be verified.
+  instrumented:
+    name: Instrumented UI tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKMGR=$(ls -d "$SDK_ROOT"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
+          yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
+          "$SDKMGR" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "system-images;android-30;default;x86_64"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run instrumented tests on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          disable-animations: true
+          script: |
+            set -e
+            CLASSES=com.genz.keyboard.BackupInfoUiTest,com.genz.keyboard.BackupSafTest
+            ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace \
+              -Pandroid.testInstrumentationRunnerArguments.class=$CLASSES
+            # the test process prints screenshots as Base64; logcat carries that to the runner
+            adb logcat -d > logcat.txt || true
+            echo "logcat lines: $(wc -l < logcat.txt)"
+      - name: Verify the expected tests actually ran
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import glob, sys, xml.etree.ElementTree as ET
+          files = glob.glob("app/build/outputs/androidTest-results/connected/**/*.xml", recursive=True)
+          if not files:
+              print("::error::no instrumentation XML results found"); sys.exit(1)
+          total = passed = failed = skipped = 0
+          per_class = {}
+          for f in files:
+              root = ET.parse(f).getroot()
+              for suite in ([root] if root.tag == "testsuite" else root.iter("testsuite")):
+                  for case in suite.iter("testcase"):
+                      total += 1
+                      cls = case.get("classname", "?").split(".")[-1]
+                      bad = list(case.iter("failure")) + list(case.iter("error"))
+                      if list(case.iter("skipped")):
+                          skipped += 1
+                      elif bad:
+                          failed += 1
+                      else:
+                          passed += 1
+                      per_class[cls] = per_class.get(cls, 0) + 1
+          print(f"total={total} passed={passed} failed={failed} skipped={skipped}")
+          for k, v in sorted(per_class.items()):
+              print(f"  {k}: {v}")
+          # the suites must actually run, not be filtered away or silently skipped
+          if per_class.get("BackupInfoUiTest", 0) != 7:
+              print(f"::error::expected 7 BackupInfoUiTest cases, ran {per_class.get('BackupInfoUiTest', 0)}"); sys.exit(1)
+          if per_class.get("BackupSafTest", 0) != 5:
+              print(f"::error::expected 5 BackupSafTest cases, ran {per_class.get('BackupSafTest', 0)}"); sys.exit(1)
+          if skipped:
+              print(f"::error::{skipped} test(s) were skipped"); sys.exit(1)
+          if failed:
+              print(f"::error::{failed} test(s) failed"); sys.exit(1)
+          print("instrumentation results verified")
+          PYEOF
+      - name: Decode screenshots from logcat
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import base64, re, sys, pathlib
+          log = pathlib.Path("logcat.txt")
+          if not log.is_file():
+              print("::error::no logcat captured, so no screenshots"); sys.exit(1)
+          text = log.read_text(errors="ignore")
+          lines = [l.split("System.out:", 1)[1].strip() if "System.out:" in l else "" for l in text.splitlines()]
+          blocks = re.findall(r"===SHOT_BEGIN (\S+) (\d+)x(\d+)===\n(.*?)===SHOT_END \1===", "\n".join(lines), re.S)
+          print(f"payload blocks found: {len(blocks)}")
+          out = pathlib.Path("screenshots"); out.mkdir(exist_ok=True)
+          ok = 0
+          for name, w, h, body in blocks:
+              try:
+                  data = base64.b64decode("".join(body.split()), validate=True)
+              except Exception as e:
+                  print(f"::error::invalid base64 for {name}: {e}"); sys.exit(1)
+              if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+                  print(f"::error::{name} is not a PNG"); sys.exit(1)
+              if len(data) < 5000:
+                  print(f"::error::{name} is only {len(data)} bytes - likely a blank capture"); sys.exit(1)
+              (out / f"{name}.png").write_bytes(data)
+              print(f"{name}.png: {len(data)} bytes, declared {w}x{h}")
+              ok += 1
+          if ok == 0:
+              print("::error::no screenshots decoded"); sys.exit(1)
+          PYEOF
+      - name: Upload instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumentation-reports
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          retention-days: 14
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-ui-screenshots
+          path: screenshots/
+          retention-days: 14
+
+
   release-apk:
     name: Signed release APK (no publish)
     if: github.event_name == 'workflow_dispatch' && inputs.build_release_apk

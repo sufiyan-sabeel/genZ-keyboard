@@ -121,12 +121,27 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Unit test counts
+        if: always()
+        run: |
+          # the XML is the authoritative record; the console summary is not always printed
+          TOTAL=0; FAIL=0
+          for f in $(find app/build/test-results -name 'TEST-*.xml' 2>/dev/null); do
+            T=$(grep -o 'tests="[0-9]*"' "$f" | head -1 | grep -o '[0-9]*')
+            F=$(grep -o 'failures="[0-9]*"' "$f" | head -1 | grep -o '[0-9]*')
+            TOTAL=$((TOTAL + ${T:-0})); FAIL=$((FAIL + ${F:-0}))
+          done
+          echo "UNIT_TESTS=$TOTAL UNIT_FAILURES=$FAIL" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$TOTAL" -eq 0 ]; then echo "::error::no unit test results found"; exit 1; fi
+          if [ "$FAIL" -ne 0 ]; then echo "::error::$FAIL unit test(s) failed"; exit 1; fi
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-reports
-          path: app/build/reports/tests/
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -135,7 +150,7 @@ jobs:
   instrumented:
     name: Instrumented UI tests
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 75
     permissions:
       contents: read
     steps:
@@ -169,10 +184,37 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
+            set -e
+            GALLERY=com.genz.keyboard.ThemeGalleryUiTest,com.genz.keyboard.ThemeGalleryScreenshotTest
+
+            # 1. default configuration, full suite
             ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace
+
+            # 2. 200% font scale — the case most likely to clip a card
+            adb shell settings put system font_scale 2.0
+            adb shell am force-stop com.genz.keyboard.debug || true
+            ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace \
+              -Pandroid.testInstrumentationRunnerArguments.class=$GALLERY
+
+            # 3. landscape at default font scale
+            adb shell settings put system font_scale 1.0
+            adb shell settings put system accelerometer_rotation 0
+            adb shell settings put system user_rotation 1
+            adb shell am force-stop com.genz.keyboard.debug || true
+            ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace \
+              -Pandroid.testInstrumentationRunnerArguments.class=$GALLERY
             mkdir -p screenshots
+            # the app's external files dir, and the legacy path as a fallback
             adb pull /sdcard/Android/data/com.genz.keyboard.debug/files/ screenshots/ || true
-            ls -l screenshots || true
+            adb shell ls -l /sdcard/Android/data/com.genz.keyboard.debug/files/ || true
+            find screenshots -name '*.png' -print || true
+            # fail loudly rather than uploading an empty artifact
+            COUNT=$(find screenshots -name '*.png' | wc -l)
+            echo "screenshots found: $COUNT"
+            if [ "$COUNT" -eq 0 ]; then
+              echo "::error::No screenshots were produced - the artifact would have been empty."
+              exit 1
+            fi
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4

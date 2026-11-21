@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -53,11 +54,20 @@ class ThemeGalleryScreenshotTest {
 
     private fun capture(name: String) {
         val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
-        val dir = InstrumentationRegistry.getInstrumentation()
-            .targetContext.getExternalFilesDir(null) ?: return
+        assertTrue("captured image was empty", bitmap.width > 0 && bitmap.height > 0)
+
+        // Assert rather than return. The earlier version used `?: return`, which meant a null
+        // external-files dir skipped the assertion entirely and the test passed having written
+        // nothing — which is exactly how the artifact ended up empty.
+        val dir = InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)
+        assertNotNull("external files dir is unavailable; screenshots cannot be extracted", dir)
+
         val out = File(dir, "$name.png")
         out.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        assertTrue("screenshot $name was not written", out.isFile && out.length() > 0)
+        assertTrue("screenshot $name was not written", out.isFile)
+        assertTrue("screenshot $name is empty", out.length() > 0)
+        // record the absolute path so CI can pull exactly this location
+        println("SCREENSHOT_PATH=${out.absolutePath}")
     }
 
     @Test

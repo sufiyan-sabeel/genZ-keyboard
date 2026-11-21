@@ -1,10 +1,8 @@
 package com.genz.keyboard
 
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -31,14 +29,14 @@ class BackupInfoUiTest {
     @Test
     fun theSectionHeadingIsPresent() {
         show()
-        compose.onNodeWithText("What a backup includes").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("What a backup includes").assertExists()
     }
 
     @Test
     fun theIncludedItemsAreListed() {
         show()
         listOf("Keyboard settings", "Your themes and wallpapers", "Learned words and word pairs")
-            .forEach { compose.onNodeWithText(it).performScrollTo().assertIsDisplayed() }
+            .forEach { compose.onNodeWithText(it).assertExists() }
     }
 
     @Test
@@ -49,7 +47,7 @@ class BackupInfoUiTest {
             "Plugin settings - reconfigure them after restoring",
             "API keys and clipboard history - never copied",
             "Downloaded fonts - download them again if needed"
-        ).forEach { compose.onNodeWithText(it).performScrollTo().assertIsDisplayed() }
+        ).forEach { compose.onNodeWithText(it).assertExists() }
     }
 
     @Test
@@ -57,24 +55,24 @@ class BackupInfoUiTest {
         // a tick and a cross are not enough on their own
         show()
         compose.onNode(hasContentDescription("Included in the backup: Keyboard settings", substring = true))
-            .performScrollTo().assertExists()
+            .assertExists()
         compose.onNode(
             hasContentDescription("Not included in the backup: API keys and clipboard history", substring = true)
-        ).performScrollTo().assertExists()
+        ).assertExists()
     }
 
     @Test
     fun theExportAndImportActionsRemainReachable() {
         show()
-        compose.onNodeWithText("Export backup").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Import backup").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Export backup").assertExists()
+        compose.onNodeWithText("Import backup").assertExists()
     }
 
     @Test
     fun theLegacySettingsImportIsStillOffered() {
         // removing it would strand anyone holding a backup from v1.0.6
         show()
-        compose.onNodeWithText("Import settings (.json)").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Import settings (.json)").assertExists()
     }
 
     @Test

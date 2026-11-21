@@ -171,8 +171,7 @@ jobs:
           script: |
             set -e
             CLASSES=com.genz.keyboard.BackupInfoUiTest,com.genz.keyboard.BackupSafTest
-            ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace \
-              -Pandroid.testInstrumentationRunnerArguments.class=$CLASSES
+            ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=$CLASSES
             # the test process prints screenshots as Base64; logcat carries that to the runner
             adb logcat -d > logcat.txt || true
             echo "logcat lines: $(wc -l < logcat.txt)"

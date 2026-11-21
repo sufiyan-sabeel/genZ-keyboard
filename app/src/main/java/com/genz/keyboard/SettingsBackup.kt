@@ -205,13 +205,16 @@ internal fun BackupPage() {
         )
     }
 
-    // disclosed before either action: a user must know what a backup will not contain
-    Text(
-        tr("Настройки плагинов и учётные данные не входят в резервную копию. После восстановления их, возможно, придётся настроить заново."),
-        color = Color(0xFF8A9299), fontSize = 11.sp,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-            .semantics { contentDescription = tr("Настройки плагинов и учётные данные не входят в резервную копию. После восстановления их, возможно, придётся настроить заново.") }
-    )
+    // Permanent, not a first-launch popup: a user deciding whether to trust a backup needs this at
+    // the moment they tap Export, every time.
+    SettingsSection("Что входит в резервную копию") {
+        BackupInfoRow("Настройки клавиатуры", included = true)
+        BackupInfoRow("Ваши темы и обои", included = true)
+        BackupInfoRow("Выученные слова и пары слов", included = true)
+        BackupInfoRow("Настройки плагинов — настройте заново после восстановления", included = false)
+        BackupInfoRow("Ключи API и история буфера — не копируются никогда", included = false)
+        BackupInfoRow("Загруженные шрифты — скачайте снова при необходимости", included = false)
+    }
 
     SettingsSection("Настройки") {
         ActionItem(Icons.Rounded.Upload, "Экспорт резервной копии", "Темы, обои, слова и настройки в .zip", onClick = {
@@ -313,3 +316,25 @@ private fun copyTo(context: android.content.Context, src: File, uri: android.net
             true          // copyTo returns the byte count, which is not the result we want
         } ?: false
     }.getOrDefault(false)
+
+/**
+ * One line of the backup-information list.
+ *
+ * A tick or a cross plus the text, so the distinction survives for someone who cannot tell the two
+ * colours apart; the description carries the same meaning for a screen reader.
+ */
+@Composable
+private fun BackupInfoRow(label: String, included: Boolean) {
+    val mark = if (included) "\u2713" else "\u2715"
+    val colour = if (included) Color(0xFF6FD3D6) else Color(0xFF8A9299)
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = tr(if (included) "Входит в копию: {0}" else "Не входит в копию: {0}", tr(label))
+            },
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(mark, color = colour, fontSize = 12.sp)
+        Text(tr(label), color = Color(0xFFB9C2C8), fontSize = 12.sp)
+    }
+}

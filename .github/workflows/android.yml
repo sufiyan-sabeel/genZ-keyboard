@@ -16,9 +16,9 @@ on:
         type: boolean
         default: false
       version:
-        description: 'Version tag for the release (e.g. v1.0.0)'
+        description: 'Release tag to create (required, e.g. v1.0.7). Must not already exist.'
         type: string
-        default: 'v1.0.0'
+        required: true
 
 permissions:
   contents: read
@@ -330,6 +330,38 @@ jobs:
           TAG: ${{ inputs.version }}
           SIGNING: ${{ env.SIGNING }}
         run: |
+          set -euo pipefail
+          TAG="${{ inputs.version }}"
+          if [ -z "$TAG" ]; then
+            echo "::error::No version supplied. Pass -f version=vX.Y.Z."
+            exit 1
+          fi
+          # a strict tag shape: anything else could target a branch or an existing odd tag
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Version '$TAG' is not of the form vX.Y.Z."
+            exit 1
+          fi
+          # the tag must match what this build actually is, read from the gradle file
+          VNAME=$(grep -oE 'versionName = "[0-9.]+"' app/build.gradle.kts | head -1 | grep -oE '[0-9.]+')
+          if [ -z "$VNAME" ]; then
+            echo "::error::Could not read versionName from app/build.gradle.kts."
+            exit 1
+          fi
+          if [ "$TAG" != "v$VNAME" ]; then
+            echo "::error::Version '$TAG' does not match versionName '$VNAME' in the build."
+            exit 1
+          fi
+          # and it must not already exist, as a tag or as a release
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "::error::Tag $TAG already exists. Refusing to touch an existing tag."
+            exit 1
+          fi
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "::error::Release $TAG already exists. Refusing to overwrite a published asset."
+            exit 1
+          fi
+          echo "Version $TAG validated and unused."
+
           NOTES=$(cat <<'EOF'
           ## IMPORTANT - clean-break release
 

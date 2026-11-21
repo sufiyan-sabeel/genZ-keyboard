@@ -1461,4 +1461,13 @@ internal val EN_STRINGS: Map<String, String> = hashMapOf(
     "Резервная копия содержит" to "The backup contains",
     "Экспорт резервной копии" to "Export backup",
     "Импорт резервной копии" to "Import backup",
+    "Что входит в резервную копию" to "What a backup includes",
+    "Настройки клавиатуры" to "Keyboard settings",
+    "Ваши темы и обои" to "Your themes and wallpapers",
+    "Выученные слова и пары слов" to "Learned words and word pairs",
+    "Настройки плагинов — настройте заново после восстановления" to "Plugin settings - reconfigure them after restoring",
+    "Ключи API и история буфера — не копируются никогда" to "API keys and clipboard history - never copied",
+    "Загруженные шрифты — скачайте снова при необходимости" to "Downloaded fonts - download them again if needed",
+    "Входит в копию: {0}" to "Included in the backup: {0}",
+    "Не входит в копию: {0}" to "Not included in the backup: {0}",
 )

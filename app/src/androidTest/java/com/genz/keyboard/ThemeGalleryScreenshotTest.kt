@@ -66,63 +66,6 @@ class ThemeGalleryScreenshotTest {
 
     private fun hex(s: String) = 0xFF000000.toInt() or s.removePrefix("#").toInt(16)
 
-    private fun preset(id: String, name: String, accent: String, wallpaper: String? = null) = PresetEntry(
-        id = id,
-        name = name,
-        sourceFile = "art_test.json",
-        wallpaper = wallpaper,
-        colours = mapOf(
-            "background" to hex("#1E1714"), "key" to hex("#2A211C"), "keyText" to hex("#F4F1EA"),
-            "func" to hex("#3A2A22"), "funcText" to hex("#F4F1EA"),
-            "accent" to hex(accent), "accentText" to hex("#12130F")
-        ),
-        description = "Artwork-derived palette for $name."
-    )
-
-    /** Two real bundled assets plus one without, so both paths are exercised. */
-    private val themes = listOf(
-        preset("builtin.art.sunset", "Anime Sunset", "#D9611F", wallpaper = "anime/art_sunset.webp"),
-        preset("builtin.art.blueroad", "Blue Hour Road", "#E8A94A", wallpaper = "anime/art_blueroad.webp"),
-        preset("builtin.art.pastel", "Pastel Garden", "#C98A80", wallpaper = null)
-    )
-
-    /**
-     * Writes a PNG into the app's INTERNAL files dir.
-     *
-     * Not the external one: /sdcard/Android/data is scoped on API 30 and `adb pull` from it is
-     * unreliable, which is why the artifact came back empty twice. Internal storage is always
-     * readable through `adb exec-out run-as <package> cat ...` on a debuggable build, so the runner
-     * can always retrieve the bytes.
-     */
-    /**
-     * Emits a screenshot as Base64 between unique markers on stdout.
-     *
-     * Files could not be retrieved from the emulator: external storage is scoped on API 30, and
-     * internal storage needed run-as, which the runner could not reach reliably. Printing the bytes
-     * removes the filesystem from the equation entirely — whatever the runner captures from the test
-     * process carries the image with it.
-     *
-     * Chunked so no single line is enormous, and resized so the payload stays reasonable: 1080px wide
-     * is plenty to inspect layout, and a full-resolution phone screenshot would quadruple the bytes.
-     */
-    private fun capture(name: String) {
-        val raw = compose.onRoot().captureToImage().asAndroidBitmap()
-        assertTrue("captured image was empty", raw.width > 0 && raw.height > 0)
-
-        val scaled = resize(raw, MAX_WIDTH)
-        val bytes = java.io.ByteArrayOutputStream().use { out ->
-            scaled.compress(Bitmap.CompressFormat.PNG, 100, out)
-            out.toByteArray()
-        }
-        assertTrue("PNG encoding produced no bytes", bytes.isNotEmpty())
-        // verify the bytes really are a PNG before trusting them downstream
-        assertEquals("not a PNG: ${name}", 0x89.toByte(), bytes[0])
-
-        val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-        println("===SHOT_BEGIN $name ${scaled.width}x${scaled.height}===")
-        b64.chunked(200).forEach { println(it) }
-        println("===SHOT_END $name===")
-    }
 
     /** The no-artwork path: a theme without a wallpaper must show its colour block, not an image. */
     @Test

@@ -72,7 +72,7 @@ class BackupSafTest {
         val (w, b) = mapOf("en:hello" to 3) to mapOf<String, Int>()
         val tmp = File(context.cacheDir, "saf-export.zip")
 
-        val r = BackupService.export(tmp, "{}", w, b, listOf(doc("user.1"))) { png }
+        val r = BackupService.export(tmp, "{}", w, b, listOf(doc("user.1")), imageBytes = { png })
         assertTrue("export failed: $r", r is BackupService.Result.Ok)
 
         // this is the step the picker would perform: the app writes through the returned URI
@@ -96,7 +96,7 @@ class BackupSafTest {
     fun anArchiveReadBackThroughAContentUriRestores() {
         val uri = uriFor("roundtrip.zip")
         val tmp = File(context.cacheDir, "saf-rt.zip")
-        BackupService.export(tmp, "{}", mapOf("en:a" to 1), emptyMap(), listOf(doc("user.9"))) { png }
+        BackupService.export(tmp, "{}", mapOf("en:a" to 1), emptyMap(), listOf(doc("user.9")), imageBytes = { png })
         writeViaUri(uri, tmp.readBytes())
 
         // read it back the way the import path would, then restore
@@ -142,7 +142,7 @@ class BackupSafTest {
         // the F-Droid flavour ships no artwork; the archive must still round-trip
         val uri = uriFor("nowall.zip")
         val tmp = File(context.cacheDir, "saf-nowall.zip")
-        BackupService.export(tmp, "{}", emptyMap(), emptyMap(), listOf(doc("user.5"))) { null }
+        BackupService.export(tmp, "{}", emptyMap(), emptyMap(), listOf(doc("user.5")), imageBytes = { null })
         writeViaUri(uri, tmp.readBytes())
         val staged = File(context.cacheDir, "saf-nowall-copy.zip").apply { writeBytes(readViaUri(uri)) }
         assertTrue(BackupService.inspect(staged) is BackupService.Result.Ok)

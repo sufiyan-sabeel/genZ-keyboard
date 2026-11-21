@@ -11,8 +11,6 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -115,7 +113,7 @@ class ThemeGalleryScreenshotTest {
             ThemeGalleryCard(themes[2], selected = false, dark = true, onUse = {})
         }
         compose.waitForIdle()
-        compose.onNodeWithTag("thumb:null").assertDoesNotExist()
+        compose.onNodeWithTag("thumb:null", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText("Pastel Garden").assertExists()
     }
 
@@ -139,10 +137,10 @@ class ThemeGalleryScreenshotTest {
      */
     private fun awaitArtwork() {
         compose.waitUntil(timeoutMillis = 10_000) {
-            compose.onAllNodesWithTag("thumb:anime/art_sunset.webp").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithTag("thumb:anime/art_sunset.webp", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("thumb:anime/art_sunset.webp").assertExists()
-        compose.onNodeWithTag("thumb:anime/art_blueroad.webp").assertExists()
+        compose.onNodeWithTag("thumb:anime/art_sunset.webp", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("thumb:anime/art_blueroad.webp", useUnmergedTree = true).assertExists()
     }
 
     @Test

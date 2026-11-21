@@ -186,35 +186,43 @@ jobs:
           script: |
             # focused run: the full suite, which includes the screenshot tests
             ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace
-            mkdir -p screenshots
-            PKG=com.genz.keyboard.debug
-            # Screenshots live in the app's INTERNAL files dir, pulled through run-as. The external
-            # path is scoped on API 30 and adb pull from it silently yielded nothing twice.
-            adb shell run-as $PKG ls -l files/screenshots || true
-            for f in $(adb shell run-as $PKG ls files/screenshots 2>/dev/null | tr -d '\r'); do
-              case "$f" in
-                *.png)
-                  adb exec-out run-as $PKG cat "files/screenshots/$f" > "screenshots/$f" || true
-                  ;;
-              esac
-            done
-            ls -l screenshots || true
+            # The test process prints screenshots as Base64; logcat carries that to the runner.
+            adb logcat -d > logcat.txt || true
+            echo "logcat lines: $(wc -l < logcat.txt)"
 
-            COUNT=$(find screenshots -name '*.png' | wc -l)
-            echo "screenshots found: $COUNT"
-            if [ "$COUNT" -eq 0 ]; then
-              echo "::error::No screenshots were produced - the artifact would have been empty."
-              exit 1
-            fi
-            # strict verification: every file non-empty and a real PNG
-            for png in screenshots/*.png; do
-              SIZE=$(stat -c%s "$png")
-              echo "$png: $SIZE bytes"
-              if [ "$SIZE" -lt 1000 ]; then echo "::error::$png is too small to be a screenshot"; exit 1; fi
-              if [ "$(head -c8 "$png" | od -An -tx1 | tr -d ' \n')" != "89504e470d0a1a0a" ]; then
-                echo "::error::$png is not a PNG"; exit 1
-              fi
-            done
+      - name: Decode screenshots from logcat
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import base64, re, sys, pathlib
+          text = pathlib.Path("logcat.txt").read_text(errors="ignore")
+          # logcat prefixes every line; keep only what the test process printed
+          lines = [l.split("System.out:", 1)[1].strip() if "System.out:" in l else "" for l in text.splitlines()]
+          joined = "\n".join(lines)
+          blocks = re.findall(r"===SHOT_BEGIN (\S+) (\d+)x(\d+)===\n(.*?)===SHOT_END \1===", joined, re.S)
+          print(f"payload blocks found: {len(blocks)}")
+          out = pathlib.Path("screenshots"); out.mkdir(exist_ok=True)
+          ok = 0
+          for name, w, h, body in blocks:
+              payload = "".join(body.split())
+              try:
+                  data = base64.b64decode(payload, validate=True)
+              except Exception as e:
+                  print(f"::error::invalid base64 for {name}: {e}"); sys.exit(1)
+              if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+                  print(f"::error::{name} is not a PNG"); sys.exit(1)
+              if len(data) < 1000:
+                  print(f"::error::{name} is only {len(data)} bytes"); sys.exit(1)
+              f = out / f"{name}.png"
+              f.write_bytes(data)
+              print(f"{f.name}: {len(data)} bytes, declared {w}x{h}")
+              ok += 1
+          if ok == 0:
+              print("::error::no screenshots were decoded - the test process printed none")
+              sys.exit(1)
+          print(f"decoded {ok} screenshot(s)")
+          PYEOF
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4

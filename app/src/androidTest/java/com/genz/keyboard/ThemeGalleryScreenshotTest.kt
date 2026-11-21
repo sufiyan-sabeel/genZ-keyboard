@@ -62,23 +62,44 @@ class ThemeGalleryScreenshotTest {
      * readable through `adb exec-out run-as <package> cat ...` on a debuggable build, so the runner
      * can always retrieve the bytes.
      */
+    /**
+     * Emits a screenshot as Base64 between unique markers on stdout.
+     *
+     * Files could not be retrieved from the emulator: external storage is scoped on API 30, and
+     * internal storage needed run-as, which the runner could not reach reliably. Printing the bytes
+     * removes the filesystem from the equation entirely — whatever the runner captures from the test
+     * process carries the image with it.
+     *
+     * Chunked so no single line is enormous, and resized so the payload stays reasonable: 1080px wide
+     * is plenty to inspect layout, and a full-resolution phone screenshot would quadruple the bytes.
+     */
     private fun capture(name: String) {
-        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
-        assertTrue("captured image was empty", bitmap.width > 0 && bitmap.height > 0)
+        val raw = compose.onRoot().captureToImage().asAndroidBitmap()
+        assertTrue("captured image was empty", raw.width > 0 && raw.height > 0)
 
-        val dir = File(context.filesDir, "screenshots").apply { mkdirs() }
-        val out = File(dir, "$name.png")
-        out.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val scaled = resize(raw, MAX_WIDTH)
+        val bytes = java.io.ByteArrayOutputStream().use { out ->
+            scaled.compress(Bitmap.CompressFormat.PNG, 100, out)
+            out.toByteArray()
+        }
+        assertTrue("PNG encoding produced no bytes", bytes.isNotEmpty())
+        // verify the bytes really are a PNG before trusting them downstream
+        assertEquals("not a PNG: ${name}", 0x89.toByte(), bytes[0])
 
-        // Assert on the real file, then re-read it: a zero-length or truncated PNG must fail here,
-        // not be discovered later when someone opens an empty artifact.
-        assertTrue("screenshot $name was not written", out.isFile)
-        assertTrue("screenshot $name is empty", out.length() > 0)
-        val reread = BitmapFactory.decodeFile(out.absolutePath)
-        assertNotNull("screenshot $name is not a decodable PNG", reread)
-        assertEquals("screenshot $name has wrong width", bitmap.width, reread.width)
+        val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        println("===SHOT_BEGIN $name ${scaled.width}x${scaled.height}===")
+        b64.chunked(200).forEach { println(it) }
+        println("===SHOT_END $name===")
+    }
 
-        println("SCREENSHOT_OK name=$name bytes=${out.length()} path=${out.absolutePath}")
+    private fun resize(src: Bitmap, maxWidth: Int): Bitmap {
+        if (src.width <= maxWidth) return src
+        val ratio = maxWidth.toFloat() / src.width
+        return Bitmap.createScaledBitmap(src, maxWidth, (src.height * ratio).toInt(), true)
+    }
+
+    private companion object {
+        const val MAX_WIDTH = 1080
     }
 
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext

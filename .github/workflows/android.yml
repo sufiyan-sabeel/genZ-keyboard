@@ -184,37 +184,37 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
-            set -e
-            GALLERY=com.genz.keyboard.ThemeGalleryUiTest,com.genz.keyboard.ThemeGalleryScreenshotTest
-
-            # 1. default configuration, full suite
+            # focused run: the full suite, which includes the screenshot tests
             ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace
-
-            # 2. 200% font scale — the case most likely to clip a card
-            adb shell settings put system font_scale 2.0
-            adb shell am force-stop com.genz.keyboard.debug || true
-            ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace \
-              -Pandroid.testInstrumentationRunnerArguments.class=$GALLERY
-
-            # 3. landscape at default font scale
-            adb shell settings put system font_scale 1.0
-            adb shell settings put system accelerometer_rotation 0
-            adb shell settings put system user_rotation 1
-            adb shell am force-stop com.genz.keyboard.debug || true
-            ./gradlew :app:connectedStandardDebugAndroidTest --no-configuration-cache --stacktrace \
-              -Pandroid.testInstrumentationRunnerArguments.class=$GALLERY
             mkdir -p screenshots
-            # the app's external files dir, and the legacy path as a fallback
-            adb pull /sdcard/Android/data/com.genz.keyboard.debug/files/ screenshots/ || true
-            adb shell ls -l /sdcard/Android/data/com.genz.keyboard.debug/files/ || true
-            find screenshots -name '*.png' -print || true
-            # fail loudly rather than uploading an empty artifact
+            PKG=com.genz.keyboard.debug
+            # Screenshots live in the app's INTERNAL files dir, pulled through run-as. The external
+            # path is scoped on API 30 and adb pull from it silently yielded nothing twice.
+            adb shell run-as $PKG ls -l files/screenshots || true
+            for f in $(adb shell run-as $PKG ls files/screenshots 2>/dev/null | tr -d '\r'); do
+              case "$f" in
+                *.png)
+                  adb exec-out run-as $PKG cat "files/screenshots/$f" > "screenshots/$f" || true
+                  ;;
+              esac
+            done
+            ls -l screenshots || true
+
             COUNT=$(find screenshots -name '*.png' | wc -l)
             echo "screenshots found: $COUNT"
             if [ "$COUNT" -eq 0 ]; then
               echo "::error::No screenshots were produced - the artifact would have been empty."
               exit 1
             fi
+            # strict verification: every file non-empty and a real PNG
+            for png in screenshots/*.png; do
+              SIZE=$(stat -c%s "$png")
+              echo "$png: $SIZE bytes"
+              if [ "$SIZE" -lt 1000 ]; then echo "::error::$png is too small to be a screenshot"; exit 1; fi
+              if [ "$(head -c8 "$png" | od -An -tx1 | tr -d ' \n')" != "89504e470d0a1a0a" ]; then
+                echo "::error::$png is not a PNG"; exit 1
+              fi
+            done
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4

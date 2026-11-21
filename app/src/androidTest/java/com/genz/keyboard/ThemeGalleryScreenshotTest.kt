@@ -1,6 +1,7 @@
 package com.genz.keyboard
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -52,23 +54,34 @@ class ThemeGalleryScreenshotTest {
         preset("builtin.art.pastel", "Pastel Garden", "#C98A80")
     )
 
+    /**
+     * Writes a PNG into the app's INTERNAL files dir.
+     *
+     * Not the external one: /sdcard/Android/data is scoped on API 30 and `adb pull` from it is
+     * unreliable, which is why the artifact came back empty twice. Internal storage is always
+     * readable through `adb exec-out run-as <package> cat ...` on a debuggable build, so the runner
+     * can always retrieve the bytes.
+     */
     private fun capture(name: String) {
         val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
         assertTrue("captured image was empty", bitmap.width > 0 && bitmap.height > 0)
 
-        // Assert rather than return. The earlier version used `?: return`, which meant a null
-        // external-files dir skipped the assertion entirely and the test passed having written
-        // nothing — which is exactly how the artifact ended up empty.
-        val dir = InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)
-        assertNotNull("external files dir is unavailable; screenshots cannot be extracted", dir)
-
+        val dir = File(context.filesDir, "screenshots").apply { mkdirs() }
         val out = File(dir, "$name.png")
         out.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+
+        // Assert on the real file, then re-read it: a zero-length or truncated PNG must fail here,
+        // not be discovered later when someone opens an empty artifact.
         assertTrue("screenshot $name was not written", out.isFile)
         assertTrue("screenshot $name is empty", out.length() > 0)
-        // record the absolute path so CI can pull exactly this location
-        println("SCREENSHOT_PATH=${out.absolutePath}")
+        val reread = BitmapFactory.decodeFile(out.absolutePath)
+        assertNotNull("screenshot $name is not a decodable PNG", reread)
+        assertEquals("screenshot $name has wrong width", bitmap.width, reread.width)
+
+        println("SCREENSHOT_OK name=$name bytes=${out.length()} path=${out.absolutePath}")
     }
+
+    private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Test
     fun captureGalleryDark() {
